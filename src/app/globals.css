@@ -1,0 +1,886 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ===== DAFC DESIGN TOKENS - CSS VARIABLES ===== */
+@layer base {
+  :root {
+    /* Brand Colors (HSL Format) */
+    --dafc-gold: 30 43% 72%;
+    --dafc-gold-light: 30 45% 82%;
+    --dafc-gold-dark: 30 45% 45%;
+    --dafc-gold-darker: 30 50% 35%;
+    --dafc-green: 152 73% 27%;
+    --dafc-green-light: 152 60% 40%;
+    --dafc-green-dark: 152 80% 18%;
+
+    /* Accent (Primary = Gold) */
+    --accent: 30 43% 72%;
+    --accent-foreground: 0 0% 0%;
+
+    /* Ring (Focus state) */
+    --ring: 30 43% 72%;
+
+    /* Radius */
+    --radius: 0.25rem;
+    --radius-pill: 99px;
+
+    /* Unified Hover - DAFC Gold */
+    --hover-bg: rgba(215, 183, 151, 0.08);
+    --hover-border: rgba(215, 183, 151, 0.25);
+    --hover-text: #D7B797;
+  }
+
+  /* Dark Mode (Default) */
+  :root,
+  .dark {
+    --background: 0 0% 0%;
+    --foreground: 0 0% 95%;
+    --card: 0 0% 7%;
+    --card-foreground: 0 0% 95%;
+    --popover: 0 0% 10%;
+    --popover-foreground: 0 0% 95%;
+    --muted: 0 0% 14%;
+    --muted-foreground: 0 0% 60%;
+    --border: 0 0% 18%;
+    --input: 0 0% 14%;
+    --primary: 30 43% 72%;
+    --primary-foreground: 0 0% 0%;
+    --secondary: 152 73% 27%;
+    --secondary-foreground: 0 0% 95%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 95%;
+
+    /* Dark Mode Hover */
+    --hover-bg: rgba(215, 183, 151, 0.08);
+    --hover-border: rgba(215, 183, 151, 0.25);
+  }
+
+  /* Light Mode - Enhanced Contrast */
+  .light {
+    --background: 35 18% 95%;
+    --foreground: 25 20% 12%;
+    --card: 0 0% 100%;
+    --card-foreground: 25 20% 12%;
+    --popover: 0 0% 100%;
+    --popover-foreground: 25 20% 12%;
+    --muted: 30 12% 90%;
+    --muted-foreground: 25 10% 35%;
+    --border: 30 15% 72%;
+    --input: 30 10% 92%;
+    --primary: 30 50% 52%;
+    --primary-foreground: 0 0% 100%;
+    --secondary: 152 73% 27%;
+    --secondary-foreground: 0 0% 95%;
+    --destructive: 0 72% 51%;
+    --destructive-foreground: 0 0% 95%;
+
+    /* Light Mode Hover */
+    --hover-bg: rgba(160, 120, 75, 0.12);
+    --hover-border: rgba(138, 99, 64, 0.45);
+    --hover-text: #6B4D30;
+  }
+
+  /* Base Styles */
+  * {
+    border-color: hsl(var(--border));
+  }
+
+  body {
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+    font-family: var(--font-montserrat), system-ui, sans-serif;
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+}
+
+/* ===== UNIFIED HOVER SYSTEM ===== */
+@layer utilities {
+  /* Primary Hover - Gold Accent (use this for most interactive elements) */
+  .hover-gold {
+    transition: all 150ms ease;
+  }
+  .hover-gold:hover {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+  }
+
+  /* Hover with text color change */
+  .hover-gold-text:hover {
+    color: var(--hover-text);
+  }
+
+  /* Subtle hover - just background */
+  .hover-subtle {
+    transition: background-color 150ms ease;
+  }
+  .hover-subtle:hover {
+    background: var(--hover-bg);
+  }
+
+  /* Interactive row/item hover */
+  .hover-row {
+    transition: all 150ms ease;
+    border-left: 2px solid transparent;
+  }
+  .hover-row:hover {
+    background: var(--hover-bg);
+    border-left-color: #D7B797;
+  }
+
+  /* Card hover - subtle lift effect with gold accent */
+  .hover-card {
+    transition: all 200ms ease;
+    border: 1px solid hsl(var(--border));
+  }
+  .hover-card:hover {
+    border-color: var(--hover-border);
+    background: var(--hover-bg);
+  }
+}
+
+/* ===== TYPOGRAPHY UTILITIES ===== */
+@layer utilities {
+  /* Label Style */
+  .text-label {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #999999;
+  }
+
+  /* Value Style (KPI) */
+  .text-value {
+    font-family: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Data Style */
+  .text-data {
+    font-family: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Tabular Numbers */
+  .tabular-nums {
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* Text Ellipsis */
+  .text-ellipsis {
+    overflow: hidden;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+  }
+}
+
+/* ===== SCROLLBAR STYLES ===== */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+/* Dark Mode Scrollbar */
+.dark ::-webkit-scrollbar-track,
+::-webkit-scrollbar-track {
+  background: #1A1A1A;
+}
+
+.dark ::-webkit-scrollbar-thumb,
+::-webkit-scrollbar-thumb {
+  background: #2E2E2E;
+  border-radius: 2px;
+}
+
+.dark ::-webkit-scrollbar-thumb:hover,
+::-webkit-scrollbar-thumb:hover {
+  background: #D7B797;
+}
+
+/* Light Mode Scrollbar */
+.light ::-webkit-scrollbar-track {
+  background: #E8E2DB;
+}
+
+.light ::-webkit-scrollbar-thumb {
+  background: #B8AD9F;
+  border-radius: 2px;
+}
+
+.light ::-webkit-scrollbar-thumb:hover {
+  background: #D7B797;
+}
+
+/* Firefox Scrollbar */
+.dark * {
+  scrollbar-width: thin;
+  scrollbar-color: #2E2E2E #1A1A1A;
+}
+
+.light * {
+  scrollbar-width: thin;
+  scrollbar-color: #CCC7C0 #EDEBE8;
+}
+
+/* Hide Scrollbar */
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
+}
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+/* ===== COMPONENT STYLES ===== */
+@layer components {
+  /* === Industrial Button === */
+  .ind-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 6px;
+    height: 32px;
+    padding: 0 16px;
+    font-weight: 500;
+    font-size: 14px;
+    border-radius: 4px;
+    transition: all 150ms ease;
+    cursor: pointer;
+  }
+
+  .ind-btn-primary {
+    background: #D7B797;
+    color: #000000;
+    border: none;
+  }
+
+  .ind-btn-primary:hover {
+    background: #C9A980;
+  }
+
+  .ind-btn-secondary {
+    background: transparent;
+    border: 1px solid hsl(var(--border));
+    color: hsl(var(--foreground));
+  }
+
+  .ind-btn-secondary:hover {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+  }
+
+  .ind-btn-ghost {
+    background: transparent;
+    border: none;
+    color: #999999;
+  }
+
+  .ind-btn-ghost:hover {
+    background: var(--hover-bg);
+    color: var(--hover-text);
+  }
+
+  /* DAFC Primary Button (Pill) */
+  .dafc-btn-primary {
+    padding: 10px 24px;
+    font-family: var(--font-montserrat), 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 14px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 99px;
+    background: #D7B797;
+    color: #000000;
+    border: none;
+    cursor: pointer;
+    transition: all 150ms ease;
+  }
+
+  .dafc-btn-primary:hover {
+    background: #C9A980;
+  }
+
+  /* === Industrial Card === */
+  .ind-card {
+    background: #121212;
+    border: 1px solid #2E2E2E;
+    border-radius: 6px;
+    transition: all 150ms ease;
+  }
+
+  .light .ind-card {
+    background: #FFFFFF;
+    border: 1px solid #C4B5A5;
+  }
+
+  .ind-card:hover {
+    border-color: var(--hover-border);
+  }
+
+  .ind-card-header {
+    padding: 12px;
+    border-bottom: 1px solid #1A1A1A;
+  }
+
+  .light .ind-card-header {
+    border-bottom: 1px solid #D4C8BB;
+  }
+
+  .ind-card-content {
+    padding: 12px;
+  }
+
+  /* DAFC Card */
+  .dafc-card {
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 6px;
+    overflow: hidden;
+    transition: all 150ms ease;
+  }
+
+  .dafc-card:hover {
+    border-color: var(--hover-border);
+  }
+
+  .dafc-card-gold {
+    border-top: 3px solid #D7B797;
+  }
+
+  .dafc-card-green {
+    border-top: 3px solid #127749;
+  }
+
+  /* === Industrial Badge === */
+  .ind-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    height: 20px;
+    padding: 0 8px;
+    font-size: 12px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 4px;
+    border: 1px solid;
+  }
+
+  /* Dark Mode Status Badges */
+  .dark .ind-badge-critical,
+  .ind-badge-critical {
+    background: rgba(248, 81, 73, 0.15);
+    color: #FF7B72;
+    border-color: rgba(248, 81, 73, 0.4);
+  }
+
+  .dark .ind-badge-warning,
+  .ind-badge-warning {
+    background: rgba(210, 153, 34, 0.15);
+    color: #E3B341;
+    border-color: rgba(210, 153, 34, 0.4);
+  }
+
+  .dark .ind-badge-success,
+  .ind-badge-success {
+    background: rgba(18, 119, 73, 0.15);
+    color: #2A9E6A;
+    border-color: rgba(18, 119, 73, 0.4);
+  }
+
+  .dark .ind-badge-info,
+  .ind-badge-info {
+    background: rgba(88, 166, 255, 0.15);
+    color: #79C0FF;
+    border-color: rgba(88, 166, 255, 0.4);
+  }
+
+  /* Light Mode Status Badges */
+  .light .ind-badge-critical {
+    background: rgba(204, 31, 31, 0.12);
+    color: #B91C1C;
+    border-color: rgba(204, 31, 31, 0.35);
+  }
+
+  .light .ind-badge-warning {
+    background: rgba(180, 117, 0, 0.12);
+    color: #92610A;
+    border-color: rgba(180, 117, 0, 0.35);
+  }
+
+  .light .ind-badge-success {
+    background: rgba(9, 84, 49, 0.12);
+    color: #065F32;
+    border-color: rgba(9, 84, 49, 0.35);
+  }
+
+  .light .ind-badge-info {
+    background: rgba(26, 93, 201, 0.12);
+    color: #1A5DC9;
+    border-color: rgba(26, 93, 201, 0.35);
+  }
+
+  /* DAFC Badge (Pill) */
+  .dafc-badge {
+    padding: 4px 12px;
+    font-family: var(--font-montserrat), 'Montserrat', sans-serif;
+    font-weight: 600;
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    border-radius: 99px;
+  }
+
+  .dark .dafc-badge-gold,
+  .dafc-badge-gold {
+    background: rgba(215, 183, 151, 0.15);
+    color: #D7B797;
+    border: 1px solid rgba(215, 183, 151, 0.3);
+  }
+
+  .light .dafc-badge-gold {
+    background: rgba(138, 99, 64, 0.12);
+    color: #6B4D30;
+    border: 1px solid rgba(138, 99, 64, 0.35);
+  }
+
+  .dark .dafc-badge-green,
+  .dafc-badge-green {
+    background: rgba(18, 119, 73, 0.15);
+    color: #2A9E6A;
+    border: 1px solid rgba(18, 119, 73, 0.3);
+  }
+
+  .light .dafc-badge-green {
+    background: rgba(9, 84, 49, 0.1);
+    color: #065F32;
+    border: 1px solid rgba(9, 84, 49, 0.3);
+  }
+
+  /* === Industrial Input === */
+  .ind-input {
+    width: 100%;
+    height: 36px;
+    padding: 0 12px;
+    background: #1A1A1A;
+    border: 1px solid #2E2E2E;
+    border-radius: 4px;
+    color: #F2F2F2;
+    font-size: 14px;
+    transition: all 150ms ease;
+  }
+
+  .ind-input:hover {
+    border-color: var(--hover-border);
+  }
+
+  .ind-input:focus {
+    border-color: #D7B797;
+    outline: none;
+    box-shadow: none;
+  }
+
+  .ind-input::placeholder {
+    color: #666666;
+  }
+
+  .light .ind-input {
+    background: #FFFFFF;
+    border: 1px solid #C4B5A5;
+    color: #1E1A16;
+  }
+
+  .light .ind-input::placeholder {
+    color: #999999;
+  }
+
+  /* DAFC Input (Pill) */
+  .dafc-input {
+    width: 100%;
+    padding: 10px 16px;
+    background: hsl(var(--card));
+    border: 1px solid hsl(var(--border));
+    border-radius: 99px;
+    color: hsl(var(--foreground));
+    font-size: 14px;
+    transition: all 150ms ease;
+  }
+
+  .dafc-input:hover {
+    border-color: var(--hover-border);
+  }
+
+  .dafc-input:focus {
+    border-color: #D7B797;
+    outline: none;
+    box-shadow: none;
+  }
+
+  /* === Industrial Table === */
+  .ind-table {
+    width: 100%;
+    font-size: 14px;
+    border-collapse: collapse;
+  }
+
+  .ind-table thead {
+    background: #1A1A1A;
+  }
+
+  .light .ind-table thead {
+    background: #F0ECE7;
+  }
+
+  .ind-table th {
+    height: 40px;
+    padding: 0 12px;
+    text-align: left;
+    font-size: 13px;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #999999;
+    border-bottom: 1px solid #2E2E2E;
+  }
+
+  .light .ind-table th {
+    color: #5D4E37;
+    border-bottom: 1px solid #C4B5A5;
+  }
+
+  .ind-table td {
+    height: 36px;
+    padding: 0 12px;
+    border-bottom: 1px solid #1A1A1A;
+  }
+
+  .light .ind-table td {
+    border-bottom: 1px solid #E8E2DB;
+  }
+
+  .ind-table tbody tr {
+    background: #121212;
+    transition: all 150ms ease;
+    border-left: 2px solid transparent;
+  }
+
+  .light .ind-table tbody tr {
+    background: #FFFFFF;
+  }
+
+  .ind-table tbody tr:nth-child(even) {
+    background: #161616;
+  }
+
+  .light .ind-table tbody tr:nth-child(even) {
+    background: #FAF8F5;
+  }
+
+  /* Unified table row hover - Gold accent */
+  .ind-table tbody tr:hover {
+    background: var(--hover-bg);
+    border-left-color: #D7B797;
+  }
+
+  .ind-table tbody tr.selected {
+    background: rgba(215, 183, 151, 0.1);
+    border-left: 2px solid #D7B797;
+  }
+
+  .ind-table .cell-numeric {
+    font-family: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
+    font-variant-numeric: tabular-nums;
+    text-align: right;
+  }
+
+  /* === Industrial Progress === */
+  .ind-progress {
+    height: 4px;
+    background: #1A1A1A;
+    border-radius: 2px;
+    overflow: hidden;
+  }
+
+  .light .ind-progress {
+    background: #E0DDD8;
+  }
+
+  .ind-progress-fill {
+    height: 100%;
+    background: #D7B797;
+    transition: width 200ms;
+  }
+
+  .ind-progress-success .ind-progress-fill {
+    background: #127749;
+  }
+
+  .ind-progress-warning .ind-progress-fill {
+    background: #D29922;
+  }
+
+  .ind-progress-critical .ind-progress-fill {
+    background: #F85149;
+  }
+
+  /* === KPI Card === */
+  .kpi-card {
+    background: #121212;
+    border: 1px solid #2E2E2E;
+    border-radius: 6px;
+    padding: 12px;
+    transition: all 150ms ease;
+  }
+
+  .light .kpi-card {
+    background: #FFFFFF;
+    border: 1px solid #C4B5A5;
+  }
+
+  .kpi-card:hover {
+    border-color: var(--hover-border);
+  }
+
+  .kpi-card-status {
+    border-top-width: 2px;
+  }
+
+  .kpi-label {
+    font-size: 12px;
+    font-weight: 500;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+    color: #999999;
+    margin-bottom: 4px;
+  }
+
+  .light .kpi-label {
+    color: #5D4E37;
+  }
+
+  .kpi-value {
+    font-family: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
+    font-size: 26px;
+    font-weight: 600;
+    font-variant-numeric: tabular-nums;
+    color: #F2F2F2;
+  }
+
+  .light .kpi-value {
+    color: #1E1A16;
+  }
+
+  .kpi-trend {
+    display: inline-flex;
+    align-items: center;
+    gap: 2px;
+    font-family: var(--font-jetbrains-mono), 'JetBrains Mono', monospace;
+    font-size: 13px;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+
+  /* === Skeleton Loading === */
+  .skeleton {
+    border-radius: 4px;
+    background-size: 200% 100%;
+    animation: shimmer 1.5s infinite;
+  }
+
+  .dark .skeleton {
+    background: linear-gradient(90deg, #1A1A1A 0%, #2E2E2E 50%, #1A1A1A 100%);
+  }
+
+  .light .skeleton {
+    background: linear-gradient(90deg, #EDEBE8 0%, #E0DDD8 50%, #EDEBE8 100%);
+  }
+
+  .skeleton-text { height: 16px; }
+  .skeleton-heading { height: 24px; }
+  .skeleton-card { height: 80px; }
+
+  /* === Menu Item === */
+  .menu-item {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    border-radius: 6px;
+    border: 1px solid transparent;
+    transition: all 150ms ease;
+    cursor: pointer;
+  }
+
+  .menu-item:hover {
+    background: var(--hover-bg);
+    border-color: var(--hover-border);
+  }
+
+  .menu-item.active {
+    background: #D7B797;
+    color: #000000;
+  }
+
+  /* === List Item === */
+  .list-item {
+    display: flex;
+    align-items: center;
+    padding: 12px;
+    border-bottom: 1px solid hsl(var(--border));
+    border-left: 2px solid transparent;
+    transition: all 150ms ease;
+    cursor: pointer;
+  }
+
+  .list-item:hover {
+    background: var(--hover-bg);
+    border-left-color: #D7B797;
+  }
+
+  .list-item.selected {
+    background: rgba(215, 183, 151, 0.1);
+    border-left-color: #D7B797;
+  }
+}
+
+/* ===== UTILITY CLASSES ===== */
+@layer utilities {
+  /* Divider */
+  .divider {
+    border-top: 1px solid #1A1A1A;
+  }
+
+  /* Status Indicators (Flat - Border) */
+  .glow-critical { border: 2px solid #F85149; }
+  .glow-warning { border: 2px solid #D29922; }
+  .glow-success { border: 2px solid #127749; }
+  .glow-info { border: 2px solid #58A6FF; }
+
+  /* Safe Area Insets */
+  .safe-area-top { padding-top: env(safe-area-inset-top, 0); }
+  .safe-area-bottom { padding-bottom: env(safe-area-inset-bottom, 0); }
+
+  /* Touch Targets */
+  .touch-target { min-height: 44px; min-width: 44px; }
+  .touch-target-sm { min-height: 36px; min-width: 36px; }
+
+  /* Trend Indicators */
+  .trend-positive { color: #127749; }
+  .trend-positive::before { content: '\25B2 '; }
+
+  .trend-negative { color: #F85149; }
+  .trend-negative::before { content: '\25BC '; }
+
+  .trend-neutral { color: #8B949E; }
+  .trend-neutral::before { content: '\25CF '; }
+
+  /* Status Dot */
+  .status-dot {
+    display: inline-block;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+  }
+  .status-dot-critical { background: #F85149; }
+  .status-dot-warning { background: #D29922; }
+  .status-dot-success { background: #127749; }
+  .status-dot-info { background: #58A6FF; }
+}
+
+/* ===== FOCUS STATES - Clean (No rings) ===== */
+:focus-visible {
+  outline: none;
+}
+
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+
+.card-tab:focus-visible {
+  outline: none;
+}
+
+.keyboard-selected {
+  outline: none;
+}
+
+/* ===== SELECTION STYLES ===== */
+.dark ::selection,
+::selection {
+  background: rgba(215, 183, 151, 0.3);
+  color: #F2F2F2;
+}
+
+.light ::selection {
+  background: rgba(215, 183, 151, 0.35);
+  color: #1A1A1A;
+}
+
+/* ===== SMOOTH FOCUS STATES ===== */
+/* Remove all focus rings/outlines from inputs */
+input, textarea, select, button {
+  outline: none !important;
+  box-shadow: none !important;
+}
+
+input:focus, textarea:focus, select:focus, button:focus {
+  outline: none !important;
+  box-shadow: none !important;
+  ring: none !important;
+}
+
+/* Override Tailwind focus ring utilities */
+.focus\:ring-2:focus,
+.focus\:ring-1:focus,
+.focus\:ring:focus,
+[class*="focus:ring"]:focus {
+  --tw-ring-shadow: none !important;
+  box-shadow: none !important;
+}
+
+input:focus, textarea:focus, button:focus {
+  outline: none;
+  transition: all 150ms ease;
+}
+
+/* ===== BUTTON PRESS EFFECT ===== */
+button:active {
+  transform: scale(0.98);
+}
+
+/* ===== STACKED CARD TRANSITION ===== */
+.stacked-card {
+  transition: all 200ms ease;
+}
+
+/* ===== ANIMATION HELPERS ===== */
+.stagger-1 { animation-delay: 100ms; }
+.stagger-2 { animation-delay: 200ms; }
+.stagger-3 { animation-delay: 300ms; }
+.stagger-4 { animation-delay: 400ms; }
+.stagger-5 { animation-delay: 500ms; }
+
+/* ===== KEYFRAME ANIMATIONS ===== */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+
+@keyframes slideDown {
+  from { opacity: 0; max-height: 0; transform: translateY(-10px); }
+  to { opacity: 1; max-height: 2000px; transform: translateY(0); }
+}
+
+@keyframes slideUp {
+  from { opacity: 1; max-height: 2000px; }
+  to { opacity: 0; max-height: 0; }
+}
