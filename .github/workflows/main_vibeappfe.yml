@@ -1,5 +1,5 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Deploy Next.js standalone to Azure App Service
+# Single-job workflow: build + deploy in one step to avoid artifact hidden-file issues
 
 name: Build and deploy Node.js app to Azure Web App - VibeAppFE
 
@@ -10,7 +10,7 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -18,7 +18,7 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Set up Node.js version
+      - name: Set up Node.js
         uses: actions/setup-node@v3
         with:
           node-version: '22.x'
@@ -26,65 +26,42 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: Build Next.js (standalone)
+      - name: Build Next.js standalone
         run: npm run build
         env:
           NODE_ENV: production
 
+      # After build + postbuild, .next/standalone/ contains:
+      #   server.js, node_modules/, .next/ (build artifacts), public/, .next/static/
+      # We deploy the CONTENTS of .next/standalone/ directly to Azure wwwroot
+
       - name: Prepare deployment package
         run: |
-          # Standalone output already has server.js + minimal node_modules
-          # postbuild script already copied public/ and .next/static/ into standalone
+          mkdir deploy
 
-          # Copy necessary files into standalone for Azure
-          cp azure-startup.js .next/standalone/
-          cp -r scripts .next/standalone/
+          # Copy standalone contents to deploy folder
+          cp -a .next/standalone/. deploy/
 
-          # Create a deployment-specific package.json with correct start script
-          # Since standalone contents are deployed to wwwroot root, server.js is at root level
+          # Override package.json start script for Azure
+          # (Azure runs "npm start" → must point to "node server.js" since server.js is at root)
           node -e "
             const pkg = require('./package.json');
             pkg.scripts.start = 'node server.js';
-            require('fs').writeFileSync('.next/standalone/package.json', JSON.stringify(pkg, null, 2));
+            require('fs').writeFileSync('./deploy/package.json', JSON.stringify(pkg, null, 2));
           "
 
-          # Verify the build output
-          echo "=== Standalone folder contents ==="
-          ls -la .next/standalone/
-          echo "=== Checking server.js exists ==="
-          test -f .next/standalone/server.js && echo "OK: server.js found" || echo "ERROR: server.js NOT found"
-          echo "=== Checking .next/static exists ==="
-          test -d .next/standalone/.next/static && echo "OK: .next/static found" || echo "ERROR: .next/static NOT found"
-          echo "=== Checking public exists ==="
-          test -d .next/standalone/public && echo "OK: public found" || echo "ERROR: public NOT found"
-          echo "=== Checking BUILD_ID exists ==="
-          test -f .next/standalone/.next/BUILD_ID && echo "OK: BUILD_ID found ($(cat .next/standalone/.next/BUILD_ID))" || echo "ERROR: BUILD_ID NOT found"
+          # Verify deployment package
+          echo "=== deploy/ contents ==="
+          ls -la deploy/
+          echo "=== .next/ build artifacts ==="
+          ls -la deploy/.next/
+          echo "=== BUILD_ID ==="
+          cat deploy/.next/BUILD_ID
 
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: .next/standalone
-          include-hidden-files: true
-
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    environment:
-      name: 'Production'
-      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
-
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: node-app
-
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'VibeAppFE'
           slot-name: 'Production'
-          package: .
+          package: deploy
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_88CE067C4BE34BACBBC4F1C1D281EEF5 }}
