@@ -2,8 +2,17 @@
 // DAFC OTB API - Axios Instance with JWT Interceptor + GET Cache
 // ═══════════════════════════════════════════════════════════════════════════
 import axios from 'axios';
+import { getRuntimeConfig } from './config';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+// Default fallback — will be overridden by runtime config
+let API_BASE_URL = 'http://localhost:4000/api/v1';
+
+// Load runtime config and update baseURL
+const initConfig = getRuntimeConfig().then((cfg) => {
+  API_BASE_URL = cfg.apiUrl;
+  api.defaults.baseURL = cfg.apiUrl;
+});
+
 
 // Simple in-memory cache for GET requests
 const cache = new Map();
@@ -18,9 +27,10 @@ const api = axios.create({
   },
 });
 
-// Request interceptor - attach Bearer token + cache check
+// Request interceptor - wait for runtime config + attach Bearer token + cache check
 api.interceptors.request.use(
-  (config) => {
+  async (config) => {
+    await initConfig;
     const token = localStorage.getItem('accessToken');
     if (token) {
       config.headers.Authorization = `Bearer ${token}`;
