@@ -36,12 +36,11 @@ jobs:
           # Standalone output already has server.js + minimal node_modules
           # postbuild script already copied public/ and .next/static/ into standalone
 
-          # Copy azure-startup.js and scripts into standalone for Azure startup
+          # Copy necessary files into standalone for Azure
           cp azure-startup.js .next/standalone/
           cp -r scripts .next/standalone/
-
-          # Copy package.json for Azure detection
           cp package.json .next/standalone/
+          cp web.config .next/standalone/
 
           # Verify the build output
           echo "=== Standalone folder contents ==="
@@ -80,4 +79,3 @@ jobs:
           slot-name: 'Production'
           package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_88CE067C4BE34BACBBC4F1C1D281EEF5 }}
-          startup-command: 'node server.js'
