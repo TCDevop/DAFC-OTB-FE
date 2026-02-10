@@ -13,7 +13,7 @@ jobs:
   build:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
@@ -23,28 +23,55 @@ jobs:
         with:
           node-version: '22.x'
 
-      - name: npm install, build, and test
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build Next.js (standalone)
+        run: npm run build
+        env:
+          NODE_ENV: production
+
+      - name: Prepare deployment package
         run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+          # Standalone output already has server.js + minimal node_modules
+          # postbuild script already copied public/ and .next/static/ into standalone
+
+          # Copy azure-startup.js and scripts into standalone for Azure startup
+          cp azure-startup.js .next/standalone/
+          cp -r scripts .next/standalone/
+
+          # Copy package.json for Azure detection
+          cp package.json .next/standalone/
+
+          # Verify the build output
+          echo "=== Standalone folder contents ==="
+          ls -la .next/standalone/
+          echo "=== Checking server.js exists ==="
+          test -f .next/standalone/server.js && echo "OK: server.js found" || echo "ERROR: server.js NOT found"
+          echo "=== Checking .next/static exists ==="
+          test -d .next/standalone/.next/static && echo "OK: .next/static found" || echo "ERROR: .next/static NOT found"
+          echo "=== Checking public exists ==="
+          test -d .next/standalone/public && echo "OK: public found" || echo "ERROR: public NOT found"
 
       - name: Upload artifact for deployment job
         uses: actions/upload-artifact@v4
         with:
           name: node-app
-          path: .
+          path: .next/standalone
 
   deploy:
     runs-on: ubuntu-latest
     needs: build
-    
+    environment:
+      name: 'Production'
+      url: ${{ steps.deploy-to-webapp.outputs.webapp-url }}
+
     steps:
       - name: Download artifact from build job
         uses: actions/download-artifact@v4
         with:
           name: node-app
-      
+
       - name: 'Deploy to Azure Web App'
         id: deploy-to-webapp
         uses: azure/webapps-deploy@v3
@@ -53,3 +80,4 @@ jobs:
           slot-name: 'Production'
           package: .
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_88CE067C4BE34BACBBC4F1C1D281EEF5 }}
+          startup-command: 'node server.js'
