@@ -39,8 +39,14 @@ jobs:
           # Copy necessary files into standalone for Azure
           cp azure-startup.js .next/standalone/
           cp -r scripts .next/standalone/
-          cp package.json .next/standalone/
-          cp web.config .next/standalone/
+
+          # Create a deployment-specific package.json with correct start script
+          # Since standalone contents are deployed to wwwroot root, server.js is at root level
+          node -e "
+            const pkg = require('./package.json');
+            pkg.scripts.start = 'node server.js';
+            require('fs').writeFileSync('.next/standalone/package.json', JSON.stringify(pkg, null, 2));
+          "
 
           # Verify the build output
           echo "=== Standalone folder contents ==="
