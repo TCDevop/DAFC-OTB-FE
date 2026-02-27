@@ -1,0 +1,38 @@
+{
+  "brands": {
+    "data": [
+      { "id": "brand-1", "code": "FER", "name": "Ferragamo", "sortOrder": 1, "isActive": true },
+      { "id": "brand-2", "code": "BUR", "name": "Burberry", "sortOrder": 2, "isActive": true }
+    ]
+  },
+  "stores": {
+    "data": [
+      { "id": "store-rex", "code": "REX", "name": "REX", "isActive": true },
+      { "id": "store-ttp", "code": "TTP", "name": "TTP", "isActive": true }
+    ]
+  },
+  "collections": {
+    "data": [
+      { "id": "col-1", "code": "CO", "name": "Carry Over" },
+      { "id": "col-2", "code": "SEA", "name": "Seasonal" }
+    ]
+  },
+  "genders": {
+    "data": [
+      { "id": "gen-1", "code": "M", "name": "Male" },
+      { "id": "gen-2", "code": "F", "name": "Female" }
+    ]
+  },
+  "categories": {
+    "data": [
+      { "id": "cat-1", "code": "WRTW", "name": "Women's RTW" },
+      { "id": "cat-2", "code": "MRTW", "name": "Men's RTW" }
+    ]
+  },
+  "seasons": {
+    "data": [
+      { "id": "ss", "code": "SS", "name": "Spring Summer" },
+      { "id": "fw", "code": "FW", "name": "Fall Winter" }
+    ]
+  }
+}

@@ -1,0 +1,46 @@
+{
+  "list": {
+    "data": [
+      {
+        "id": "budget-1",
+        "budgetCode": "BUD-FER-SS-2025",
+        "groupBrandId": "brand-1",
+        "groupBrand": { "name": "Ferragamo", "code": "FER" },
+        "seasonGroupId": "SS",
+        "seasonType": "Pre",
+        "fiscalYear": 2025,
+        "totalBudget": "1000000000",
+        "comment": "Spring Summer budget",
+        "status": "DRAFT",
+        "details": [
+          {
+            "id": "detail-1",
+            "storeId": "store-rex",
+            "store": { "name": "REX", "code": "REX" },
+            "budgetAmount": "600000000"
+          },
+          {
+            "id": "detail-2",
+            "storeId": "store-ttp",
+            "store": { "name": "TTP", "code": "TTP" },
+            "budgetAmount": "400000000"
+          }
+        ],
+        "createdAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  },
+  "created": {
+    "data": {
+      "id": "budget-2",
+      "budgetCode": "BUD-BUR-FW-2025",
+      "status": "DRAFT"
+    }
+  },
+  "submitted": {
+    "data": {
+      "id": "budget-1",
+      "status": "SUBMITTED"
+    }
+  }
+}

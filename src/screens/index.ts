@@ -1,0 +1,20 @@
+// Backward-compatible re-exports from new feature locations
+export { default as BudgetManagementScreen } from '../features/otb/components/BudgetManagementScreen';
+export { default as BudgetAllocateScreen } from '../features/otb/components/BudgetAllocateScreen';
+export { default as PlanningDetailPage } from '../features/otb/components/PlanningDetailPage';
+export { default as SKUProposalScreen } from '../features/otb/components/SKUProposalScreen';
+export { default as ProposalDetailPage } from '../features/otb/components/ProposalDetailPage';
+export { default as OTBAnalysisScreen } from '../features/otb/components/OTBAnalysisScreen';
+export { default as TicketScreen } from '../features/tickets/components/TicketScreen';
+export { default as TicketDetailPage } from '../features/tickets/components/TicketDetailPage';
+export { default as ApprovalsScreen } from '../features/approvals/components/ApprovalsScreen';
+export { default as ApprovalWorkflowScreen } from '../features/approvals/components/ApprovalWorkflowScreen';
+export { default as MasterDataScreen } from '../features/master-data/components/MasterDataScreen';
+export { default as OrderConfirmationScreen } from '../features/orders/components/OrderConfirmationScreen';
+export { default as ReceiptConfirmationScreen } from '../features/orders/components/ReceiptConfirmationScreen';
+export { default as ImportDataScreen } from '../features/import/components/ImportDataScreen';
+export { default as DevTicketScreen } from './DevTicketScreen';
+export { default as HomeScreen } from './HomeScreen';
+export { default as LoginScreen } from './LoginScreen';
+export { default as ProfileScreen } from './ProfileScreen';
+export { default as SettingsScreen } from './SettingsScreen';

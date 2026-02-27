@@ -1,0 +1,43 @@
+{
+  "list": {
+    "data": [
+      {
+        "id": "planning-1",
+        "planningCode": "PLN-001",
+        "budgetDetailId": "detail-1",
+        "versionName": "Version 1",
+        "versionNumber": 1,
+        "status": "DRAFT",
+        "isFinal": false,
+        "details": [
+          {
+            "id": "pd-1",
+            "dimensionType": "collection",
+            "collectionId": "col-1",
+            "collection": { "name": "Carry Over" },
+            "genderId": null,
+            "gender": null,
+            "categoryId": null,
+            "category": null,
+            "lastSeasonSales": "500000000",
+            "lastSeasonPct": "0.5",
+            "systemBuyPct": "0.5",
+            "userBuyPct": "0.5",
+            "otbValue": "500000000",
+            "userComment": "",
+            "variancePct": "0"
+          }
+        ],
+        "budgetDetail": { "id": "detail-1", "budgetAmount": "1000000000" },
+        "createdAt": "2026-01-01T00:00:00Z"
+      }
+    ]
+  },
+  "detail": {
+    "data": {
+      "id": "planning-1",
+      "planningCode": "PLN-001",
+      "details": []
+    }
+  }
+}
