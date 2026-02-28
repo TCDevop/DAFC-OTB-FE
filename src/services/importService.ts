@@ -1,6 +1,5 @@
 import api from './api';
-
-const extract = (res: any) => res.data?.data ?? res.data;
+import { extract } from './serviceUtils';
 
 export const importService = {
   batchImport: (data: any) => api.post('/import/batch', data).then(extract),

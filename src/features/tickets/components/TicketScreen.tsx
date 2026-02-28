@@ -60,7 +60,7 @@ const getStatusColor = (status: any) => {
   return 'neutral';
 };
 
-const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
+const TicketScreen = ({ onOpenTicketDetail }: any) => {
   const { t } = useLanguage();
   const { isAuthenticated } = useAuth();
   const { isMobile } = useIsMobile();
@@ -197,8 +197,7 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
       rejectedTickets: rejected,
       totalSpending,
       approvedPct: total > 0 ? Math.round((approved / total) * 100) : 0,
-      typeBreakdown,
-    };
+      typeBreakdown};
   }, [tickets]);
 
   // Filter tickets by search term
@@ -220,49 +219,30 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
   const getStatusStyle = (status: any) => {
     const s = status?.toUpperCase();
     if (['LEVEL2_APPROVED', 'APPROVED'].includes(s)) {
-      return darkMode
-        ? 'bg-[rgba(18,119,73,0.15)] text-[#2A9E6A] border border-[rgba(18,119,73,0.4)]'
-        : 'bg-green-100 text-green-700';
+      return 'bg-green-100 text-green-700';
     }
     if (s === 'FINAL') {
-      return darkMode
-        ? 'bg-[rgba(18,119,73,0.2)] text-[#2A9E6A] border border-[rgba(18,119,73,0.5)]'
-        : 'bg-green-200 text-green-800';
+      return 'bg-green-200 text-green-800';
     }
     if (s === 'SUBMITTED') {
-      return darkMode
-        ? 'bg-[rgba(210,153,34,0.15)] text-[#E3B341] border border-[rgba(210,153,34,0.4)]'
-        : 'bg-yellow-100 text-yellow-700';
+      return 'bg-yellow-100 text-yellow-700';
     }
     if (s === 'LEVEL1_APPROVED') {
-      return darkMode
-        ? 'bg-[rgba(163,113,247,0.15)] text-[#A371F7] border border-[rgba(163,113,247,0.4)]'
-        : 'bg-purple-100 text-purple-700';
+      return 'bg-purple-100 text-purple-700';
     }
     if (['LEVEL1_REJECTED', 'LEVEL2_REJECTED', 'REJECTED'].includes(s)) {
-      return darkMode
-        ? 'bg-[rgba(248,81,73,0.15)] text-[#FF7B72] border border-[rgba(248,81,73,0.4)]'
-        : 'bg-red-100 text-red-700';
+      return 'bg-red-100 text-red-700';
     }
     // Draft / unknown
-    return darkMode
-      ? 'bg-[rgba(102,102,102,0.15)] text-[#999999] border border-[rgba(102,102,102,0.4)]'
-      : 'bg-gray-100 text-gray-600';
+    return 'bg-gray-100 text-gray-600';
   };
 
   // Entity type badge style
   const getEntityTypeStyle = (type: any) => {
     const styles: any = {
-      budget: darkMode
-        ? 'bg-[rgba(215,183,151,0.15)] text-[#D7B797] border border-[rgba(215,183,151,0.3)]'
-        : 'bg-[rgba(215,183,151,0.2)] text-[#6B4D30] border border-[rgba(215,183,151,0.4)]',
-      planning: darkMode
-        ? 'bg-[rgba(59,130,246,0.15)] text-[#60A5FA] border border-[rgba(59,130,246,0.3)]'
-        : 'bg-blue-100 text-blue-700',
-      proposal: darkMode
-        ? 'bg-[rgba(16,185,129,0.15)] text-[#34D399] border border-[rgba(16,185,129,0.3)]'
-        : 'bg-emerald-100 text-emerald-700',
-    };
+      budget:'bg-[rgba(215,183,151,0.2)] text-[#6B4D30] border border-[rgba(215,183,151,0.4)]',
+      planning:'bg-blue-100 text-blue-700',
+      proposal:'bg-emerald-100 text-emerald-700'};
     return styles[type] || styles['budget'];
   };
 
@@ -271,32 +251,28 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
       {/* ===== PAGE TITLE ===== */}
       <div className="flex flex-wrap items-center justify-between gap-1.5">
         <div>
-          <h1 className={`text-sm font-semibold font-['Montserrat'] ${darkMode ? 'text-[#F2F2F2]' : 'text-gray-800'}`}>
+          <h1 className={`text-sm font-semibold font-['Montserrat'] ${'text-gray-800'}`}>
             {t('ticket.title')}
           </h1>
-          <p className={`text-[10px] ${darkMode ? 'text-[#666666]' : 'text-gray-700'}`}>
+          <p className={`text-[10px] ${'text-gray-700'}`}>
             {t('ticket.subtitle')}
           </p>
         </div>
         <div className="flex items-center gap-2">
           {/* Search Box */}
           <div className={`relative flex items-center`}>
-            <Search size={12} className={`absolute left-2.5 ${darkMode ? 'text-[#666666]' : 'text-gray-400'}`} />
+            <Search size={12} className={`absolute left-2.5 ${'text-gray-400'}`} />
             <input
               type="text"
               value={searchTerm}
               onChange={(e) => setSearchTerm(e.target.value)}
               placeholder={t('common.search') + '...'}
-              className={`pl-7 pr-6 py-1.5 text-xs rounded-md border w-40 focus:outline-none focus:ring-1 transition-all ${
-                darkMode
-                  ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] placeholder-[#666666] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'
-                  : 'bg-white border-gray-300 text-gray-800 placeholder-gray-400 focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'
-              }`}
+              className={`pl-7 pr-6 py-1.5 text-xs rounded-md border w-40 focus:outline-none focus:ring-1 transition-all ${'bg-white border-gray-300 text-gray-800 placeholder-gray-400 focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'}`}
             />
             {searchTerm && (
               <button
                 onClick={() => setSearchTerm('')}
-                className={`absolute right-1.5 p-0.5 rounded ${darkMode ? 'text-[#666666] hover:text-[#999999]' : 'text-gray-400 hover:text-gray-600'}`}
+                className={`absolute right-1.5 p-0.5 rounded ${'text-gray-400 hover:text-gray-600'}`}
               >
                 <X size={12} />
               </button>
@@ -304,20 +280,12 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
           </div>
 
           {/* View Toggle */}
-          <div className={`flex items-center gap-0.5 p-0.5 rounded-md ${
-            darkMode ? 'bg-[#1A1A1A] border border-[#2E2E2E]' : 'bg-gray-100 border border-gray-300'
-          }`}>
+          <div className={`flex items-center gap-0.5 p-0.5 rounded-md ${'bg-gray-100 border border-gray-300'}`}>
             <button
               onClick={() => setViewMode('table')}
               className={`p-1.5 rounded transition-all duration-150 ${
                 viewMode === 'table'
-                  ? darkMode
-                    ? 'bg-[rgba(215,183,151,0.15)] text-[#D7B797] shadow-sm'
-                    : 'bg-white text-[#6B4D30] shadow-sm'
-                  : darkMode
-                    ? 'text-[#666666] hover:text-[#999999]'
-                    : 'text-gray-500 hover:text-gray-700'
-              }`}
+                  ?'bg-white text-[#6B4D30] shadow-sm':'text-gray-500 hover:text-gray-700'}`}
               title={t('ticket.tableView')}
             >
               <LayoutList size={13} />
@@ -326,13 +294,7 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
               onClick={() => setViewMode('kanban')}
               className={`p-1.5 rounded transition-all duration-150 ${
                 viewMode === 'kanban'
-                  ? darkMode
-                    ? 'bg-[rgba(215,183,151,0.15)] text-[#D7B797] shadow-sm'
-                    : 'bg-white text-[#6B4D30] shadow-sm'
-                  : darkMode
-                    ? 'text-[#666666] hover:text-[#999999]'
-                    : 'text-gray-500 hover:text-gray-700'
-              }`}
+                  ?'bg-white text-[#6B4D30] shadow-sm':'text-gray-500 hover:text-gray-700'}`}
               title={t('ticket.kanbanView')}
             >
               <LayoutGrid size={13} />
@@ -341,11 +303,7 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
 
           <button
             onClick={() => setShowCreatePopup(true)}
-            className={`p-1.5 rounded-md transition-all duration-150 ${
-              darkMode
-                ? 'bg-[#D7B797] text-[#0A0A0A] hover:bg-[#C4A584]'
-                : 'bg-[#D7B797] text-[#333333] hover:bg-[#C4A584]'
-            }`}
+            className={`p-1.5 rounded-md transition-all duration-150 ${'bg-[#D7B797] text-[#333333] hover:bg-[#C4A584]'}`}
             title={t('ticket.createTicket')}
           >
             <Plus size={14} />
@@ -358,7 +316,6 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
         <ExpandableStatCard
           title={t('ticket.totalTickets')}
           value={ticketStats.totalTickets}
-          darkMode={darkMode}
           icon={Ticket}
           accent="blue"
           breakdown={ticketStats.typeBreakdown}
@@ -371,7 +328,6 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
         <ExpandableStatCard
           title={t('ticket.approvedTickets')}
           value={ticketStats.approvedTickets}
-          darkMode={darkMode}
           icon={CircleCheckBig}
           accent="emerald"
           progress={ticketStats.approvedPct}
@@ -383,7 +339,6 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
           title={t('ticket.totalSpending')}
           value={formatCurrency(ticketStats.totalSpending)}
           sub={t('ticket.approvedBudgetsOnly')}
-          darkMode={darkMode}
           icon={DollarSign}
           accent="gold"
         />
@@ -391,19 +346,16 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
 
       {/* ===== TICKET CONTENT ===== */}
       {loading ? (
-        <div className={`border rounded-lg p-12 flex flex-col items-center justify-center ${
-          darkMode ? 'bg-[#121212] border-[#2E2E2E] text-[#666666]' : 'bg-white border-gray-300 text-gray-700'
-        }`}>
+        <div className={`border rounded-lg p-12 flex flex-col items-center justify-center ${'bg-white border-gray-300 text-gray-700'}`}>
           <Loader2 size={32} className="animate-spin mb-3" />
           <span className="text-sm">{t('ticket.loadingTickets')}</span>
         </div>
       ) : error ? (
-        <ErrorMessage message={error} onRetry={fetchTickets} darkMode={darkMode} />
+        <ErrorMessage message={error} onRetry={fetchTickets} />
       ) : viewMode === 'kanban' ? (
         <TicketKanbanBoard
           tickets={filteredTickets}
           onTicketClick={onOpenTicketDetail}
-          darkMode={darkMode}
         />
       ) : (
         <>
@@ -435,14 +387,12 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
                     text: getDisplayStatus(ticket.status, t),
                     variant: (['LEVEL2_APPROVED', 'APPROVED', 'FINAL'].includes(ticket.status?.toUpperCase()) ? 'success' :
                       ['LEVEL1_REJECTED', 'LEVEL2_REJECTED', 'REJECTED'].includes(ticket.status?.toUpperCase()) ? 'error' :
-                      ['SUBMITTED', 'LEVEL1_APPROVED'].includes(ticket.status?.toUpperCase()) ? 'warning' : 'default') as any,
-                  },
+                      ['SUBMITTED', 'LEVEL1_APPROVED'].includes(ticket.status?.toUpperCase()) ? 'warning' : 'default') as any},
                   details: [
                     { label: t('budget.createdBy'), value: ticket.createdBy },
                     { label: t('budget.createdOn'), value: ticket.createdOn },
                     { label: t('approvals.colType'), value: getEntityTypeLabel(ticket.entityType, t) },
-                  ],
-                }))}
+                  ]}))}
                 onItemPress={(item) => {
                   const ticket = filteredTickets.find((t: any) => `${t.entityType}-${t.id}` === item.id);
                   if (ticket) onOpenTicketDetail(ticket);
@@ -470,8 +420,7 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
                   label: t('ticket.seasonGroupLabel'),
                   icon: '📅',
                   type: 'single',
-                  options: SEASON_GROUPS.map((sg) => ({ value: sg.id, label: sg.label })),
-                },
+                  options: SEASON_GROUPS.map((sg) => ({ value: sg.id, label: sg.label }))},
                 {
                   key: 'entityType',
                   label: t('approvals.allTypes'),
@@ -481,8 +430,7 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
                     { value: 'budget', label: t('ticket.entityBudget') },
                     { value: 'planning', label: t('ticket.entityPlanning') },
                     { value: 'proposal', label: t('ticket.entityProposal') },
-                  ],
-                },
+                  ]},
               ]}
               values={mobileFilters}
               onChange={(key, value) => setMobileFilters(prev => ({ ...prev, [key]: value }))}
@@ -492,19 +440,15 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
           </div>
         ) : (
         /* Desktop Table View */
-        <div className={`border rounded-lg overflow-hidden ${
-          darkMode ? 'bg-[#121212] border-[#2E2E2E]' : 'bg-white border-gray-300'
-        }`}>
+        <div className={`border rounded-lg overflow-hidden ${'bg-white border-gray-300'}`}>
           <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
           <table className="w-full text-sm">
-            <thead className={`sticky top-0 z-10 ${darkMode ? 'bg-[#1A1A1A]' : 'bg-[rgba(215,183,151,0.15)]'}`}>
+            <thead className={`sticky top-0 z-10 ${'bg-[rgba(215,183,151,0.15)]'}`}>
               <tr>
                 {[t('common.name'), t('approval.brand'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status'), t('common.actions')].map((header: any, idx: any) => (
                   <th
                     key={header}
-                    className={`px-4 py-3 text-left font-medium text-xs uppercase tracking-wider ${
-                      darkMode ? 'text-[#999999]' : 'text-gray-600'
-                    } ${idx === 6 ? 'text-center' : ''}`}
+                    className={`px-4 py-3 text-left font-medium text-xs uppercase tracking-wider ${'text-gray-600'} ${idx === 6 ? 'text-center' : ''}`}
                   >
                     {header}
                   </th>
@@ -512,29 +456,25 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
               </tr>
             </thead>
 
-            <tbody className={`divide-y ${darkMode ? 'divide-[#2E2E2E]' : 'divide-gray-200'}`}>
+            <tbody className={`divide-y ${'divide-gray-200'}`}>
               {filteredTickets.map((ticket: any) => (
                 <tr
                   key={`${ticket.entityType}-${ticket.id}`}
-                  className={`transition-all duration-150 border-l-2 border-transparent ${
-                    darkMode
-                      ? 'hover:bg-[rgba(215,183,151,0.08)] hover:border-l-[#D7B797]'
-                      : 'hover:bg-[rgba(215,183,151,0.15)] hover:border-l-[#D7B797]'
-                  }`}
+                  className={`transition-all duration-150 border-l-2 border-transparent ${'hover:bg-[rgba(215,183,151,0.15)] hover:border-l-[#D7B797]'}`}
                 >
-                  <td className={`px-4 py-3 font-medium ${darkMode ? 'text-[#F2F2F2]' : 'text-gray-800'}`}>
+                  <td className={`px-4 py-3 font-medium ${'text-gray-800'}`}>
                     {ticket.name}
                   </td>
-                  <td className={`px-4 py-3 ${darkMode ? 'text-[#999999]' : 'text-gray-600'}`}>
+                  <td className={`px-4 py-3 ${'text-gray-600'}`}>
                     {ticket.brand}
                   </td>
-                  <td className={`px-4 py-3 font-['JetBrains_Mono'] ${darkMode ? 'text-[#999999]' : 'text-gray-600'}`}>
+                  <td className={`px-4 py-3 font-['JetBrains_Mono'] ${'text-gray-600'}`}>
                     {ticket.seasonGroup} {ticket.season}
                   </td>
-                  <td className={`px-4 py-3 ${darkMode ? 'text-[#999999]' : 'text-gray-600'}`}>
+                  <td className={`px-4 py-3 ${'text-gray-600'}`}>
                     {ticket.createdBy}
                   </td>
-                  <td className={`px-4 py-3 font-['JetBrains_Mono'] ${darkMode ? 'text-[#666666]' : 'text-gray-700'}`}>
+                  <td className={`px-4 py-3 font-['JetBrains_Mono'] ${'text-gray-700'}`}>
                     {ticket.createdOn}
                   </td>
                   <td className="px-4 py-3">
@@ -545,11 +485,7 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
                   <td className="px-4 py-3 text-center">
                     <button
                       onClick={() => onOpenTicketDetail(ticket)}
-                      className={`p-1.5 border rounded-lg transition-all duration-150 ${
-                        darkMode
-                          ? 'text-[#D7B797] border-[rgba(215,183,151,0.3)] hover:bg-[rgba(215,183,151,0.08)] hover:border-[rgba(215,183,151,0.5)]'
-                          : 'text-[#6B4D30] border-[rgba(184,153,112,0.4)] hover:bg-[rgba(215,183,151,0.15)]'
-                      }`}
+                      className={`p-1.5 border rounded-lg transition-all duration-150 ${'text-[#6B4D30] border-[rgba(184,153,112,0.4)] hover:bg-[rgba(215,183,151,0.15)]'}`}
                       title={t('common.view')}
                     >
                       <Eye size={14} />
@@ -562,7 +498,7 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
           </div>
 
           {filteredTickets.length === 0 && (
-            <div className={`p-6 text-center text-sm ${darkMode ? 'text-[#666666]' : 'text-gray-700'}`}>
+            <div className={`p-6 text-center text-sm ${'text-gray-700'}`}>
               {t('ticket.noTicketsFound')}
             </div>
           )}
@@ -574,37 +510,28 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
       {/* ===== CREATE TICKET POPUP ===== */}
       {showCreatePopup && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className={`rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden ${darkMode ? 'bg-[#121212]' : 'bg-white'}`}>
+          <div className={`rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden ${'bg-white'}`}>
             {/* Header */}
-            <div className={`px-6 py-4 flex items-center justify-between border-b ${
-              darkMode ? 'border-[rgba(215,183,151,0.2)]' : 'border-[rgba(215,183,151,0.3)]'
-            }`} style={{
-              background: darkMode
-                ? 'linear-gradient(135deg, #121212 0%, rgba(215,183,151,0.06) 40%, rgba(215,183,151,0.18) 100%)'
-                : 'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.08) 35%, rgba(215,183,151,0.22) 100%)',
-              boxShadow: `inset 0 -1px 0 ${darkMode ? 'rgba(215,183,151,0.12)' : 'rgba(215,183,151,0.08)'}`,
-            }}>
-              <h3 className={`text-lg font-bold font-['Montserrat'] ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{t('ticket.createNewTicket')}</h3>
+            <div className={`px-6 py-4 flex items-center justify-between border-b ${'border-[rgba(215,183,151,0.3)]'}`} style={{
+              background:'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.08) 35%, rgba(215,183,151,0.22) 100%)',
+              boxShadow: `inset 0 -1px 0 ${'rgba(215,183,151,0.08)'}`}}>
+              <h3 className={`text-lg font-bold font-['Montserrat'] ${'text-[#6B4D30]'}`}>{t('ticket.createNewTicket')}</h3>
               <button
                 onClick={() => setShowCreatePopup(false)}
-                className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-[rgba(215,183,151,0.1)]' : 'hover:bg-[rgba(215,183,151,0.15)]'}`}
+                className={`p-2 rounded-lg transition-colors ${'hover:bg-[rgba(215,183,151,0.15)]'}`}
               >
-                <X size={20} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+                <X size={20} className={'text-[#6B4D30]'} />
               </button>
             </div>
 
             {/* Form */}
             <div className="p-6 space-y-4">
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-[#999999]' : 'text-gray-600'}`}>{t('ticket.budgetNameLabel')}</label>
+                <label className={`block text-sm font-medium mb-2 ${'text-gray-600'}`}>{t('ticket.budgetNameLabel')}</label>
                 <select
                   value={newTicket.budgetName}
                   onChange={(e: any) => setNewTicket((prev: any) => ({ ...prev, budgetName: e.target.value }))}
-                  className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 ${
-                    darkMode
-                      ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'
-                      : 'bg-white border-gray-300 text-[#333333] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'
-                  }`}
+                  className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 ${'bg-white border-gray-300 text-[#333333] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'}`}
                 >
                   <option value="">{t('ticket.selectBudgetPlaceholder')}</option>
                   {tickets.filter((tk: any) => tk.entityType === 'budget').map((b: any) => (
@@ -614,15 +541,11 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-[#999999]' : 'text-gray-600'}`}>{t('ticket.seasonGroupLabel')}</label>
+                <label className={`block text-sm font-medium mb-2 ${'text-gray-600'}`}>{t('ticket.seasonGroupLabel')}</label>
                 <select
                   value={newTicket.seasonGroup}
                   onChange={(e: any) => setNewTicket((prev: any) => ({ ...prev, seasonGroup: e.target.value }))}
-                  className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 ${
-                    darkMode
-                      ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'
-                      : 'bg-white border-gray-300 text-[#333333] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'
-                  }`}
+                  className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 ${'bg-white border-gray-300 text-[#333333] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'}`}
                 >
                   <option value="">{t('ticket.selectSeasonGroup')}</option>
                   {SEASON_GROUPS.map((sg: any) => (
@@ -632,15 +555,11 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
               </div>
 
               <div>
-                <label className={`block text-sm font-medium mb-2 ${darkMode ? 'text-[#999999]' : 'text-gray-600'}`}>{t('ticket.seasonLabel')}</label>
+                <label className={`block text-sm font-medium mb-2 ${'text-gray-600'}`}>{t('ticket.seasonLabel')}</label>
                 <select
                   value={newTicket.season}
                   onChange={(e: any) => setNewTicket((prev: any) => ({ ...prev, season: e.target.value }))}
-                  className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 ${
-                    darkMode
-                      ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'
-                      : 'bg-white border-gray-300 text-[#333333] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'
-                  }`}
+                  className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 ${'bg-white border-gray-300 text-[#333333] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'}`}
                 >
                   <option value="">{t('ticket.selectSeason')}</option>
                   {SEASONS.map((s: any) => (
@@ -653,11 +572,7 @@ const TicketScreen = ({ onOpenTicketDetail, darkMode = true }: any) => {
               <div className="flex justify-end gap-3 pt-4">
                 <button
                   onClick={() => setShowCreatePopup(false)}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${
-                    darkMode
-                      ? 'text-[#999999] hover:bg-[rgba(215,183,151,0.1)] hover:text-[#D7B797]'
-                      : 'text-gray-600 hover:bg-gray-100'
-                  }`}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${'text-gray-600 hover:bg-gray-100'}`}
                 >
                   {t('common.cancel')}
                 </button>

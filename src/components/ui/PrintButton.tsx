@@ -4,11 +4,9 @@ import { Printer } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 // UX-20: Simple print button that triggers window.print()
-export default function PrintButton({ darkMode = true, className = '' }: { darkMode?: boolean; className?: string }) {
+export default function PrintButton({ className = '' }: { className?: string }) {
   const { t } = useLanguage();
-  const btnClass = darkMode
-    ? 'bg-[#1A1A1A] text-[#F2F2F2] hover:bg-[#2E2E2E] border-[#2E2E2E]'
-    : 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200';
+  const btnClass = 'bg-slate-100 text-slate-700 hover:bg-slate-200 border-slate-200';
 
   return (
     <button

@@ -13,17 +13,22 @@ interface ExportAllocationOptions {
 }
 
 export async function exportAllocationToExcel(opts: ExportAllocationOptions) {
-  const XLSX = await import('xlsx');
+  const ExcelJS = await import('exceljs');
   const {
     budgetName, fiscalYear, stores, seasonGroups, seasonConfig,
     brands, allocationValues, totalBudget, totalAllocated,
   } = opts;
 
-  const wb = XLSX.utils.book_new();
+  const workbook = new ExcelJS.Workbook();
 
   // ── Sheet 1: Allocation Detail ──
-  const rows: Record<string, any>[] = [];
+  const ws = workbook.addWorksheet('Allocation');
 
+  // Build header row
+  const headerColumns = ['Brand', 'Season', 'Sub-Season', ...stores.map(s => s.code), 'Total'];
+  ws.addRow(headerColumns);
+
+  // Build data rows
   brands.forEach((brand) => {
     seasonGroups.forEach((sg) => {
       const config = seasonConfig[sg];
@@ -32,45 +37,41 @@ export async function exportAllocationToExcel(opts: ExportAllocationOptions) {
       config.subSeasons.forEach((sub) => {
         const key = `${brand.id}-${sg}-${sub}`;
         const storeVals = allocationValues[key] || {};
-        const row: Record<string, any> = {
-          Brand: brand.name,
-          Season: config.name,
-          'Sub-Season': sub,
-        };
 
         let rowTotal = 0;
-        stores.forEach((store) => {
+        const storeValues = stores.map((store) => {
           const val = typeof storeVals[store.id] === 'number' ? storeVals[store.id] : 0;
-          row[store.code] = val;
           rowTotal += val;
+          return val;
         });
-        row['Total'] = rowTotal;
 
-        rows.push(row);
+        ws.addRow([brand.name, config.name, sub, ...storeValues, rowTotal]);
       });
     });
   });
 
-  const ws = XLSX.utils.json_to_sheet(rows);
-  XLSX.utils.book_append_sheet(wb, ws, 'Allocation');
-
   // ── Sheet 2: Summary ──
-  const summaryRows = [
-    { Metric: 'Budget Name', Value: budgetName },
-    { Metric: 'Fiscal Year', Value: `FY${fiscalYear}` },
-    { Metric: 'Total Budget', Value: totalBudget },
-    { Metric: 'Total Allocated', Value: totalAllocated },
-    { Metric: 'Remaining', Value: totalBudget - totalAllocated },
-    { Metric: 'Allocation %', Value: totalBudget > 0 ? `${Math.round((totalAllocated / totalBudget) * 100)}%` : '0%' },
-    { Metric: 'Stores', Value: stores.map(s => s.code).join(', ') },
-    { Metric: 'Export Date', Value: new Date().toLocaleDateString('vi-VN') },
-  ];
-  const ws2 = XLSX.utils.json_to_sheet(summaryRows);
-  XLSX.utils.book_append_sheet(wb, ws2, 'Summary');
+  const ws2 = workbook.addWorksheet('Summary');
+  ws2.addRow(['Metric', 'Value']);
+  ws2.addRow(['Budget Name', budgetName]);
+  ws2.addRow(['Fiscal Year', `FY${fiscalYear}`]);
+  ws2.addRow(['Total Budget', totalBudget]);
+  ws2.addRow(['Total Allocated', totalAllocated]);
+  ws2.addRow(['Remaining', totalBudget - totalAllocated]);
+  ws2.addRow(['Allocation %', totalBudget > 0 ? `${Math.round((totalAllocated / totalBudget) * 100)}%` : '0%']);
+  ws2.addRow(['Stores', stores.map(s => s.code).join(', ')]);
+  ws2.addRow(['Export Date', new Date().toLocaleDateString('vi-VN')]);
 
   // Download
   const filename = `allocation_${budgetName.replace(/\s+/g, '_')}_FY${fiscalYear}_${new Date().toISOString().slice(0, 10)}.xlsx`;
-  XLSX.writeFile(wb, filename);
+  const buffer = await workbook.xlsx.writeBuffer();
+  const blob = new Blob([buffer], { type: 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = filename;
+  a.click();
+  URL.revokeObjectURL(url);
 
   return filename;
 }

@@ -108,8 +108,6 @@ const en = {
     alerts: 'Alerts',
     noAlerts: 'No budget alerts',
     viewAllAlerts: 'View All Alerts',
-    darkModeTitle: 'Switch to Light Mode',
-    lightModeTitle: 'Switch to Dark Mode',
     save: 'Save',
     saveAsNewVersion: 'Save as New Version',
     planningBreadcrumb: 'Planning',

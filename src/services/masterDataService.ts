@@ -2,8 +2,7 @@
 // Master Data Service - Brands, Stores, Season Types, Categories, SKU Catalog
 // ═══════════════════════════════════════════════════════════════════════════
 import api from './api';
-
-const extract = (response: any) => response.data?.data ?? response.data;
+import { extract } from './serviceUtils';
 
 export const masterDataService = {
   // Get all brands (optionally limited)

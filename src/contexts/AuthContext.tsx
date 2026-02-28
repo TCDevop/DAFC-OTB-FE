@@ -23,6 +23,7 @@ interface AuthContextType {
   loginStatus: string;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
+  loginWithMicrosoft: () => Promise<AuthUser>;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
@@ -81,6 +82,42 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
+  // Login with Microsoft (Azure AD)
+  const loginWithMicrosoft = useCallback(async () => {
+    setError(null);
+    setLoginStatus('Đang kết nối Microsoft...');
+    setLoading(true);
+    try {
+      const { getMsalInstance, loginRequest } = await import('../services/msalConfig');
+      const msalInstance = getMsalInstance();
+      await msalInstance.initialize();
+      const result = await msalInstance.loginPopup(loginRequest);
+      const msAccessToken = result.accessToken;
+
+      setLoginStatus('Đang xác thực...');
+      const { user: userData } = await authService.loginWithMicrosoft(msAccessToken);
+      setLoginStatus('');
+      setUser(userData);
+      return userData;
+    } catch (err: any) {
+      setLoginStatus('');
+      if (err.errorCode === 'user_cancelled') {
+        throw new Error('Đã hủy đăng nhập Microsoft');
+      }
+      // crypto.subtle not available on HTTP (non-localhost) — need HTTPS
+      if (err.errorCode === 'crypto_nonexistent' || err.message?.includes('crypto')) {
+        const msg = 'Trình duyệt yêu cầu HTTPS để đăng nhập Microsoft. Vui lòng truy cập qua https:// hoặc http://localhost';
+        setError(msg);
+        throw new Error(msg);
+      }
+      const message = err.response?.data?.message || err.message || 'Microsoft login failed';
+      setError(message);
+      throw new Error(message);
+    } finally {
+      setLoading(false);
+    }
+  }, []);
+
   // Logout function
   const logout = useCallback(() => {
     authService.logout();
@@ -120,6 +157,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     loginStatus,
     isAuthenticated: !!user,
     login,
+    loginWithMicrosoft,
     logout,
     hasPermission,
     hasAnyPermission,

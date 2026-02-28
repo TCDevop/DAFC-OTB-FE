@@ -108,8 +108,6 @@ const vi = {
     alerts: 'Cảnh báo',
     noAlerts: 'Không có cảnh báo ngân sách',
     viewAllAlerts: 'Xem tất cả cảnh báo',
-    darkModeTitle: 'Chuyển sang chế độ sáng',
-    lightModeTitle: 'Chuyển sang chế độ tối',
     save: 'Lưu',
     saveAsNewVersion: 'Lưu thành phiên bản mới',
     planningBreadcrumb: 'Kế hoạch',

@@ -1,8 +1,6 @@
 'use client';
-import { useAppContext } from '@/contexts/AppContext';
-import ReceiptConfirmationScreen from '@/screens/ReceiptConfirmationScreen';
+import { ReceiptConfirmationScreen } from '@/features/orders';
 
 export default function ReceiptConfirmationPage() {
-  const { darkMode } = useAppContext();
-  return <ReceiptConfirmationScreen darkMode={darkMode} />;
+  return <ReceiptConfirmationScreen />;
 }

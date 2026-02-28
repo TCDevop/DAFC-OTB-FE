@@ -24,8 +24,7 @@ const getTypeConfig = (t: any) => ({
       { key: 'groupBrand', label: t('masterData.colGroup'), render: (v: any) => v?.name || v || '-' },
       { key: 'isActive', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
     ],
-    searchFields: ['code', 'name'],
-  },
+    searchFields: ['code', 'name']},
   skus: {
     title: t('masterData.titleSkuCatalog'),
     icon: Package,
@@ -38,8 +37,7 @@ const getTypeConfig = (t: any) => ({
       { key: 'theme', label: t('masterData.colTheme'), width: '120px' },
       { key: 'srp', label: t('masterData.colSRP'), width: '120px', render: (v: any) => v ? formatCurrency(v) : '-', mono: true },
     ],
-    searchFields: ['skuCode', 'productName', 'color'],
-  },
+    searchFields: ['skuCode', 'productName', 'color']},
   categories: {
     title: t('masterData.titleCategories'),
     icon: FolderTree,
@@ -51,8 +49,7 @@ const getTypeConfig = (t: any) => ({
       { key: 'subCategories', label: t('masterData.colSubCategories'), render: (v: any) => Array.isArray(v) ? t('masterData.items', { count: v.length }) : '-' },
       { key: 'isActive', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
     ],
-    searchFields: ['code', 'name'],
-  },
+    searchFields: ['code', 'name']},
   subcategories: {
     title: t('masterData.titleSubCategories'),
     icon: Tag,
@@ -63,11 +60,9 @@ const getTypeConfig = (t: any) => ({
       { key: 'parent', label: t('masterData.colParentCategory'), render: (v: any) => v?.name || '-' },
       { key: 'isActive', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
     ],
-    searchFields: ['code', 'name'],
-  },
-});
+    searchFields: ['code', 'name']}});
 
-const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
+const MasterDataScreen = ({ type = 'brands' }: any) => {
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const { isOpen: searchOpen, open: openSearch, close: closeSearch } = useBottomSheet();
@@ -127,9 +122,7 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
     return (
       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
         isActive
-          ? darkMode ? 'bg-[rgba(18,119,73,0.15)] text-[#2A9E6A]' : 'bg-[rgba(18,119,73,0.1)] text-[#127749]'
-          : darkMode ? 'bg-[rgba(248,81,73,0.1)] text-[#FF7B72]' : 'bg-red-50 text-red-600'
-      }`}>
+          ?'bg-[rgba(18,119,73,0.1)] text-[#127749]':'bg-red-50 text-red-600'}`}>
         <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isActive ? 'bg-[#2A9E6A]' : 'bg-red-400'}`} />
         {value}
       </span>
@@ -139,28 +132,20 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
   return (
     <div className="space-y-3">
       {/* Header + Search - Merged compact */}
-      <div className={`rounded-lg border overflow-hidden ${
-        darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'
-      }`} style={{
-        background: darkMode
-          ? 'linear-gradient(135deg, #121212 0%, rgba(215,183,151,0.03) 40%, rgba(215,183,151,0.10) 100%)'
-          : 'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.05) 35%, rgba(215,183,151,0.14) 100%)',
-        boxShadow: `inset 0 -1px 0 ${darkMode ? 'rgba(215,183,151,0.06)' : 'rgba(215,183,151,0.08)'}`,
-      }}>
+      <div className={`rounded-lg border overflow-hidden ${'border-[#C4B5A5]'}`} style={{
+        background:'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.05) 35%, rgba(215,183,151,0.14) 100%)',
+        boxShadow: `inset 0 -1px 0 ${'rgba(215,183,151,0.08)'}`}}>
         <div className="flex flex-wrap items-center justify-between px-3 py-2 gap-2">
           <div className="flex items-center gap-2.5">
             <div className="w-7 h-7 rounded-lg flex items-center justify-center" style={{
-              background: darkMode
-                ? 'linear-gradient(135deg, rgba(215,183,151,0.10) 0%, rgba(215,183,151,0.20) 100%)'
-                : 'linear-gradient(135deg, rgba(160,120,75,0.12) 0%, rgba(160,120,75,0.22) 100%)',
-            }}>
-              <Icon size={14} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} style={darkMode ? { filter: 'drop-shadow(0 0 3px rgba(215,183,151,0.4))' } : undefined} />
+              background:'linear-gradient(135deg, rgba(160,120,75,0.12) 0%, rgba(160,120,75,0.22) 100%)'}}>
+              <Icon size={14} className={'text-[#6B4D30]'} style={undefined} />
             </div>
             <div>
-              <h1 className={`text-sm font-bold font-['Montserrat'] leading-tight ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}>
+              <h1 className={`text-sm font-bold font-['Montserrat'] leading-tight ${'text-[#0A0A0A]'}`}>
                 {config.title}
               </h1>
-              <p className={`text-[10px] font-['JetBrains_Mono'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>
+              <p className={`text-[10px] font-['JetBrains_Mono'] ${'text-[#999999]'}`}>
                 {loading ? t('common.loading') : t('masterData.records', { count: filteredData.length })}
               </p>
             </div>
@@ -171,11 +156,7 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
             {isMobile && (
               <button
                 onClick={openSearch}
-                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-medium ${
-                  darkMode
-                    ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#D7B797]'
-                    : 'bg-white border-[#C4B5A5] text-[#6B4D30]'
-                }`}
+                className={`flex items-center gap-1.5 px-3 py-1.5 border rounded-lg text-xs font-medium ${'bg-white border-[#C4B5A5] text-[#6B4D30]'}`}
               >
                 <Search size={12} />
                 {t('masterData.search')}
@@ -186,22 +167,18 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
             {/* Desktop Inline Search */}
             {!isMobile && (
               <div className="relative">
-                <Search size={13} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${darkMode ? 'text-[#555555]' : 'text-[#999999]'}`} />
+                <Search size={13} className={`absolute left-2.5 top-1/2 -translate-y-1/2 ${'text-[#999999]'}`} />
                 <input
                   type="text"
                   value={searchTerm}
                   onChange={(e: any) => { setSearchTerm(e.target.value); setCurrentPage(1); }}
                   placeholder={`${t('masterData.search')} ${config.title.toLowerCase()}...`}
-                  className={`w-56 pl-8 pr-7 py-1 border rounded-md text-xs font-['Montserrat'] transition-all focus:outline-none focus:ring-1 focus:ring-[#D7B797] ${
-                    darkMode
-                      ? 'bg-[#0A0A0A] border-[#1A1A1A] text-[#F2F2F2] placeholder-[#444444]'
-                      : 'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999999]'
-                  }`}
+                  className={`w-56 pl-8 pr-7 py-1 border rounded-md text-xs font-['Montserrat'] transition-all focus:outline-none focus:ring-1 focus:ring-[#D7B797] ${'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999999]'}`}
                 />
                 {searchTerm && (
                   <button
                     onClick={() => { setSearchTerm(''); setCurrentPage(1); }}
-                    className={`absolute right-2 top-1/2 -translate-y-1/2 ${darkMode ? 'text-[#555555] hover:text-[#999999]' : 'text-[#999999] hover:text-[#666666]'}`}
+                    className={`absolute right-2 top-1/2 -translate-y-1/2 ${'text-[#999999] hover:text-[#666666]'}`}
                   >
                     <X size={12} />
                   </button>
@@ -212,11 +189,7 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
             <button
               onClick={fetchData}
               disabled={loading}
-              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs font-['Montserrat'] transition-all ${
-                darkMode
-                  ? 'text-[#888888] hover:text-[#D7B797] hover:bg-[rgba(215,183,151,0.06)] border border-[#1A1A1A]'
-                  : 'text-[#666666] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)] border border-[#C4B5A5]'
-              }`}
+              className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs font-['Montserrat'] transition-all ${'text-[#666666] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)] border border-[#C4B5A5]'}`}
             >
               <RefreshCw size={12} className={loading ? 'animate-spin' : ''} />
               {!isMobile && t('masterData.refresh')}
@@ -226,17 +199,12 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
       </div>
 
       {/* Data Table */}
-      <div className={`rounded-lg border overflow-hidden ${
-        darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'
-      }`} style={{
-        background: darkMode
-          ? 'linear-gradient(135deg, #121212 0%, rgba(215,183,151,0.02) 40%, rgba(215,183,151,0.06) 100%)'
-          : 'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.03) 35%, rgba(215,183,151,0.08) 100%)',
-      }}>
+      <div className={`rounded-lg border overflow-hidden ${'border-[#C4B5A5]'}`} style={{
+        background:'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.03) 35%, rgba(215,183,151,0.08) 100%)'}}>
         {loading ? (
           <div className="p-10 text-center">
-            <RefreshCw size={24} className={`animate-spin mx-auto mb-3 ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`} />
-            <p className={`text-xs font-['Montserrat'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>{t('masterData.loadingData')}</p>
+            <RefreshCw size={24} className={`animate-spin mx-auto mb-3 ${'text-[#6B4D30]'}`} />
+            <p className={`text-xs font-['Montserrat'] ${'text-[#999999]'}`}>{t('masterData.loadingData')}</p>
           </div>
         ) : error ? (
           <div className="p-10 text-center">
@@ -250,8 +218,8 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
           </div>
         ) : filteredData.length === 0 ? (
           <div className="p-10 text-center">
-            <Icon size={32} className={`mx-auto mb-3 ${darkMode ? 'text-[#2E2E2E]' : 'text-[#2E2E2E]/30'}`} />
-            <p className={`text-xs font-['Montserrat'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>
+            <Icon size={32} className={`mx-auto mb-3 ${'text-[#2E2E2E]/30'}`} />
+            <p className={`text-xs font-['Montserrat'] ${'text-[#999999]'}`}>
               {searchTerm ? t('masterData.noResultsFound') : t('masterData.noDataAvailable')}
             </p>
           </div>
@@ -286,13 +254,10 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
                         subtitle: String(subtitleValue),
                         status: statusValue ? {
                           text: String(statusValue),
-                          variant: (statusValue === t('common.active') ? 'success' : 'error') as any,
-                        } : undefined,
+                          variant: (statusValue === t('common.active') ? 'success' : 'error') as any} : undefined,
                         details: metricCols.map((col: any) => ({
                           label: col.label,
-                          value: String(col.render ? col.render(item[col.key], item) : (item[col.key] || '-')),
-                        })),
-                      };
+                          value: String(col.render ? col.render(item[col.key], item) : (item[col.key] || '-'))}))};
                     })}
                     expandable
                     emptyMessage={searchTerm ? t('masterData.noResultsFound') : t('masterData.noDataAvailable')}
@@ -304,18 +269,14 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
               <div className="overflow-x-auto">
                 <table className="w-full">
                   <thead>
-                    <tr className={darkMode ? 'bg-[#0A0A0A]' : 'bg-[rgba(160,120,75,0.08)]'}>
-                      <th className={`px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] w-10 ${
-                        darkMode ? 'text-[#666666]' : 'text-[#999999]'
-                      }`}>
+                    <tr className={'bg-[rgba(160,120,75,0.08)]'}>
+                      <th className={`px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] w-10 ${'text-[#999999]'}`}>
                         #
                       </th>
                       {config.columns.map((col: any) => (
                         <th
                           key={col.key}
-                          className={`px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${
-                            darkMode ? 'text-[#666666]' : 'text-[#999999]'
-                          }`}
+                          className={`px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#999999]'}`}
                           style={{ width: col.width }}
                         >
                           {col.label}
@@ -327,13 +288,9 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
                     {paginatedData.map((item: any, index: any) => (
                       <tr
                         key={item.id || index}
-                        className={`border-t transition-colors ${
-                          darkMode
-                            ? 'border-[#1A1A1A] hover:bg-[rgba(215,183,151,0.03)]'
-                            : 'border-[#D4C8BB] hover:bg-[rgba(215,183,151,0.05)]'
-                        }`}
+                        className={`border-t transition-colors ${'border-[#D4C8BB] hover:bg-[rgba(215,183,151,0.05)]'}`}
                       >
-                        <td className={`px-3 py-1.5 text-xs font-['JetBrains_Mono'] ${darkMode ? 'text-[#444444]' : 'text-[#BBBBBB]'}`}>
+                        <td className={`px-3 py-1.5 text-xs font-['JetBrains_Mono'] ${'text-[#BBBBBB]'}`}>
                           {(currentPage - 1) * pageSize + index + 1}
                         </td>
                         {config.columns.map((col: any) => {
@@ -345,7 +302,7 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
                               key={col.key}
                               className={`px-3 py-1.5 text-xs ${
                                 col.mono ? "font-['JetBrains_Mono']" : "font-['Montserrat']"
-                              } ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}
+                              } ${'text-[#0A0A0A]'}`}
                             >
                               {col.badge ? renderBadge(displayValue) : displayValue}
                             </td>
@@ -360,31 +317,25 @@ const MasterDataScreen = ({ type = 'brands', darkMode = false }: any) => {
 
             {/* Pagination */}
             {totalPages > 1 && (
-              <div className={`flex items-center justify-between px-3 py-1.5 border-t ${
-                darkMode ? 'border-[#1A1A1A]' : 'border-[#D4C8BB]'
-              }`}>
-                <p className={`text-[10px] font-['JetBrains_Mono'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>
+              <div className={`flex items-center justify-between px-3 py-1.5 border-t ${'border-[#D4C8BB]'}`}>
+                <p className={`text-[10px] font-['JetBrains_Mono'] ${'text-[#999999]'}`}>
                   {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredData.length)} of {filteredData.length}
                 </p>
                 <div className="flex items-center gap-1">
                   <button
                     onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
                     disabled={currentPage === 1}
-                    className={`p-1 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                      darkMode ? 'hover:bg-[rgba(215,183,151,0.06)] text-[#888888]' : 'hover:bg-[rgba(160,120,75,0.12)] text-[#666666]'
-                    }`}
+                    className={`p-1 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${'hover:bg-[rgba(160,120,75,0.12)] text-[#666666]'}`}
                   >
                     <ChevronLeft size={14} />
                   </button>
-                  <span className={`px-2 py-0.5 text-[10px] font-['JetBrains_Mono'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}>
+                  <span className={`px-2 py-0.5 text-[10px] font-['JetBrains_Mono'] ${'text-[#0A0A0A]'}`}>
                     {currentPage} / {totalPages}
                   </span>
                   <button
                     onClick={() => setCurrentPage(p => Math.min(totalPages, p + 1))}
                     disabled={currentPage === totalPages}
-                    className={`p-1 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${
-                      darkMode ? 'hover:bg-[rgba(215,183,151,0.06)] text-[#888888]' : 'hover:bg-[rgba(160,120,75,0.12)] text-[#666666]'
-                    }`}
+                    className={`p-1 rounded-md transition-colors disabled:opacity-30 disabled:cursor-not-allowed ${'hover:bg-[rgba(160,120,75,0.12)] text-[#666666]'}`}
                   >
                     <ChevronRight size={14} />
                   </button>

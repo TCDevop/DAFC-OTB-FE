@@ -1,8 +1,6 @@
 'use client';
-import { useAppContext } from '@/contexts/AppContext';
-import ApprovalWorkflowScreen from '@/screens/ApprovalWorkflowScreen';
+import { ApprovalWorkflowScreen } from '@/features/approvals';
 
 export default function ApprovalConfigPage() {
-  const { darkMode } = useAppContext();
-  return <ApprovalWorkflowScreen darkMode={darkMode} />;
+  return <ApprovalWorkflowScreen />;
 }

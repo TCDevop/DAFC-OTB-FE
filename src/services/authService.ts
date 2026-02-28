@@ -85,6 +85,21 @@ export const authService = {
     return response.data.data || response.data;
   },
 
+  // Login with Microsoft (Azure AD) — send MS access token to backend
+  async loginWithMicrosoft(msAccessToken: string) {
+    const response: any = await api.post('/auth/microsoft', { accessToken: msAccessToken }, {
+      timeout: LOGIN_TIMEOUT,
+    });
+    const { accessToken, refreshToken, user } = response.data.data || response.data;
+
+    if (isBrowser) {
+      localStorage.setItem('accessToken', accessToken);
+      localStorage.setItem('refreshToken', refreshToken);
+    }
+
+    return { accessToken, refreshToken, user };
+  },
+
   // Check if user is authenticated
   isAuthenticated() {
     return isBrowser ? !!localStorage.getItem('accessToken') : false;

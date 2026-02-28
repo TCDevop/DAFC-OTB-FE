@@ -2,7 +2,7 @@
 import { useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/contexts/AuthContext';
-import LoginScreen from '@/screens/LoginScreen';
+import { LoginScreen } from '@/features/auth';
 
 export default function LoginPage() {
   const { isAuthenticated, loading } = useAuth();

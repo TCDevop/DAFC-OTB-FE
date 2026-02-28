@@ -4,3 +4,7 @@ export * from './approvals';
 export * from './master-data';
 export * from './orders';
 export * from './import';
+export * from './dashboard';
+export * from './auth';
+export * from './profile';
+export * from './settings';

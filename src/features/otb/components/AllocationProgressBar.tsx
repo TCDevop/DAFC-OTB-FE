@@ -9,11 +9,10 @@ import { useLanguage } from '@/contexts/LanguageContext';
 interface AllocationProgressBarProps {
   totalBudget: number;
   totalAllocated: number;
-  darkMode?: boolean;
 }
 
 // Tooltip wrapper for currency values
-const CurrencyWithTooltip = ({ value, className, darkMode }: { value: number; className: string; darkMode: boolean }) => {
+const CurrencyWithTooltip = ({ value, className }: { value: number; className: string }) => {
   const [show, setShow] = useState(false);
   return (
     <span
@@ -24,9 +23,7 @@ const CurrencyWithTooltip = ({ value, className, darkMode }: { value: number; cl
       {formatCurrency(value)}
       {show && (
         <span
-          className={`absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 rounded text-[10px] font-['JetBrains_Mono'] whitespace-nowrap pointer-events-none shadow-lg ${
-            darkMode ? 'bg-[#2E2E2E] text-[#F2F2F2] border border-[#3E3E3E]' : 'bg-[#0A0A0A] text-white'
-          }`}
+          className={`absolute z-50 bottom-full left-1/2 -translate-x-1/2 mb-1 px-2 py-0.5 rounded text-[10px] font-['JetBrains_Mono'] whitespace-nowrap pointer-events-none shadow-lg ${'bg-[#0A0A0A] text-white'}`}
         >
           {formatFullCurrency(value)}
         </span>
@@ -37,9 +34,7 @@ const CurrencyWithTooltip = ({ value, className, darkMode }: { value: number; cl
 
 const AllocationProgressBar = ({
   totalBudget,
-  totalAllocated,
-  darkMode = false,
-}: AllocationProgressBarProps) => {
+  totalAllocated}: AllocationProgressBarProps) => {
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
 
@@ -67,25 +62,17 @@ const AllocationProgressBar = ({
   const pctColor = isOver
     ? 'text-[#F85149]'
     : isComplete
-      ? darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'
-      : pct >= 80
-        ? darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'
-        : 'text-[#E3B341]';
+      ?'text-[#127749]': pct >= 80
+        ?'text-[#127749]': 'text-[#E3B341]';
 
   return (
     <div
-      className={`px-3 md:px-6 py-1.5 border-b flex items-center gap-3 ${
-        darkMode
-          ? 'bg-[#121212] border-[#2E2E2E]'
-          : 'bg-white border-[rgba(215,183,151,0.3)]'
-      }`}
+      className={`px-3 md:px-6 py-1.5 border-b flex items-center gap-3 ${'bg-white border-[rgba(215,183,151,0.3)]'}`}
     >
       {/* Bar */}
       <div className="flex-1 min-w-0">
         <div
-          className={`h-2 rounded-full overflow-hidden ${
-            darkMode ? 'bg-[#2E2E2E]' : 'bg-[#E8DDD0]'
-          }`}
+          className={`h-2 rounded-full overflow-hidden ${'bg-[#E8DDD0]'}`}
         >
           <div
             className={`h-full rounded-full transition-all duration-200 ${barColor}`}
@@ -119,20 +106,18 @@ const AllocationProgressBar = ({
 
       {/* Stats with tooltips */}
       <div className="hidden md:flex items-center gap-2 shrink-0">
-        <span className={`text-[10px] ${darkMode ? 'text-[#999]' : 'text-[#666]'}`}>
+        <span className={`text-[10px] ${'text-[#666]'}`}>
           {t('planning.allocated')}:
         </span>
         <CurrencyWithTooltip
           value={totalAllocated}
           className={`text-xs font-semibold font-['JetBrains_Mono'] ${
-            isOver ? 'text-[#F85149]' : darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'
-          }`}
-          darkMode={darkMode}
+            isOver ? 'text-[#F85149]' :'text-[#127749]'}`}
         />
 
-        <span className={darkMode ? 'text-[#2E2E2E]' : 'text-[#C4B5A5]'}>|</span>
+        <span className={'text-[#C4B5A5]'}>|</span>
 
-        <span className={`text-[10px] ${darkMode ? 'text-[#999]' : 'text-[#666]'}`}>
+        <span className={`text-[10px] ${'text-[#666]'}`}>
           {isOver ? t('planning.overBudget') : t('planning.remaining')}:
         </span>
         <CurrencyWithTooltip
@@ -140,24 +125,17 @@ const AllocationProgressBar = ({
           className={`text-xs font-semibold font-['JetBrains_Mono'] ${
             isOver
               ? 'text-[#F85149]'
-              : darkMode
-                ? 'text-[#D7B797]'
-                : 'text-[#6B4D30]'
-          }`}
-          darkMode={darkMode}
+              :'text-[#6B4D30]'}`}
         />
 
-        <span className={darkMode ? 'text-[#2E2E2E]' : 'text-[#C4B5A5]'}>|</span>
+        <span className={'text-[#C4B5A5]'}>|</span>
 
-        <span className={`text-[10px] ${darkMode ? 'text-[#999]' : 'text-[#666]'}`}>
+        <span className={`text-[10px] ${'text-[#666]'}`}>
           {t('planning.totalBudget')}:
         </span>
         <CurrencyWithTooltip
           value={totalBudget}
-          className={`text-xs font-semibold font-['JetBrains_Mono'] ${
-            darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'
-          }`}
-          darkMode={darkMode}
+          className={`text-xs font-semibold font-['JetBrains_Mono'] ${'text-[#0A0A0A]'}`}
         />
       </div>
 
@@ -166,15 +144,12 @@ const AllocationProgressBar = ({
         <CurrencyWithTooltip
           value={totalAllocated}
           className={`text-[10px] font-semibold font-['JetBrains_Mono'] ${
-            isOver ? 'text-[#F85149]' : darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'
-          }`}
-          darkMode={darkMode}
+            isOver ? 'text-[#F85149]' :'text-[#127749]'}`}
         />
-        <span className={`text-[10px] ${darkMode ? 'text-[#666]' : 'text-[#999]'}`}>/</span>
+        <span className={`text-[10px] ${'text-[#999]'}`}>/</span>
         <CurrencyWithTooltip
           value={totalBudget}
-          className={`text-[10px] font-['JetBrains_Mono'] ${darkMode ? 'text-[#999]' : 'text-[#666]'}`}
-          darkMode={darkMode}
+          className={`text-[10px] font-['JetBrains_Mono'] ${'text-[#666]'}`}
         />
       </div>
     </div>

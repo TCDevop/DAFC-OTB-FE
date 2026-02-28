@@ -2,13 +2,12 @@
 import { useState } from 'react';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/contexts/AppContext';
-import SKUProposalScreen from '@/screens/SKUProposalScreen';
-import ProposalDetailPage from '@/screens/ProposalDetailPage';
+import { SKUProposalScreen, ProposalDetailPage } from '@/features/otb';
 import ProposalTicketReview from '@/features/otb/components/ProposalTicketReview';
 
 export default function ProposalPage() {
   const router = useRouter();
-  const { darkMode, skuProposalContext, setSkuProposalContext } = useAppContext();
+  const { skuProposalContext, setSkuProposalContext } = useAppContext();
 
   const [showDetail, setShowDetail] = useState(false);
   const [selectedProposal, setSelectedProposal] = useState<any>(null);
@@ -42,7 +41,6 @@ export default function ProposalPage() {
     return (
       <ProposalTicketReview
         reviewData={reviewData}
-        darkMode={darkMode}
         onBack={() => setReviewData(null)}
         onSubmitted={() => {
           setReviewData(null);
@@ -58,7 +56,6 @@ export default function ProposalPage() {
         proposal={selectedProposal}
         onBack={handleCloseDetail}
         onSave={handleSaveProposal}
-        darkMode={darkMode}
       />
     );
   }
@@ -70,7 +67,6 @@ export default function ProposalPage() {
       onSubmitTicket={handleSubmitTicket}
       skuContext={skuProposalContext}
       onContextUsed={() => setSkuProposalContext(null)}
-      darkMode={darkMode}
     />
   );
 }

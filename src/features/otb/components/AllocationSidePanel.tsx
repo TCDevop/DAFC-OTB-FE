@@ -27,7 +27,6 @@ interface AllocationSidePanelProps {
   selectedVersionId?: string;
   onCompareVersion?: (versionId: string) => void;
   onRollbackVersion?: (versionId: string) => void;
-  darkMode?: boolean;
 }
 
 const AllocationSidePanel = ({
@@ -37,9 +36,7 @@ const AllocationSidePanel = ({
   versions,
   selectedVersionId,
   onCompareVersion,
-  onRollbackVersion,
-  darkMode = false,
-}: AllocationSidePanelProps) => {
+  onRollbackVersion}: AllocationSidePanelProps) => {
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const [activeTab, setActiveTab] = useState<'validation' | 'history'>('validation');
@@ -52,9 +49,7 @@ const AllocationSidePanel = ({
       {/* Header */}
       {!isMobile && (
         <div
-          className={`flex items-center justify-between px-3 py-2 border-b ${
-            darkMode ? 'border-[#2E2E2E]' : 'border-[rgba(215,183,151,0.3)]'
-          }`}
+          className={`flex items-center justify-between px-3 py-2 border-b ${'border-[rgba(215,183,151,0.3)]'}`}
         >
           <div className="flex items-center gap-1">
             {/* Tab buttons */}
@@ -62,13 +57,7 @@ const AllocationSidePanel = ({
               onClick={() => setActiveTab('validation')}
               className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                 activeTab === 'validation'
-                  ? darkMode
-                    ? 'bg-[rgba(215,183,151,0.15)] text-[#D7B797]'
-                    : 'bg-[rgba(160,120,75,0.18)] text-[#6B4D30]'
-                  : darkMode
-                    ? 'text-[#999] hover:text-[#F2F2F2]'
-                    : 'text-[#666] hover:text-[#0A0A0A]'
-              }`}
+                  ?'bg-[rgba(160,120,75,0.18)] text-[#6B4D30]':'text-[#666] hover:text-[#0A0A0A]'}`}
             >
               {t('planning.validation')}
               {errors.length > 0 && (
@@ -81,24 +70,14 @@ const AllocationSidePanel = ({
               onClick={() => setActiveTab('history')}
               className={`px-2 py-1 rounded text-xs font-medium transition-colors ${
                 activeTab === 'history'
-                  ? darkMode
-                    ? 'bg-[rgba(215,183,151,0.15)] text-[#D7B797]'
-                    : 'bg-[rgba(160,120,75,0.18)] text-[#6B4D30]'
-                  : darkMode
-                    ? 'text-[#999] hover:text-[#F2F2F2]'
-                    : 'text-[#666] hover:text-[#0A0A0A]'
-              }`}
+                  ?'bg-[rgba(160,120,75,0.18)] text-[#6B4D30]':'text-[#666] hover:text-[#0A0A0A]'}`}
             >
               {t('planning.history')}
             </button>
           </div>
           <button
             onClick={onClose}
-            className={`p-1 rounded transition-colors ${
-              darkMode
-                ? 'text-[#999] hover:text-[#F2F2F2] hover:bg-[rgba(215,183,151,0.08)]'
-                : 'text-[#666] hover:text-[#0A0A0A] hover:bg-[rgba(160,120,75,0.12)]'
-            }`}
+            className={`p-1 rounded transition-colors ${'text-[#666] hover:text-[#0A0A0A] hover:bg-[rgba(160,120,75,0.12)]'}`}
           >
             <X size={14} />
           </button>
@@ -108,18 +87,13 @@ const AllocationSidePanel = ({
       {/* Mobile tab bar */}
       {isMobile && (
         <div
-          className={`flex border-b ${
-            darkMode ? 'border-[#2E2E2E]' : 'border-[rgba(215,183,151,0.3)]'
-          }`}
+          className={`flex border-b ${'border-[rgba(215,183,151,0.3)]'}`}
         >
           <button
             onClick={() => setActiveTab('validation')}
             className={`flex-1 py-2 text-xs font-medium text-center border-b-2 transition-colors ${
               activeTab === 'validation'
-                ? darkMode
-                  ? 'border-[#D7B797] text-[#D7B797]'
-                  : 'border-[#6B4D30] text-[#6B4D30]'
-                : 'border-transparent ' + (darkMode ? 'text-[#999]' : 'text-[#666]')
+                ?'border-[#6B4D30] text-[#6B4D30]': 'border-transparent ' + ('text-[#666]')
             }`}
           >
             {t('planning.validation')}
@@ -133,10 +107,7 @@ const AllocationSidePanel = ({
             onClick={() => setActiveTab('history')}
             className={`flex-1 py-2 text-xs font-medium text-center border-b-2 transition-colors ${
               activeTab === 'history'
-                ? darkMode
-                  ? 'border-[#D7B797] text-[#D7B797]'
-                  : 'border-[#6B4D30] text-[#6B4D30]'
-                : 'border-transparent ' + (darkMode ? 'text-[#999]' : 'text-[#666]')
+                ?'border-[#6B4D30] text-[#6B4D30]': 'border-transparent ' + ('text-[#666]')
             }`}
           >
             {t('planning.history')}
@@ -152,12 +123,10 @@ const AllocationSidePanel = ({
               <div className="flex flex-col items-center py-8 text-center">
                 <CheckCircle
                   size={32}
-                  className={darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'}
+                  className={'text-[#127749]'}
                 />
                 <span
-                  className={`text-xs mt-2 ${
-                    darkMode ? 'text-[#999]' : 'text-[#666]'
-                  }`}
+                  className={`text-xs mt-2 ${'text-[#666]'}`}
                 >
                   {t('planning.noErrors')}
                 </span>
@@ -168,11 +137,7 @@ const AllocationSidePanel = ({
             {errors.map((issue) => (
               <div
                 key={issue.key}
-                className={`flex items-start gap-2 p-2 rounded-lg border ${
-                  darkMode
-                    ? 'bg-[rgba(248,81,73,0.08)] border-[rgba(248,81,73,0.2)]'
-                    : 'bg-red-50 border-red-200'
-                }`}
+                className={`flex items-start gap-2 p-2 rounded-lg border ${'bg-red-50 border-red-200'}`}
               >
                 <AlertCircle size={14} className="text-[#F85149] shrink-0 mt-0.5" />
                 <span className="text-xs text-[#F85149]">
@@ -185,14 +150,10 @@ const AllocationSidePanel = ({
             {warnings.map((issue) => (
               <div
                 key={issue.key}
-                className={`flex items-start gap-2 p-2 rounded-lg border ${
-                  darkMode
-                    ? 'bg-[rgba(227,179,65,0.08)] border-[rgba(227,179,65,0.2)]'
-                    : 'bg-amber-50 border-amber-200'
-                }`}
+                className={`flex items-start gap-2 p-2 rounded-lg border ${'bg-amber-50 border-amber-200'}`}
               >
                 <AlertTriangle size={14} className="text-[#E3B341] shrink-0 mt-0.5" />
-                <span className={`text-xs ${darkMode ? 'text-[#E3B341]' : 'text-amber-700'}`}>
+                <span className={`text-xs ${'text-amber-700'}`}>
                   {t(issue.message, issue.params)}
                 </span>
               </div>
@@ -204,11 +165,9 @@ const AllocationSidePanel = ({
           <div className="space-y-0">
             {versions.length === 0 && (
               <div className="flex flex-col items-center py-8 text-center">
-                <Clock size={32} className={darkMode ? 'text-[#999]' : 'text-[#666]'} />
+                <Clock size={32} className={'text-[#666]'} />
                 <span
-                  className={`text-xs mt-2 ${
-                    darkMode ? 'text-[#999]' : 'text-[#666]'
-                  }`}
+                  className={`text-xs mt-2 ${'text-[#666]'}`}
                 >
                   {t('planning.noVersions')}
                 </span>
@@ -223,9 +182,7 @@ const AllocationSidePanel = ({
                   key={version.id}
                   className={`relative pl-5 py-2 ${
                     i < versions.length - 1
-                      ? `border-l-2 ml-1.5 ${
-                          darkMode ? 'border-[#2E2E2E]' : 'border-[#D4C8BB]'
-                        }`
+                      ? `border-l-2 ml-1.5 ${'border-[#D4C8BB]'}`
                       : 'ml-1.5'
                   }`}
                 >
@@ -235,13 +192,7 @@ const AllocationSidePanel = ({
                       isSelected
                         ? 'bg-[#127749] border-[#2A9E6A]'
                         : version.isFinal
-                          ? darkMode
-                            ? 'bg-[#D7B797] border-[#D7B797]'
-                            : 'bg-[#6B4D30] border-[#6B4D30]'
-                          : darkMode
-                            ? 'bg-[#2E2E2E] border-[#666]'
-                            : 'bg-white border-[#C4B5A5]'
-                    }`}
+                          ?'bg-[#6B4D30] border-[#6B4D30]':'bg-white border-[#C4B5A5]'}`}
                   />
 
                   <div className="flex items-start justify-between gap-2">
@@ -251,10 +202,7 @@ const AllocationSidePanel = ({
                           className={`text-xs font-semibold font-['Montserrat'] ${
                             isSelected
                               ? 'text-[#127749]'
-                              : darkMode
-                                ? 'text-[#F2F2F2]'
-                                : 'text-[#0A0A0A]'
-                          }`}
+                              :'text-[#0A0A0A]'}`}
                         >
                           {version.name}
                         </span>
@@ -269,19 +217,14 @@ const AllocationSidePanel = ({
                               ? 'bg-[rgba(18,119,73,0.15)] text-[#127749]'
                               : version.status?.toLowerCase() === 'submitted'
                                 ? 'bg-[rgba(227,179,65,0.15)] text-[#E3B341]'
-                                : darkMode
-                                  ? 'bg-[#2E2E2E] text-[#999]'
-                                  : 'bg-[#F2F2F2] text-[#666]'
-                          }`}
+                                :'bg-[#F2F2F2] text-[#666]'}`}
                         >
                           {version.status}
                         </span>
                       </div>
                       {(version.createdAt || version.createdBy) && (
                         <span
-                          className={`text-[10px] ${
-                            darkMode ? 'text-[#999]' : 'text-[#666]'
-                          }`}
+                          className={`text-[10px] ${'text-[#666]'}`}
                         >
                           {version.createdAt}
                           {version.createdBy && ` ${t('planning.versionBy')} ${version.createdBy}`}
@@ -295,11 +238,7 @@ const AllocationSidePanel = ({
                         {onCompareVersion && (
                           <button
                             onClick={() => onCompareVersion(version.id)}
-                            className={`p-1 rounded text-[10px] font-medium transition-colors ${
-                              darkMode
-                                ? 'text-[#D7B797] hover:bg-[rgba(215,183,151,0.08)]'
-                                : 'text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'
-                            }`}
+                            className={`p-1 rounded text-[10px] font-medium transition-colors ${'text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
                             title={t('planning.compareVersions')}
                           >
                             <GitCompare size={12} />
@@ -308,11 +247,7 @@ const AllocationSidePanel = ({
                         {onRollbackVersion && version.status?.toLowerCase() === 'draft' && (
                           <button
                             onClick={() => onRollbackVersion(version.id)}
-                            className={`p-1 rounded text-[10px] font-medium transition-colors ${
-                              darkMode
-                                ? 'text-[#999] hover:text-[#E3B341] hover:bg-[rgba(227,179,65,0.08)]'
-                                : 'text-[#666] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'
-                            }`}
+                            className={`p-1 rounded text-[10px] font-medium transition-colors ${'text-[#666] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
                             title={t('planning.rollbackVersion')}
                           >
                             <RotateCcw size={12} />
@@ -349,11 +284,7 @@ const AllocationSidePanel = ({
     <div
       className={`fixed top-0 right-0 h-full w-80 z-40 border-l shadow-xl transition-transform duration-200 ease-out ${
         isOpen ? 'translate-x-0' : 'translate-x-full'
-      } ${
-        darkMode
-          ? 'bg-[#121212] border-[#2E2E2E]'
-          : 'bg-white border-[rgba(215,183,151,0.3)]'
-      }`}
+      } ${'bg-white border-[rgba(215,183,151,0.3)]'}`}
     >
       {content}
     </div>

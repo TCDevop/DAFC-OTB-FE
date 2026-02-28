@@ -1,11 +1,9 @@
 'use client';
 import { useRouter } from 'next/navigation';
-import { useAppContext } from '@/contexts/AppContext';
-import TicketScreen from '@/screens/TicketScreen';
+import { TicketScreen } from '@/features/tickets';
 
 export default function TicketsPage() {
   const router = useRouter();
-  const { darkMode } = useAppContext();
 
   const handleOpenTicketDetail = (ticket: any) => {
     sessionStorage.setItem('selectedTicket', JSON.stringify(ticket));
@@ -15,7 +13,6 @@ export default function TicketsPage() {
   return (
     <TicketScreen
       onOpenTicketDetail={handleOpenTicketDetail}
-      darkMode={darkMode}
     />
   );
 }

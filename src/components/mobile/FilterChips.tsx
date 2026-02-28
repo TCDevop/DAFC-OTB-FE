@@ -67,7 +67,7 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
               flex-shrink-0
               ${active
                 ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25'
-                : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                : 'bg-gray-100 text-gray-700'
               }
             `}
           >
@@ -95,8 +95,8 @@ export const FilterChips: React.FC<FilterChipsProps> = ({
         onClick={onMorePress}
         className="
           flex items-center gap-1.5 px-3 h-9 rounded-xl
-          bg-gray-100 dark:bg-gray-800 
-          text-gray-700 dark:text-gray-300
+          bg-gray-100
+          text-gray-700
           text-[13px] font-medium whitespace-nowrap
           flex-shrink-0
           transition-all duration-200
@@ -152,7 +152,7 @@ export const FloatingActionButton: React.FC<FloatingActionButtonProps> = ({
 
   const variantClasses = {
     primary: 'bg-gradient-to-r from-amber-500 to-amber-400 text-white shadow-lg shadow-amber-500/40',
-    secondary: 'bg-white dark:bg-gray-800 text-gray-900 dark:text-white shadow-xl border border-gray-200 dark:border-gray-700',
+    secondary: 'bg-white text-gray-900 shadow-xl border border-gray-200',
   };
 
   const defaultIcon = (
@@ -230,7 +230,7 @@ export const MobileSearchBar: React.FC<MobileSearchBarProps> = ({
           />
         </svg>
       </div>
-      
+
       <input
         type="text"
         value={value}
@@ -239,9 +239,9 @@ export const MobileSearchBar: React.FC<MobileSearchBarProps> = ({
         autoFocus={autoFocus}
         className="
           w-full h-11 pl-10 pr-10
-          bg-gray-100 dark:bg-gray-800
+          bg-gray-100
           rounded-xl
-          text-[15px] text-gray-900 dark:text-white
+          text-[15px] text-gray-900
           placeholder:text-gray-400
           focus:outline-none focus:ring-2 focus:ring-amber-500/50
           transition-all duration-200
@@ -252,10 +252,10 @@ export const MobileSearchBar: React.FC<MobileSearchBarProps> = ({
         <button
           type="button"
           onClick={() => onChange('')}
-          className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-300 dark:bg-gray-600 flex items-center justify-center"
+          className="absolute right-3 top-1/2 -translate-y-1/2 w-5 h-5 rounded-full bg-gray-300 flex items-center justify-center"
         >
           <svg
-            className="w-3 h-3 text-gray-600 dark:text-gray-300"
+            className="w-3 h-3 text-gray-600"
             fill="none"
             viewBox="0 0 24 24"
             stroke="currentColor"

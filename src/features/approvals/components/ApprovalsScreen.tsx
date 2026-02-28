@@ -27,14 +27,12 @@ const STATUS_CONFIG: any = {
   APPROVED: { color: '#2A9E6A', bg: 'rgba(42,158,106,0.12)', label: 'Approved' },
   LEVEL1_REJECTED: { color: '#F85149', bg: 'rgba(248,81,73,0.12)', label: 'Rejected' },
   LEVEL2_REJECTED: { color: '#F85149', bg: 'rgba(248,81,73,0.12)', label: 'Rejected' },
-  REJECTED: { color: '#F85149', bg: 'rgba(248,81,73,0.12)', label: 'Rejected' },
-};
+  REJECTED: { color: '#F85149', bg: 'rgba(248,81,73,0.12)', label: 'Rejected' }};
 
 const ENTITY_ICONS: any = {
   budget: Wallet,
   planning: BarChart3,
-  proposal: Package,
-};
+  proposal: Package};
 
 /* Helper: extract display name & brand from any pending approval item */
 const getItemDisplayInfo = (item: any) => {
@@ -54,7 +52,7 @@ const getItemDisplayInfo = (item: any) => {
 /* ═══════════════════════════════════════════════
    MAIN SCREEN
 ═══════════════════════════════════════════════ */
-const ApprovalsScreen = ({ darkMode }: any) => {
+const ApprovalsScreen = ({  }: any) => {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
@@ -111,8 +109,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
     const routes: Record<string, string> = {
       budget: `/budget-management?highlight=${item.entityId}`,
       planning: `/planning/${item.entityId}`,
-      proposal: `/proposal/${item.entityId}`,
-    };
+      proposal: `/proposal/${item.entityId}`};
     const path = routes[item.entityType];
     if (path) router.push(path);
   };
@@ -218,29 +215,25 @@ const ApprovalsScreen = ({ darkMode }: any) => {
       ].filter((b: any) => b.value > 0),
       l1Pct: total > 0 ? Math.round((l1 / total) * 100) : 0,
       l2Pct: total > 0 ? Math.round((l2 / total) * 100) : 0,
-      budgetPct: total > 0 ? Math.round((budgets / total) * 100) : 0,
-    };
+      budgetPct: total > 0 ? Math.round((budgets / total) * 100) : 0};
   }, [items, t]);
 
-  const bg = darkMode ? 'bg-[#0A0A0A]' : 'bg-gray-50';
-  const cardBg = darkMode ? 'bg-[#121212]' : 'bg-white';
-  const border = darkMode ? 'border-[#2E2E2E]' : 'border-gray-300';
-  const textPrimary = darkMode ? 'text-[#F2F2F2]' : 'text-gray-900';
-  const textSecondary = darkMode ? 'text-[#999999]' : 'text-gray-700';
-  const textMuted = darkMode ? 'text-[#666666]' : 'text-gray-600';
+  const bg ='bg-gray-50';
+  const cardBg ='bg-white';
+  const border ='border-gray-300';
+  const textPrimary ='text-gray-900';
+  const textSecondary ='text-gray-700';
+  const textMuted ='text-gray-600';
 
   return (
     <div className={`min-h-screen ${bg} p-2 md:p-4`}>
       {/* Compact Header + Filters */}
       <div className={`border ${border} rounded-xl px-2 md:px-3 py-2 mb-3`} style={{
-        background: darkMode
-          ? 'linear-gradient(135deg, #121212 0%, rgba(215,183,151,0.03) 40%, rgba(215,183,151,0.10) 100%)'
-          : 'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.04) 35%, rgba(215,183,151,0.12) 100%)',
-        boxShadow: `inset 0 -1px 0 ${darkMode ? 'rgba(215,183,151,0.08)' : 'rgba(215,183,151,0.05)'}`,
-      }}>
+        background:'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.04) 35%, rgba(215,183,151,0.12) 100%)',
+        boxShadow: `inset 0 -1px 0 ${'rgba(215,183,151,0.05)'}`}}>
         <div className="flex flex-wrap items-center gap-2 md:gap-3">
-          <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${darkMode ? 'bg-[rgba(215,183,151,0.1)]' : 'bg-[rgba(215,183,151,0.15)]'}`}>
-            <FileCheck size={14} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+          <div className={`w-7 h-7 rounded-lg flex items-center justify-center flex-shrink-0 ${'bg-[rgba(215,183,151,0.15)]'}`}>
+            <FileCheck size={14} className={'text-[#6B4D30]'} />
           </div>
           <div className="flex-shrink-0">
             <h1 className={`text-sm font-semibold font-['Montserrat'] ${textPrimary} leading-tight`}>
@@ -256,7 +249,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
             {isMobile && (
               <button
                 onClick={openFilterSheet}
-                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${border} text-xs font-medium font-['Montserrat'] ${darkMode ? 'text-[#D7B797] bg-[#1A1A1A]' : 'text-[#6B4D30] bg-gray-50'}`}
+                className={`flex items-center gap-1.5 px-2.5 py-1 rounded-lg border ${border} text-xs font-medium font-['Montserrat'] ${'text-[#6B4D30] bg-gray-50'}`}
               >
                 <Filter size={12} />
                 {t('budget.filters')}
@@ -269,7 +262,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
             {/* Desktop filters */}
             {!isMobile && (
             <>
-            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${border} ${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-50'} w-48`}>
+            <div className={`flex items-center gap-1.5 px-2 py-1 rounded-lg border ${border} ${'bg-gray-50'} w-48`}>
               <Search size={12} className={textMuted} />
               <input
                 type="text"
@@ -289,7 +282,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
               <select
                 value={entityFilter}
                 onChange={(e: any) => setEntityFilter(e.target.value)}
-                className={`appearance-none px-2 py-1 pr-6 rounded-lg border ${border} ${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-50'} text-xs font-['Montserrat'] ${textPrimary} outline-none cursor-pointer`}
+                className={`appearance-none px-2 py-1 pr-6 rounded-lg border ${border} ${'bg-gray-50'} text-xs font-['Montserrat'] ${textPrimary} outline-none cursor-pointer`}
               >
                 <option value="all">{t('approvals.allTypes')}</option>
                 <option value="budget">{t('approvals.typeBudget')}</option>
@@ -303,7 +296,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
               <select
                 value={levelFilter}
                 onChange={(e: any) => setLevelFilter(e.target.value)}
-                className={`appearance-none px-2 py-1 pr-6 rounded-lg border ${border} ${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-50'} text-xs font-['Montserrat'] ${textPrimary} outline-none cursor-pointer`}
+                className={`appearance-none px-2 py-1 pr-6 rounded-lg border ${border} ${'bg-gray-50'} text-xs font-['Montserrat'] ${textPrimary} outline-none cursor-pointer`}
               >
                 <option value="all">{t('approvals.allLevels')}</option>
                 <option value="1">Level 1</option>
@@ -316,7 +309,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
 
             <button
               onClick={fetchPendingApprovals}
-              className={`px-2.5 py-1 rounded-lg border ${border} text-xs font-medium font-['Montserrat'] transition-all ${darkMode ? 'text-[#D7B797] hover:bg-[rgba(215,183,151,0.08)]' : 'text-[#6B4D30] hover:bg-[rgba(215,183,151,0.1)]'}`}
+              className={`px-2.5 py-1 rounded-lg border ${border} text-xs font-medium font-['Montserrat'] transition-all ${'text-[#6B4D30] hover:bg-[rgba(215,183,151,0.1)]'}`}
             >
               {t('common.refresh')}
             </button>
@@ -330,7 +323,6 @@ const ApprovalsScreen = ({ darkMode }: any) => {
           title={t('approvals.totalPending')}
           value={stats.total}
           sub={t('approvals.awaitingReview')}
-          darkMode={darkMode}
           icon={Clock}
           accent="amber"
           breakdown={stats.entityBreakdown}
@@ -340,7 +332,6 @@ const ApprovalsScreen = ({ darkMode }: any) => {
           title={t('approvals.level1Pending')}
           value={stats.l1}
           sub={t('approvals.initialReview')}
-          darkMode={darkMode}
           icon={Shield}
           accent="blue"
           progress={stats.l1Pct}
@@ -351,7 +342,6 @@ const ApprovalsScreen = ({ darkMode }: any) => {
           title={t('approvals.level2Pending')}
           value={stats.l2}
           sub={t('approvals.finalApproval')}
-          darkMode={darkMode}
           icon={FileCheck}
           accent="emerald"
           progress={stats.l2Pct}
@@ -365,7 +355,6 @@ const ApprovalsScreen = ({ darkMode }: any) => {
           title={t('approvals.budgetItems')}
           value={stats.budgets}
           sub={t('approvals.budgetRequests')}
-          darkMode={darkMode}
           icon={ArrowUpRight}
           accent="gold"
           progress={stats.budgetPct}
@@ -375,7 +364,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
 
       {/* Bulk Action Toolbar */}
       {selectedIds.size > 0 && (
-        <div className={`border ${border} rounded-xl px-3 py-2 mb-3 flex flex-wrap items-center gap-2 ${darkMode ? 'bg-[#1A1A1A]' : 'bg-white'}`}>
+        <div className={`border ${border} rounded-xl px-3 py-2 mb-3 flex flex-wrap items-center gap-2 ${'bg-white'}`}>
           <span className={`text-xs font-semibold font-['Montserrat'] ${textPrimary}`}>
             {selectedIds.size} {t('approvals.itemsSelected')}
           </span>
@@ -399,7 +388,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
             <button
               disabled={bulkProcessing}
               onClick={deselectAll}
-              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${border} text-xs font-medium font-['Montserrat'] transition-colors ${darkMode ? 'text-[#999999] hover:bg-[#2E2E2E]' : 'text-gray-600 hover:bg-gray-100'} disabled:opacity-50 disabled:cursor-not-allowed`}
+              className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg border ${border} text-xs font-medium font-['Montserrat'] transition-colors ${'text-gray-600 hover:bg-gray-100'} disabled:opacity-50 disabled:cursor-not-allowed`}
             >
               <X size={13} />
               {t('approvals.deselectAll')}
@@ -410,13 +399,10 @@ const ApprovalsScreen = ({ darkMode }: any) => {
 
       {/* Table */}
       <div className={`border ${border} rounded-xl overflow-hidden`} style={{
-        background: darkMode
-          ? 'linear-gradient(135deg, #121212 0%, rgba(215,183,151,0.02) 40%, rgba(215,183,151,0.06) 100%)'
-          : 'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.03) 35%, rgba(215,183,151,0.08) 100%)',
-      }}>
+        background:'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.03) 35%, rgba(215,183,151,0.08) 100%)'}}>
         {loading ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <Loader2 size={32} className={`animate-spin ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`} />
+            <Loader2 size={32} className={`animate-spin ${'text-[#6B4D30]'}`} />
             <p className={`text-sm mt-3 ${textSecondary}`}>{t('approvals.loadingApprovals')}</p>
           </div>
         ) : error ? (
@@ -429,7 +415,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
           </div>
         ) : filtered.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-20">
-            <CheckCircle size={48} className={`${darkMode ? 'text-[#2A9E6A]' : 'text-green-500'}`} />
+            <CheckCircle size={48} className={`${'text-green-500'}`} />
             <p className={`text-base font-semibold mt-4 font-['Montserrat'] ${textPrimary}`}>{t('approvals.allCaughtUp')}</p>
             <p className={`text-sm mt-1 ${textSecondary}`}>{t('approvals.noPendingItems')}</p>
           </div>
@@ -440,12 +426,12 @@ const ApprovalsScreen = ({ darkMode }: any) => {
               {/* Mobile Select All */}
               <button
                 onClick={toggleSelectAll}
-                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium font-['Montserrat'] ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}
+                className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-xs font-medium font-['Montserrat'] ${'text-[#6B4D30]'}`}
               >
                 {selectedIds.size === filtered.length && filtered.length > 0
-                  ? <CheckSquare size={16} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+                  ? <CheckSquare size={16} className={'text-[#6B4D30]'} />
                   : selectedIds.size > 0
-                    ? <MinusSquare size={16} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+                    ? <MinusSquare size={16} className={'text-[#6B4D30]'} />
                     : <Square size={16} />
                 }
                 {t('approvals.selectAll')}
@@ -461,12 +447,12 @@ const ApprovalsScreen = ({ darkMode }: any) => {
                 return (
                   <div
                     key={`${item.entityType}-${item.entityId}-${idx}`}
-                    className={`flex items-start gap-2 p-3 rounded-xl border ${border} transition-colors ${isSelected ? (darkMode ? 'bg-[rgba(215,183,151,0.06)] border-[#D7B797]' : 'bg-[rgba(215,183,151,0.08)] border-[#6B4D30]') : (darkMode ? 'bg-[#1A1A1A]' : 'bg-white')}`}
+                    className={`flex items-start gap-2 p-3 rounded-xl border ${border} transition-colors ${isSelected ? ('bg-[rgba(215,183,151,0.08)] border-[#6B4D30]') : ('bg-white')}`}
                   >
                     {/* Checkbox */}
                     <button onClick={() => toggleSelect(itemKey)} className="flex-shrink-0 mt-0.5" aria-label={`Select ${name}`}>
                       {isSelected
-                        ? <CheckSquare size={18} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+                        ? <CheckSquare size={18} className={'text-[#6B4D30]'} />
                         : <Square size={18} className={textMuted} />
                       }
                     </button>
@@ -509,13 +495,13 @@ const ApprovalsScreen = ({ darkMode }: any) => {
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className={`${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-50'} border-b ${border}`}>
+                <tr className={`${'bg-gray-50'} border-b ${border}`}>
                   <th className="px-3 py-2 w-8">
                     <button onClick={toggleSelectAll} className={`flex items-center justify-center ${textMuted} hover:text-[#D7B797] transition-colors`} aria-label="Select all approvals">
                       {selectedIds.size === filtered.length && filtered.length > 0
-                        ? <CheckSquare size={16} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+                        ? <CheckSquare size={16} className={'text-[#6B4D30]'} />
                         : selectedIds.size > 0
-                          ? <MinusSquare size={16} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+                          ? <MinusSquare size={16} className={'text-[#6B4D30]'} />
                           : <Square size={16} />
                       }
                     </button>
@@ -539,13 +525,13 @@ const ApprovalsScreen = ({ darkMode }: any) => {
                   return (
                     <tr
                       key={`${item.entityType}-${item.entityId}-${idx}`}
-                      className={`border-b ${border} transition-colors ${isSelected ? (darkMode ? 'bg-[rgba(215,183,151,0.06)]' : 'bg-[rgba(215,183,151,0.08)]') : (darkMode ? 'hover:bg-[#1A1A1A]' : 'hover:bg-gray-50')}`}
+                      className={`border-b ${border} transition-colors ${isSelected ? ('bg-[rgba(215,183,151,0.08)]') : ('hover:bg-gray-50')}`}
                     >
                       {/* Checkbox */}
                       <td className="px-3 py-1.5 w-8">
                         <button onClick={() => toggleSelect(itemKey)} className={`flex items-center justify-center ${textMuted} hover:text-[#D7B797] transition-colors`} aria-label={`Select ${name}`}>
                           {isSelected
-                            ? <CheckSquare size={16} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+                            ? <CheckSquare size={16} className={'text-[#6B4D30]'} />
                             : <Square size={16} />
                           }
                         </button>
@@ -554,7 +540,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
                       {/* Type */}
                       <td className="px-3 py-1.5">
                         <div className="flex items-center gap-2">
-                          {(() => { const Icon = ENTITY_ICONS[item.entityType] || ClipboardList; return <Icon size={16} strokeWidth={2} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />; })()}
+                          {(() => { const Icon = ENTITY_ICONS[item.entityType] || ClipboardList; return <Icon size={16} strokeWidth={2} className={'text-[#6B4D30]'} />; })()}
                           <span className={`text-sm font-medium font-['Montserrat'] capitalize ${textPrimary}`}>
                             {item.entityType}
                           </span>
@@ -577,8 +563,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
                           className="inline-flex items-center gap-1 px-2.5 py-1 rounded-full text-xs font-semibold font-['JetBrains_Mono']"
                           style={{
                             color: item.level === 1 ? '#58A6FF' : '#A371F7',
-                            backgroundColor: item.level === 1 ? 'rgba(88,166,255,0.12)' : 'rgba(163,113,247,0.12)',
-                          }}
+                            backgroundColor: item.level === 1 ? 'rgba(88,166,255,0.12)' : 'rgba(163,113,247,0.12)'}}
                         >
                           L{item.level}
                         </span>
@@ -606,7 +591,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
                       <td className="px-3 py-1.5">
                         <button
                           onClick={() => navigateToEntity(item)}
-                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] transition-all ${darkMode ? 'bg-[rgba(215,183,151,0.1)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.18)]' : 'bg-[rgba(160,120,75,0.1)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`}
+                          className={`flex items-center gap-1 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] transition-all ${'bg-[rgba(160,120,75,0.1)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`}
                         >
                           <Eye size={13} />
                           {t('common.view')}
@@ -635,8 +620,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
               { value: 'budget', label: t('approvals.typeBudget') },
               { value: 'planning', label: t('approvals.typePlanning') },
               { value: 'proposal', label: t('approvals.typeProposal') },
-            ],
-          },
+            ]},
           {
             key: 'levelFilter',
             label: t('approvals.allLevels'),
@@ -645,8 +629,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
             options: [
               { value: '1', label: 'Level 1' },
               { value: '2', label: 'Level 2' },
-            ],
-          },
+            ]},
         ]}
         values={mobileFilterValues}
         onChange={(key, value) => {
@@ -672,7 +655,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
                 <h3 className={`text-lg font-bold font-['Montserrat'] ${textPrimary}`}>
                   {t('approvals.rejectReason') || 'Rejection Reason'}
                 </h3>
-                <button onClick={() => { setBulkRejectModalOpen(false); setBulkRejectComment(''); }} className={`p-1.5 rounded-lg ${darkMode ? 'hover:bg-[#1A1A1A]' : 'hover:bg-gray-100'}`} aria-label="Close rejection dialog">
+                <button onClick={() => { setBulkRejectModalOpen(false); setBulkRejectComment(''); }} className={`p-1.5 rounded-lg ${'hover:bg-gray-100'}`} aria-label="Close rejection dialog">
                   <X size={18} className={textMuted} />
                 </button>
               </div>
@@ -685,7 +668,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
                 value={bulkRejectComment}
                 onChange={(e: any) => setBulkRejectComment(e.target.value)}
                 rows={3}
-                className={`w-full px-3 py-2 rounded-xl border ${border} ${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-50'} text-sm font-['Montserrat'] ${textPrimary} outline-none resize-none focus:border-[#D7B797]`}
+                className={`w-full px-3 py-2 rounded-xl border ${border} ${'bg-gray-50'} text-sm font-['Montserrat'] ${textPrimary} outline-none resize-none focus:border-[#D7B797]`}
                 placeholder={t('approvals.rejectCommentPlaceholder') || 'Enter reason for rejection...'}
                 autoFocus
               />
@@ -693,7 +676,7 @@ const ApprovalsScreen = ({ darkMode }: any) => {
             <div className={`p-5 border-t ${border} flex justify-end gap-3`}>
               <button
                 onClick={() => { setBulkRejectModalOpen(false); setBulkRejectComment(''); }}
-                className={`px-4 py-2 rounded-xl border ${border} text-sm font-medium font-['Montserrat'] ${textSecondary} transition-all ${darkMode ? 'hover:bg-[#1A1A1A]' : 'hover:bg-gray-100'}`}
+                className={`px-4 py-2 rounded-xl border ${border} text-sm font-medium font-['Montserrat'] ${textSecondary} transition-all ${'hover:bg-gray-100'}`}
               >
                 {t('common.cancel') || 'Cancel'}
               </button>

@@ -163,30 +163,12 @@ export function useBudgetAllocateSave({
         }
       }
 
-      console.log('[useBudgetAllocateSave] buildAllocations', {
-        brandId,
-        headerId,
-        nameToIdSize: nameToId.size,
-        allocationsBuilt: allocations.length,
-        allocationValueKeys: Object.keys(allocationValues).filter(k => k.startsWith(prefix)),
-      });
-
       return allocations;
     },
     [allocateHeaders, allocationValues, stores, seasonGroups],
   );
 
   const save = useCallback(async () => {
-    console.log('[useBudgetAllocateSave] save called', {
-      budgetId,
-      displayBrands: displayBrands.length,
-      brandVersionMap,
-      allocateHeaders: allocateHeaders.length,
-      seasonGroups: seasonGroups.length,
-      stores: stores.length,
-      allocationValueKeys: Object.keys(allocationValues),
-    });
-
     if (!budgetId || displayBrands.length === 0) {
       toast('No budget or brands selected', { icon: 'ℹ️' });
       return;
@@ -210,12 +192,10 @@ export function useBudgetAllocateSave({
 
         if (headerId) {
           // Existing header → PUT (overwrite)
-          console.log('[useBudgetAllocateSave] saving brand', brand.id, 'headerId', headerId, 'rows', allocations.length);
           const result = await budgetService.saveAllocation(String(headerId), allocations);
           results.push(result);
         } else {
           // No existing header → POST (create new allocate header)
-          console.log('[useBudgetAllocateSave] creating new header for brand', brand.id, 'rows', allocations.length);
           const result = await budgetService.saveAsNewAllocation(
             String(budgetId),
             String(brand.id),
@@ -240,13 +220,6 @@ export function useBudgetAllocateSave({
   }, [budgetId, displayBrands, brandVersionMap, allocateHeaders, seasonGroups, buildAllocations, stores, allocationValues, onSaved]);
 
   const saveAsNew = useCallback(async () => {
-    console.log('[useBudgetAllocateSave] saveAsNew called', {
-      budgetId,
-      displayBrands: displayBrands.length,
-      allocateHeaders: allocateHeaders.length,
-      seasonGroups: seasonGroups.length,
-    });
-
     if (!budgetId || displayBrands.length === 0) {
       toast('No budget or brands selected', { icon: 'ℹ️' });
       return;
@@ -268,7 +241,6 @@ export function useBudgetAllocateSave({
           continue;
         }
 
-        console.log('[useBudgetAllocateSave] saving new version for brand', brand.id, 'rows', allocations.length);
         const result = await budgetService.saveAsNewAllocation(
           String(budgetId),
           String(brand.id),

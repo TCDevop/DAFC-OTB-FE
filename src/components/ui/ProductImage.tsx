@@ -9,7 +9,6 @@ interface ProductImageProps {
   subCategory: string;
   sku: string;
   size?: 40 | 48 | 56 | 64 | 140;
-  darkMode?: boolean;
   rounded?: string;
 }
 
@@ -26,7 +25,6 @@ function ImageEditorPopup({
   currentSrc,
   defaultSrc,
   hasCustom,
-  darkMode,
   sku,
   subCategory,
   onUpload,
@@ -36,7 +34,6 @@ function ImageEditorPopup({
   currentSrc: string;
   defaultSrc: string;
   hasCustom: boolean;
-  darkMode: boolean;
   sku: string;
   subCategory: string;
   onUpload: (file: File) => void;
@@ -90,14 +87,12 @@ function ImageEditorPopup({
     setPendingFile(null);
   }, [onDelete, defaultSrc]);
 
-  const dm = darkMode;
-  const bgCard = dm ? 'bg-[#1A1A1A]' : 'bg-white';
-  const borderCard = dm ? 'border-[#2E2E2E]' : 'border-[rgba(215,183,151,0.3)]';
-  const textPrimary = dm ? 'text-[#F2F2F2]' : 'text-gray-800';
-  const textSecondary = dm ? 'text-[#999999]' : 'text-gray-500';
-  const textAccent = dm ? 'text-[#D7B797]' : 'text-[#6B4D30]';
-  const bgAccent = dm ? 'bg-[rgba(215,183,151,0.12)]' : 'bg-[rgba(160,120,75,0.08)]';
-  const borderAccent = dm ? 'border-[rgba(215,183,151,0.2)]' : 'border-[rgba(160,120,75,0.25)]';
+  const bgCard = 'bg-white';
+  const borderCard = 'border-[rgba(215,183,151,0.3)]';
+  const textPrimary = 'text-gray-800';
+  const textSecondary = 'text-gray-500';
+  const textAccent = 'text-[#6B4D30]';
+  const bgAccent = 'bg-[rgba(160,120,75,0.08)]';
 
   return createPortal(
     <div
@@ -110,13 +105,10 @@ function ImageEditorPopup({
       {/* Modal */}
       <div
         className={`relative ${bgCard} border ${borderCard} rounded-2xl shadow-2xl w-full max-w-md mx-4 overflow-hidden`}
-        style={{ boxShadow: dm
-          ? '0 25px 60px -12px rgba(0,0,0,0.7), 0 0 0 1px rgba(215,183,151,0.08)'
-          : '0 25px 60px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(215,183,151,0.1)'
-        }}
+        style={{ boxShadow: '0 25px 60px -12px rgba(0,0,0,0.25), 0 0 0 1px rgba(215,183,151,0.1)' }}
       >
         {/* Header */}
-        <div className={`px-5 py-4 flex items-center justify-between border-b ${dm ? 'border-[#2E2E2E] bg-[rgba(215,183,151,0.06)]' : 'border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.04)]'}`}>
+        <div className={`px-5 py-4 flex items-center justify-between border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.04)]`}>
           <div className="flex items-center gap-3">
             <div className={`p-2 rounded-xl ${bgAccent}`}>
               <Camera size={18} className={textAccent} />
@@ -130,7 +122,7 @@ function ImageEditorPopup({
           </div>
           <button
             onClick={onClose}
-            className={`p-1.5 rounded-lg transition-colors ${dm ? 'hover:bg-[rgba(215,183,151,0.12)]' : 'hover:bg-gray-100'}`}
+            className={`p-1.5 rounded-lg transition-colors hover:bg-gray-100`}
           >
             <X size={18} className={textSecondary} />
           </button>
@@ -141,8 +133,8 @@ function ImageEditorPopup({
           <div
             className={`relative rounded-xl border-2 border-dashed transition-all overflow-hidden ${
               dragging
-                ? (dm ? 'border-[#D7B797] bg-[rgba(215,183,151,0.08)]' : 'border-[#6B4D30] bg-[rgba(160,120,75,0.06)]')
-                : (dm ? 'border-[#2E2E2E] bg-[#121212]' : 'border-gray-200 bg-gray-50')
+                ? 'border-[#6B4D30] bg-[rgba(160,120,75,0.06)]'
+                : 'border-gray-200 bg-gray-50'
             }`}
             onDragOver={(e) => { e.preventDefault(); setDragging(true); }}
             onDragLeave={() => setDragging(false)}
@@ -150,7 +142,7 @@ function ImageEditorPopup({
           >
             {/* Image */}
             <div className="flex items-center justify-center py-6">
-              <div className={`w-40 h-40 rounded-xl border overflow-hidden ${dm ? 'border-[#2E2E2E] bg-[#1A1A1A]' : 'border-gray-200 bg-white'} shadow-lg`}>
+              <div className={`w-40 h-40 rounded-xl border overflow-hidden border-gray-200 bg-white shadow-lg`}>
                 <img src={previewSrc} alt="" className="w-full h-full object-contain" />
               </div>
             </div>
@@ -166,7 +158,7 @@ function ImageEditorPopup({
 
           {/* Status indicator */}
           <div className="flex items-center gap-2 mt-3">
-            <div className={`w-1.5 h-1.5 rounded-full ${hasCustom || pendingFile ? 'bg-emerald-500' : (dm ? 'bg-[#D7B797]' : 'bg-[#A08050]')}`} />
+            <div className={`w-1.5 h-1.5 rounded-full ${hasCustom || pendingFile ? 'bg-emerald-500' : 'bg-[#A08050]'}`} />
             <span className={`text-xs ${textSecondary}`}>
               {pendingFile ? 'New image selected' : hasCustom ? 'Custom image' : 'Default illustration'}
             </span>
@@ -179,11 +171,7 @@ function ImageEditorPopup({
           <button
             type="button"
             onClick={() => fileRef.current?.click()}
-            className={`w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
-              dm
-                ? `border-[rgba(215,183,151,0.25)] ${textAccent} hover:bg-[rgba(215,183,151,0.1)] active:bg-[rgba(215,183,151,0.15)]`
-                : `border-[rgba(160,120,75,0.3)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.08)] active:bg-[rgba(160,120,75,0.12)]`
-            }`}
+            className={`w-full flex items-center justify-center gap-2.5 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all border-[rgba(160,120,75,0.3)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.08)] active:bg-[rgba(160,120,75,0.12)]`}
           >
             <Upload size={16} />
             Upload Image
@@ -195,11 +183,7 @@ function ImageEditorPopup({
               <button
                 type="button"
                 onClick={handleDelete}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all ${
-                  dm
-                    ? 'border-red-500/30 text-red-400 hover:bg-red-500/10'
-                    : 'border-red-200 text-red-500 hover:bg-red-50'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl border text-sm font-semibold transition-all border-red-200 text-red-500 hover:bg-red-50`}
               >
                 <Trash2 size={14} />
                 Remove
@@ -209,11 +193,7 @@ function ImageEditorPopup({
               <button
                 type="button"
                 onClick={handleConfirm}
-                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-white ${
-                  dm
-                    ? 'bg-[#D7B797] hover:bg-[#C9A787] text-[#1A1A1A]'
-                    : 'bg-[#6B4D30] hover:bg-[#5A3E25]'
-                }`}
+                className={`flex-1 flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-bold transition-all text-white bg-[#6B4D30] hover:bg-[#5A3E25]`}
               >
                 Confirm
               </button>
@@ -239,7 +219,6 @@ function ProductImage({
   subCategory,
   sku,
   size = 48,
-  darkMode = false,
   rounded = 'rounded-lg',
 }: ProductImageProps) {
   const [customSrc, setCustomSrc] = useState<string | null>(null);
@@ -248,8 +227,8 @@ function ProductImage({
   const defaultSrc = getDemoImageSvg(subCategory || '', sku || '');
   const src = customSrc || defaultSrc;
   const sz = sizeMap[size] || sizeMap[48];
-  const borderCls = darkMode ? 'border-[#2E2E2E]' : 'border-[rgba(215,183,151,0.25)]';
-  const bgCls = darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-50';
+  const borderCls = 'border-[rgba(215,183,151,0.25)]';
+  const bgCls = 'bg-gray-50';
 
   const handleUpload = useCallback((file: File) => {
     if (customSrc) URL.revokeObjectURL(customSrc);
@@ -280,7 +259,6 @@ function ProductImage({
           currentSrc={src}
           defaultSrc={defaultSrc}
           hasCustom={!!customSrc}
-          darkMode={darkMode}
           sku={sku}
           subCategory={subCategory}
           onUpload={handleUpload}

@@ -3,7 +3,6 @@ module.exports = {
   content: [
     "./src/**/*.{js,jsx,ts,tsx}",
   ],
-  darkMode: 'class',
   theme: {
     screens: {
       xs: '375px',
@@ -31,28 +30,28 @@ module.exports = {
           },
         },
 
-        // Surface Colors (Dark Theme)
+        // Surface Colors (Light Theme)
         surface: {
-          DEFAULT: '#121212',
-          secondary: '#1A1A1A',
-          elevated: '#242424',
-          overlay: 'rgba(36, 36, 36, 0.5)',
+          DEFAULT: '#FFFFFF',
+          secondary: '#F5F1EC',
+          elevated: '#FFFFFF',
+          overlay: 'rgba(0, 0, 0, 0.05)',
         },
-        canvas: '#000000',
+        canvas: 'hsl(35, 18%, 95%)',
 
         // Content/Text Colors
         content: {
-          DEFAULT: '#F2F2F2',
-          secondary: '#999999',
-          muted: '#666666',
-          inverse: '#000000',
+          DEFAULT: '#1E1A16',
+          secondary: '#5D4E37',
+          muted: '#999999',
+          inverse: '#FFFFFF',
         },
 
         // Border Colors
         border: {
-          DEFAULT: '#2E2E2E',
-          muted: '#1A1A1A',
-          emphasis: '#3D3D3D',
+          DEFAULT: '#C4B5A5',
+          muted: '#E8E2DB',
+          emphasis: '#A89880',
         },
 
         // Status Colors

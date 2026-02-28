@@ -13,7 +13,6 @@ interface FilterSelectProps {
   value: string;
   options: FilterOption[];
   onChange: (value: string) => void;
-  darkMode?: boolean;
   placeholder?: string;
   disabled?: boolean;
 }
@@ -23,7 +22,6 @@ function FilterSelect({
   value,
   options,
   onChange,
-  darkMode = false,
   placeholder = 'Select...',
   disabled = false,
 }: FilterSelectProps) {
@@ -75,16 +73,10 @@ function FilterSelect({
           transition-all duration-200
           outline-none
           ${isOpen
-            ? darkMode
-              ? 'bg-[rgba(215,183,151,0.06)] border-[#D7B797]/50 shadow-[0_0_0_1px_rgba(215,183,151,0.12)]'
-              : 'bg-[rgba(215,183,151,0.06)] border-[#D7B797]/60 shadow-[0_0_0_1px_rgba(215,183,151,0.15)]'
+            ? 'bg-[rgba(215,183,151,0.06)] border-[#D7B797]/60 shadow-[0_0_0_1px_rgba(215,183,151,0.15)]'
             : !isDefault
-              ? darkMode
-                ? 'bg-[rgba(215,183,151,0.05)] border-[rgba(215,183,151,0.2)] hover:border-[rgba(215,183,151,0.35)]'
-                : 'bg-[rgba(215,183,151,0.04)] border-[rgba(215,183,151,0.3)] hover:border-[rgba(215,183,151,0.5)]'
-              : darkMode
-                ? 'bg-[#141414] border-[#2A2A2A] hover:border-[#444444] hover:bg-[#181818]'
-                : 'bg-white border-[#D4CCC2] hover:border-[#B8A998] hover:bg-[#FDFCFB]'
+              ? 'bg-[rgba(215,183,151,0.04)] border-[rgba(215,183,151,0.3)] hover:border-[rgba(215,183,151,0.5)]'
+              : 'bg-white border-[#D4CCC2] hover:border-[#B8A998] hover:bg-[#FDFCFB]'
           }
         `}
       >
@@ -92,8 +84,8 @@ function FilterSelect({
           <span
             className={`text-[10px] uppercase tracking-[0.08em] font-semibold shrink-0 transition-colors duration-200 ${
               isOpen
-                ? darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'
-                : darkMode ? 'text-[#666666] group-hover:text-[#999999]' : 'text-[#999999] group-hover:text-[#666666]'
+                ? 'text-[#6B4D30]'
+                : 'text-[#999999] group-hover:text-[#666666]'
             }`}
           >
             {label}
@@ -102,8 +94,8 @@ function FilterSelect({
         <span
           className={`truncate text-left leading-tight flex-1 ${
             !isDefault
-              ? darkMode ? 'text-[#F2F2F2]' : 'text-[#1A1A1A]'
-              : darkMode ? 'text-[#888888]' : 'text-[#888888]'
+              ? 'text-[#1A1A1A]'
+              : 'text-[#888888]'
           }`}
         >
           {displayLabel}
@@ -115,8 +107,8 @@ function FilterSelect({
             isOpen ? 'rotate-180' : ''
           } ${
             isOpen
-              ? darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'
-              : darkMode ? 'text-[#555555]' : 'text-[#AAAAAA]'
+              ? 'text-[#6B4D30]'
+              : 'text-[#AAAAAA]'
           }`}
         />
       </button>
@@ -127,9 +119,7 @@ function FilterSelect({
           isOpen ? 'opacity-100' : 'opacity-0'
         }`}
         style={{
-          background: darkMode
-            ? 'linear-gradient(90deg, transparent, #D7B797, transparent)'
-            : 'linear-gradient(90deg, transparent, #B8996E, transparent)',
+          background: 'linear-gradient(90deg, transparent, #B8996E, transparent)',
         }}
       />
 
@@ -141,24 +131,17 @@ function FilterSelect({
             min-w-full w-max
             rounded-lg overflow-hidden
             border
-            ${darkMode
-              ? 'bg-[#161616] border-[#2E2E2E]'
-              : 'bg-white border-[#D4CCC2]'
-            }
+            bg-white border-[#D4CCC2]
           `}
           style={{
-            boxShadow: darkMode
-              ? '0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3), inset 0 1px 0 rgba(215,183,151,0.06)'
-              : '0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06), inset 0 1px 0 rgba(215,183,151,0.15)',
+            boxShadow: '0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06), inset 0 1px 0 rgba(215,183,151,0.15)',
           }}
         >
           {/* Golden top accent */}
           <div
             className="h-[1.5px]"
             style={{
-              background: darkMode
-                ? 'linear-gradient(90deg, transparent 5%, rgba(215,183,151,0.35) 50%, transparent 95%)'
-                : 'linear-gradient(90deg, transparent 5%, rgba(184,153,112,0.4) 50%, transparent 95%)',
+              background: 'linear-gradient(90deg, transparent 5%, rgba(184,153,112,0.4) 50%, transparent 95%)',
             }}
           />
 
@@ -178,12 +161,8 @@ function FilterSelect({
                     text-sm transition-all duration-150
                     relative
                     ${isSelected
-                      ? darkMode
-                        ? 'bg-[rgba(215,183,151,0.08)] text-[#D7B797]'
-                        : 'bg-[rgba(215,183,151,0.1)] text-[#6B4D30]'
-                      : darkMode
-                        ? 'text-[#CCCCCC] hover:bg-[rgba(215,183,151,0.04)] hover:text-[#F2F2F2]'
-                        : 'text-[#444444] hover:bg-[rgba(215,183,151,0.06)] hover:text-[#1A1A1A]'
+                      ? 'bg-[rgba(215,183,151,0.1)] text-[#6B4D30]'
+                      : 'text-[#444444] hover:bg-[rgba(215,183,151,0.06)] hover:text-[#1A1A1A]'
                     }
                   `}
                 >
@@ -195,7 +174,7 @@ function FilterSelect({
                         : 'h-0 opacity-0'
                     }`}
                     style={{
-                      background: darkMode ? '#D7B797' : '#8B6E4E',
+                      background: '#8B6E4E',
                     }}
                   />
 
@@ -207,7 +186,7 @@ function FilterSelect({
                     <Check
                       size={13}
                       strokeWidth={2.5}
-                      className={`shrink-0 ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}
+                      className={`shrink-0 text-[#6B4D30]`}
                     />
                   )}
                 </button>

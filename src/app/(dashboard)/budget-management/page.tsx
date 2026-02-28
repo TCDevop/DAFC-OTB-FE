@@ -2,12 +2,11 @@
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/contexts/AppContext';
 import { useBudget } from '@/hooks';
-import BudgetManagementScreen from '@/screens/BudgetManagementScreen';
+import { BudgetManagementScreen } from '@/features/otb';
 
 export default function BudgetManagementPage() {
   const router = useRouter();
   const {
-    darkMode,
     sharedYear, setSharedYear,
     setAllocationData,
   } = useAppContext();
@@ -24,7 +23,6 @@ export default function BudgetManagementPage() {
       selectedYear={sharedYear}
       setSelectedYear={setSharedYear}
       onAllocate={handleAllocate}
-      darkMode={darkMode}
     />
   );
 }

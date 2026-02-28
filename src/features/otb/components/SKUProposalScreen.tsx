@@ -33,6 +33,8 @@ const CARD_BG_CLASSES = [
   { light: 'bg-[rgba(215,183,151,0.08)] border-[rgba(215,183,151,0.25)]', dark: 'bg-[rgba(215,183,151,0.05)] border-[rgba(215,183,151,0.15)]' }
 ];
 
+const DEFAULT_SIZE_KEYS = ['s0002', 's0004', 's0006', 's0008'] as const;
+const EMPTY_SIZE_DATA: Record<string, number> = { s0002: 0, s0004: 0, s0006: 0, s0008: 0 };
 
 // Build block key including brandId for per-brand section support
 const buildBlockKey = (block: any) =>
@@ -103,13 +105,12 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
       storeQty,
       ttlValue: Number(prod.totalValue) || 0,
       customerTarget: sp.customer_target || sp.customerTarget || prod.customerTarget || 'New',
-      proposal_sizing_headers: sp.proposal_sizing_headers || sp.proposalSizingHeaders || [],
-    });
+      proposal_sizing_headers: sp.proposal_sizing_headers || sp.proposalSizingHeaders || []});
   });
   return blocks;
 };
 
-const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode = false }: any) => {
+const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) => {
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const router = useRouter();
@@ -147,8 +148,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
         if (isGenderHierarchy) {
           const flatCats = rawCategories.flatMap((g: any) => (g.categories || []).map((c: any) => ({
             ...c,
-            genderName: g.name,
-          })));
+            genderName: g.name})));
           setMasterCategories(flatCats);
         } else {
           setMasterCategories(rawCategories);
@@ -229,8 +229,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
             id: h.id,
             version: h.version,
             status: h.status,
-            isFinal: h.is_final_version ?? h.isFinalVersion ?? false,
-          });
+            isFinal: h.is_final_version ?? h.isFinalVersion ?? false});
         });
         // Sort each brand's versions descending
         for (const bId of Object.keys(headersByBrand)) {
@@ -283,8 +282,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 sizingByBrand[bId].push({
                   id: sh.id,
                   version: ver,
-                  isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false,
-                });
+                  isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false});
               }
             });
           });
@@ -298,8 +296,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 sizingByBrand[bId].push({
                   id: sh.id,
                   version: ver,
-                  isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false,
-                });
+                  isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false});
               }
             });
           });
@@ -380,9 +377,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
           isFinal: ah.is_final_version || ah.isFinalVersion || false,
           budgetAllocates: (ah.budget_allocates || ah.budgetAllocates || []).map((ba: any) => ({
             seasonGroupName: ba.season_group?.name || ba.seasonGroup?.name || '',
-            seasonName: ba.season?.name || ba.season?.name || '',
-          })),
-        }));
+            seasonName: ba.season?.name || ba.season?.name || ''}))}));
         return {
           id: budget.id,
           fiscalYear: Number(budget.fiscal_year ?? budget.fiscalYear) || undefined,
@@ -392,8 +387,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
           totalBudget: Number(budget.amount) || Number(budget.totalBudget) || Number(budget.totalAmount) || 0,
           budgetName: budget.name || budget.budgetCode || budget.budgetName || `Budget #${budget.id}`,
           status: (budget.status || 'DRAFT').toLowerCase(),
-          allocateHeaders,
-        };
+          allocateHeaders};
       });
       setApiBudgets(budgetList);
     } catch (err: any) {
@@ -506,8 +500,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
         if (updated[brandId]) {
           updated[brandId] = updated[brandId].map((h: any) => ({
             ...h,
-            isFinal: String(h.id) === String(headerId),
-          }));
+            isFinal: String(h.id) === String(headerId)}));
         }
         return updated;
       });
@@ -526,8 +519,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
         if (updated[brandId]) {
           updated[brandId] = updated[brandId].map((h: any) => ({
             ...h,
-            isFinal: String(h.id) === String(headerId),
-          }));
+            isFinal: String(h.id) === String(headerId)}));
         }
         return updated;
       });
@@ -537,24 +529,17 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
     }
   };
 
-  // Helper to get per-brand version/choice
-  const getBrandSkuVersion = (brandId: string) => {
-    if (brandSkuVersion[brandId]) return brandSkuVersion[brandId];
-    // Default to final version, or latest version
-    const headers = brandProposalHeaders[brandId] || [];
+  // Shared helper: resolve selected ID from state map, falling back to final/first header
+  const getBrandSelection = (brandId: string, stateMap: Record<string, string>, headersMap: Record<string, any[]>) => {
+    if (stateMap[brandId]) return stateMap[brandId];
+    const headers = headersMap[brandId] || [];
     const finalH = headers.find((h: any) => h.isFinal);
     if (finalH) return String(finalH.id);
     if (headers.length > 0) return String(headers[0].id);
     return '';
   };
-  const getBrandSizingChoice = (brandId: string) => {
-    if (brandSizingChoice[brandId]) return brandSizingChoice[brandId];
-    const headers = brandSizingHeaders[brandId] || [];
-    const finalH = headers.find((h: any) => h.isFinal);
-    if (finalH) return String(finalH.id);
-    if (headers.length > 0) return String(headers[0].id);
-    return '';
-  };
+  const getBrandSkuVersion = (brandId: string) => getBrandSelection(brandId, brandSkuVersion, brandProposalHeaders);
+  const getBrandSizingChoice = (brandId: string) => getBrandSelection(brandId, brandSizingChoice, brandSizingHeaders);
 
   // Hydrate sizingData state from loaded blocks (extracts sizing rows from proposal_sizing_headers)
   const hydrateSizingData = useCallback((blocks: any[]) => {
@@ -578,10 +563,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
               }
             });
             // Ensure default size keys exist
-            if (!sizeData.s0002) sizeData.s0002 = sizeData.s0002 || 0;
-            if (!sizeData.s0004) sizeData.s0004 = sizeData.s0004 || 0;
-            if (!sizeData.s0006) sizeData.s0006 = sizeData.s0006 || 0;
-            if (!sizeData.s0008) sizeData.s0008 = sizeData.s0008 || 0;
+            DEFAULT_SIZE_KEYS.forEach(k => { if (!sizeData[k]) sizeData[k] = 0; });
             itemSizing[choiceKey] = sizeData;
           });
           loaded[key] = itemSizing;
@@ -718,13 +700,13 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
     const defaults: Record<string, any> = {};
     const choices = brandId ? getBrandSizingChoices(brandId) : [];
     choices.forEach((c: any) => {
-      defaults[String(c.id)] = { s0002: 0, s0004: 0, s0006: 0, s0008: 0 };
+      defaults[String(c.id)] = { ...EMPTY_SIZE_DATA };
     });
     // Fallback: always 3 choices (A, B, C) if no choices exist yet
     if (Object.keys(defaults).length === 0) {
-      defaults['choiceA'] = { s0002: 0, s0004: 0, s0006: 0, s0008: 0 };
-      defaults['choiceB'] = { s0002: 0, s0004: 0, s0006: 0, s0008: 0 };
-      defaults['choiceC'] = { s0002: 0, s0004: 0, s0006: 0, s0008: 0 };
+      defaults['choiceA'] = { ...EMPTY_SIZE_DATA };
+      defaults['choiceB'] = { ...EMPTY_SIZE_DATA };
+      defaults['choiceC'] = { ...EMPTY_SIZE_DATA };
     }
     return defaults;
   };
@@ -858,8 +840,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
           id: String(v.id),
           version: v.version,
           status: v.status || 'DRAFT',
-          isFinal: v.is_final_version || false,
-        }));
+          isFinal: v.is_final_version || false}));
         setBrandPlanningHeaders(prev => ({ ...prev, [brandId]: mapped }));
       } catch (err: any) {
         console.error(`[SKU] Failed to fetch planning headers for brand ${brandId}:`, err?.response?.data || err?.message);
@@ -955,8 +936,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
             gender: path.gender,
             category: path.category,
             subCategory: path.subCategory,
-            items: [],
-          });
+            items: []});
         }
       });
       // Also include any skuBlocks for this brand that aren't covered by masterCategories
@@ -990,9 +970,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
           srp: item.srp || 0,
           allocations: stores.map((store: any) => ({
             storeId: String(store.id),
-            quantity: item.storeQty?.[(store.code || '').toUpperCase()] || 0,
-          })).filter((a: any) => a.quantity > 0),
-        };
+            quantity: item.storeQty?.[(store.code || '').toUpperCase()] || 0})).filter((a: any) => a.quantity > 0)};
         // Include existing sizing data to be preserved on save
         const sizingHeaders = item.proposal_sizing_headers || item.proposalSizingHeaders || [];
         if (sizingHeaders.length > 0) {
@@ -1003,9 +981,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
               subcategorySizeId: String(ps.subcategory_size_id || ps.subcategorySizeId || ps.subcategorySize?.id || ''),
               actualSalesmixPct: Number(ps.actual_salesmix_pct || ps.actualSalesmixPct || 0),
               actualStPct: Number(ps.actual_st_pct || ps.actualStPct || 0),
-              proposalQuantity: Number(ps.proposal_quantity || ps.proposalQuantity || 0),
-            })),
-          }));
+              proposalQuantity: Number(ps.proposal_quantity || ps.proposalQuantity || 0)}))}));
         }
         return product;
       })
@@ -1040,8 +1016,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
             [brandId]: [
               { id: newId, version: newHeader.version || 1, status: 'DRAFT', isFinal: false },
               ...(prev[brandId] || []),
-            ],
-          }));
+            ]}));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
           // Update sizing headers from the response
           const detail = await proposalService.getOne(newId);
@@ -1082,8 +1057,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
             [brandId]: [
               { id: newId, version: newHeader.version, status: 'DRAFT', isFinal: false },
               ...(prev[brandId] || []),
-            ],
-          }));
+            ]}));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
         }
         toast.success('Saved as new version');
@@ -1155,8 +1129,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
         color: item.color || '',
         srp: item.srp || 0,
         orderQty: item.order || 0,
-        totalValue: item.ttlValue || 0,
-      }))
+        totalValue: item.ttlValue || 0}))
     );
 
     if (rows.length === 0) {
@@ -1331,8 +1304,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
           gender: blockInfo.gender || '',
           category: blockInfo.category || '',
           subCategory: blockInfo.subCategory || '',
-          items: [{ ...newItem, division: blockInfo.category || '', productType: blockInfo.subCategory || '' }],
-        }];
+          items: [{ ...newItem, division: blockInfo.category || '', productType: blockInfo.subCategory || '' }]}];
       }
       return prev;
     });
@@ -1402,8 +1374,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
       storeQty: sku.storeQty || {},
       ttlValue: sku.ttlValue || 0,
       customerTarget: sku.customerTarget || 'New',
-      isNew: false,
-    }));
+      isNew: false}));
     setSkuBlocks((prev: any) => {
       const existingBlock = prev.find((block: any) => buildBlockKey(block) === blockKey);
       if (existingBlock) {
@@ -1419,8 +1390,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
           gender: blockInfo.gender || '',
           category: blockInfo.category || '',
           subCategory: blockInfo.subCategory || '',
-          items: newItems,
-        }];
+          items: newItems}];
       }
       return prev;
     });
@@ -1432,8 +1402,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
       message: t('common.confirmDelete'),
       confirmLabel: t('common.delete'),
       variant: 'danger',
-      onConfirm: () => doDeleteSkuRow(blockKey, itemIdx),
-    });
+      onConfirm: () => doDeleteSkuRow(blockKey, itemIdx)});
   };
   const doDeleteSkuRow = (blockKey: any, itemIdx: any) => {
     setSkuBlocks((prev: any) => prev.map((block: any) => {
@@ -1459,14 +1428,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
 
   const getCardBgClass = (index: any) => {
     const style = CARD_BG_CLASSES[index % CARD_BG_CLASSES.length];
-    return darkMode ? style.dark : style.light;
+    return style.light;
   };
 
   return (
     <div className="space-y-2 md:space-y-3">
-      <div ref={barRef} data-filter-bar className={`sticky -top-3 md:-top-6 z-30 -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-1 md:mb-2 backdrop-blur-sm border-b relative ${
-        darkMode ? 'bg-[#121212]/95 border-[#2E2E2E]' : 'bg-white/95 border-[rgba(215,183,151,0.3)]'
-      }`}>
+      <div ref={barRef} data-filter-bar className={`sticky -top-3 md:-top-6 z-30 -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-1 md:mb-2 backdrop-blur-sm border-b relative ${'bg-white/95 border-[rgba(215,183,151,0.3)]'}`}>
 
         {/* ===== FILTER CONTENT ===== */}
         <div>
@@ -1478,7 +1445,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
           {isMobile && (
             <button
               onClick={openFilter}
-              className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium border ${darkMode ? 'bg-[rgba(215,183,151,0.1)] border-[rgba(215,183,151,0.3)] text-[#D7B797]' : 'bg-[rgba(160,120,75,0.12)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'}`}
+              className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium border ${'bg-[rgba(160,120,75,0.12)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'}`}
             >
               <SlidersHorizontal size={16} />
               {t('common.filters')}
@@ -1493,7 +1460,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 value={budgetFilter}
                 options={budgetOptions.map((opt: any) => ({ value: opt.id, label: opt.label }))}
                 onChange={setBudgetFilter}
-                darkMode={darkMode}
                 placeholder="All Budgets"
               />
               <FilterSelect
@@ -1501,7 +1467,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 value={brandFilter}
                 options={brandOptions}
                 onChange={setBrandFilter}
-                darkMode={darkMode}
                 placeholder="All Brands"
               />
               <FilterSelect
@@ -1509,7 +1474,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 value={seasonGroupFilter}
                 options={seasonGroupOptions}
                 onChange={(v: string) => { setSeasonGroupFilter(v); setSeasonFilter('all'); }}
-                darkMode={darkMode}
                 placeholder="All"
               />
               <FilterSelect
@@ -1517,7 +1481,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 value={seasonFilter}
                 options={seasonOptions}
                 onChange={setSeasonFilter}
-                darkMode={darkMode}
                 placeholder="All"
               />
 
@@ -1530,24 +1493,18 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 type="button"
                 onClick={handleExportCSV}
                 title={t('skuProposal.exportCSV') || 'Export CSV'}
-                className={`p-[7px] rounded-lg transition-colors border ${
-                  darkMode
-                    ? 'border-[rgba(215,183,151,0.25)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.1)]'
-                    : 'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'
-                }`}
+                className={`p-[7px] rounded-lg transition-colors border ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
               >
                 <Download size={14} />
               </button>
-              <div className={`flex items-center gap-0.5 rounded-lg p-0.5 ${darkMode ? 'bg-[#1A1A1A]' : 'bg-[rgba(160,120,75,0.12)]'}`}>
+              <div className={`flex items-center gap-0.5 rounded-lg p-0.5 ${'bg-[rgba(160,120,75,0.12)]'}`}>
                 <button
                   type="button"
                   onClick={() => setViewMode('table')}
                   title="Table view"
                   className={`p-[5px] rounded-md transition-colors ${
                     viewMode === 'table'
-                      ? darkMode ? 'bg-[rgba(215,183,151,0.15)] text-[#D7B797] shadow-sm' : 'bg-white text-[#6B4D30] shadow-sm'
-                      : darkMode ? 'text-[#999999] hover:text-[#D7B797]' : 'text-[#666666] hover:text-[#6B4D30]'
-                  }`}
+                      ?'bg-white text-[#6B4D30] shadow-sm':'text-[#666666] hover:text-[#6B4D30]'}`}
                 >
                   <List size={14} />
                 </button>
@@ -1558,9 +1515,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                   title={!canShowCardView ? 'Add SKUs to enable card view' : 'Card view'}
                   className={`p-[5px] rounded-md transition-colors ${
                     viewMode === 'card'
-                      ? darkMode ? 'bg-[rgba(215,183,151,0.15)] text-[#D7B797] shadow-sm' : 'bg-white text-[#6B4D30] shadow-sm'
-                      : darkMode ? 'text-[#999999] hover:text-[#D7B797]' : 'text-[#666666] hover:text-[#6B4D30]'
-                  } ${!canShowCardView ? 'opacity-50 cursor-not-allowed' : ''}`}
+                      ?'bg-white text-[#6B4D30] shadow-sm':'text-[#666666] hover:text-[#6B4D30]'} ${!canShowCardView ? 'opacity-50 cursor-not-allowed' : ''}`}
                 >
                   <LayoutGrid size={14} />
                 </button>
@@ -1570,7 +1525,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
 
         {/* Rail Controls — sticky inside filter bar (visible in EXPANDED only) */}
         {viewMode === 'table' && displayBrands.length > 0 && (
-          <div className={`border-t -mx-2 md:-mx-3 -mb-2 md:-mb-3 px-2 md:px-3 mt-2 py-2 md:py-3 flex flex-wrap items-center justify-between gap-y-2 ${darkMode ? 'border-[#2E2E2E]' : 'border-[rgba(215,183,151,0.3)]'}`}>
+          <div className={`border-t -mx-2 md:-mx-3 -mb-2 md:-mb-3 px-2 md:px-3 mt-2 py-2 md:py-3 flex flex-wrap items-center justify-between gap-y-2 ${'border-[rgba(215,183,151,0.3)]'}`}>
             <div className="flex items-center gap-3">
               <button
                 type="button"
@@ -1580,21 +1535,21 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                   displayBrands.forEach((b: any) => { next[String(b.id)] = !allCollapsedNow; });
                   setCollapsedBrands(next);
                 }}
-                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${darkMode ? 'border-[rgba(215,183,151,0.25)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.1)]' : 'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
+                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
               >
                 <ChevronDown size={12} className={`transition-transform ${displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? '-rotate-90' : ''}`} />
                 {displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? 'Expand All' : 'Collapse All'}
               </button>
-              <span className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
+              <span className={`text-xs ${'text-[#666666]'}`}>
                 {displayBrands.length} Brands • {grandTotals.skuCount} SKUs
               </span>
             </div>
-            <div className={`flex items-center gap-4 text-xs font-['JetBrains_Mono'] ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
-              <span>Order: <span className={`font-semibold ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{grandTotals.order}</span></span>
+            <div className={`flex items-center gap-4 text-xs font-['JetBrains_Mono'] ${'text-[#666666]'}`}>
+              <span>Order: <span className={`font-semibold ${'text-[#6B4D30]'}`}>{grandTotals.order}</span></span>
               {stores.map((s: any) => (
-                <span key={s.code}>{s.code}: <span className={`font-semibold ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{grandTotals.storeQty[s.code] || 0}</span></span>
+                <span key={s.code}>{s.code}: <span className={`font-semibold ${'text-[#6B4D30]'}`}>{grandTotals.storeQty[s.code] || 0}</span></span>
               ))}
-              <span>Value: <span className={`font-semibold ${darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'}`}>{formatCurrency(grandTotals.ttlValue)}</span></span>
+              <span>Value: <span className={`font-semibold ${'text-[#127749]'}`}>{formatCurrency(grandTotals.ttlValue)}</span></span>
             </div>
           </div>
         )}
@@ -1604,22 +1559,22 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
       </div>
 
       {!skuDataLoading && skuCatalog.length === 0 ? (
-        <div className={`rounded-xl border p-10 text-center ${darkMode ? 'bg-[#121212] border-[#2E2E2E]' : 'bg-white border-[rgba(215,183,151,0.2)]'}`}>
-          <Package size={36} className={`mx-auto mb-3 ${darkMode ? 'text-[#666666]' : 'text-[rgba(215,183,151,0.5)]'}`} />
-          <p className={`font-medium font-['Montserrat'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>No SKU Catalog</p>
-          <p className={`text-sm mt-1 mb-3 ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>Import SKU data first to begin creating proposals</p>
+        <div className={`rounded-xl border p-10 text-center ${'bg-white border-[rgba(215,183,151,0.2)]'}`}>
+          <Package size={36} className={`mx-auto mb-3 ${'text-[rgba(215,183,151,0.5)]'}`} />
+          <p className={`font-medium font-['Montserrat'] ${'text-[#333333]'}`}>No SKU Catalog</p>
+          <p className={`text-sm mt-1 mb-3 ${'text-[#666666]'}`}>Import SKU data first to begin creating proposals</p>
           <button
             onClick={() => router.push('/import-data')}
-            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold font-['Montserrat'] transition-colors ${darkMode ? 'bg-[#D7B797] text-[#0A0A0A] hover:bg-[#C4A584]' : 'bg-[#C4A77D] text-white hover:bg-[#B8956D]'}`}
+            className={`inline-flex items-center gap-2 px-4 py-2 rounded-lg text-sm font-semibold font-['Montserrat'] transition-colors ${'bg-[#C4A77D] text-white hover:bg-[#B8956D]'}`}
           >
             Go to Import
           </button>
         </div>
       ) : displayBrands.length === 0 ? (
-        <div className={`rounded-xl border p-10 text-center ${darkMode ? 'bg-[#121212] border-[#2E2E2E]' : 'bg-white border-[rgba(215,183,151,0.2)]'}`}>
-          <Package size={36} className={`mx-auto mb-3 ${darkMode ? 'text-[#666666]' : 'text-[rgba(215,183,151,0.5)]'}`} />
-          <p className={`font-medium font-['Montserrat'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>{t('skuProposal.noSkuData')}</p>
-          <p className={`text-sm mt-1 ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>Select a brand filter or add brands first</p>
+        <div className={`rounded-xl border p-10 text-center ${'bg-white border-[rgba(215,183,151,0.2)]'}`}>
+          <Package size={36} className={`mx-auto mb-3 ${'text-[rgba(215,183,151,0.5)]'}`} />
+          <p className={`font-medium font-['Montserrat'] ${'text-[#333333]'}`}>{t('skuProposal.noSkuData')}</p>
+          <p className={`text-sm mt-1 ${'text-[#666666]'}`}>Select a brand filter or add brands first</p>
         </div>
       ) : viewMode === 'card' ? (
         <div className="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-3 gap-4">
@@ -1628,12 +1583,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
               <div key={key} className={`rounded-2xl border p-4 ${getCardBgClass(cardIdx)}`}>
                 <div className="flex flex-wrap items-center gap-3 justify-between">
                   <div className="flex items-center gap-3">
-                    <ProductImage subCategory={block.subCategory} sku={item.sku} size={48} darkMode={darkMode} rounded="rounded-xl" />
+                    <ProductImage subCategory={block.subCategory} sku={item.sku} size={48} rounded="rounded-xl" />
                     <div>
-                      <div className={`text-sm font-semibold ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>
-                        <span className="font-['JetBrains_Mono']">{item.sku || 'New SKU'}</span> <span className={darkMode ? 'text-[#999999]' : 'text-[#666666]'}>•</span> {item.name || 'Select SKU'}
+                      <div className={`text-sm font-semibold ${'text-[#333333]'}`}>
+                        <span className="font-['JetBrains_Mono']">{item.sku || 'New SKU'}</span> <span className={'text-[#666666]'}>•</span> {item.name || 'Select SKU'}
                       </div>
-                      <div className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
+                      <div className={`text-xs ${'text-[#666666]'}`}>
                         {block.gender} • {block.category} • {block.subCategory}
                       </div>
                     </div>
@@ -1642,28 +1597,28 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                     <button
                       type="button"
                       onClick={() => handleOpenLightbox(key, 'details', item, blockKey, idx, block)}
-                      className={`px-2 md:px-3 py-1 md:py-1 text-xs font-semibold rounded-full border transition-colors ${darkMode ? 'border-[rgba(215,183,151,0.25)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.1)]' : 'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`}
+                      className={`px-2 md:px-3 py-1 md:py-1 text-xs font-semibold rounded-full border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`}
                     >
                       {t('skuProposal.showDetails')}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleOpenLightbox(key, 'storeOrder', item, blockKey, idx, block)}
-                      className={`px-2 md:px-3 py-1 md:py-1 text-xs font-semibold rounded-full border transition-colors ${darkMode ? 'border-[rgba(215,183,151,0.25)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.1)]' : 'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`}
+                      className={`px-2 md:px-3 py-1 md:py-1 text-xs font-semibold rounded-full border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`}
                     >
                       {t('skuProposal.storeOrder')}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleOpenLightbox(key, 'sizing', item, blockKey, idx, block)}
-                      className={`px-2 md:px-3 py-1 md:py-1 text-xs font-semibold rounded-full border transition-colors ${darkMode ? 'border-[rgba(215,183,151,0.25)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.1)]' : 'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`}
+                      className={`px-2 md:px-3 py-1 md:py-1 text-xs font-semibold rounded-full border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`}
                     >
                       {t('skuProposal.sizing')}
                     </button>
                     <button
                       type="button"
                       onClick={() => handleDeleteSkuRow(blockKey, idx)}
-                      className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-[#999999] hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.1)]' : 'text-[#666666] hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.1)]'}`}
+                      className={`p-2 rounded-lg transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.1)]'}`}
                       title={t('proposal.deleteSku')}
                     >
                       <Trash2 size={16} />
@@ -1676,7 +1631,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                     <select
                       value={item.sku}
                       onChange={(e) => handleSkuSelect(blockKey, idx, e.target.value)}
-                      className={`w-full px-3 py-0.5 rounded-lg border-2 text-sm focus:outline-none focus:ring-2 font-['JetBrains_Mono'] ${darkMode ? 'border-[#2A9E6A] bg-[#121212] text-[#F2F2F2] focus:ring-[rgba(42,158,106,0.3)]' : 'border-[#127749] bg-white text-[#333333] focus:ring-[rgba(18,119,73,0.3)]'}`}
+                      className={`w-full px-3 py-0.5 rounded-lg border-2 text-sm focus:outline-none focus:ring-2 font-['JetBrains_Mono'] ${'border-[#127749] bg-white text-[#333333] focus:ring-[rgba(18,119,73,0.3)]'}`}
                     >
                       <option value="">{t('proposal.selectSku')}</option>
                       {skuCatalog.map((sku: any) => (
@@ -1699,21 +1654,15 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 const blockKey = buildBlockKey(firstBlock);
                 setAddSkuModal({ open: true, blockKey, block: firstBlock });
               }}
-              className={`rounded-2xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 transition-colors duration-200 ${
-                darkMode
-                  ? 'border-[rgba(215,183,151,0.3)] hover:border-[#D7B797] hover:bg-[rgba(215,183,151,0.05)]'
-                  : 'border-[rgba(215,183,151,0.4)] hover:border-[#8A6340] hover:bg-[rgba(215,183,151,0.08)]'
-              }`}
+              className={`rounded-2xl border-2 border-dashed p-8 flex flex-col items-center justify-center gap-3 transition-colors duration-200 ${'border-[rgba(215,183,151,0.4)] hover:border-[#8A6340] hover:bg-[rgba(215,183,151,0.08)]'}`}
             >
-              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${
-                darkMode ? 'bg-[rgba(215,183,151,0.15)]' : 'bg-[rgba(215,183,151,0.2)]'
-              }`}>
-                <Plus size={24} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+              <div className={`w-12 h-12 rounded-full flex items-center justify-center ${'bg-[rgba(215,183,151,0.2)]'}`}>
+                <Plus size={24} className={'text-[#6B4D30]'} />
               </div>
-              <span className={`text-sm font-semibold font-['Montserrat'] ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+              <span className={`text-sm font-semibold font-['Montserrat'] ${'text-[#6B4D30]'}`}>
                 Add New SKU
               </span>
-              <span className={`text-xs ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>
+              <span className={`text-xs ${'text-[#999999]'}`}>
                 Click to add a new SKU to {filteredSkuBlocks[0]?.subCategory}
               </span>
             </button>
@@ -1739,31 +1688,27 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
             const brandReady = filtersComplete && hasFinalAH && hasFinalPlanning;
 
             return (
-              <div key={brandId} className={`rounded-xl shadow-sm border overflow-hidden ${darkMode ? 'bg-[#121212] border-[#2E2E2E]' : 'bg-white border-[#C4B5A5]'}`}>
+              <div key={brandId} className={`rounded-xl shadow-sm border overflow-hidden ${'bg-white border-[#C4B5A5]'}`}>
                 {/* Brand Section Header */}
                 <div
                   onClick={() => setCollapsedBrands(prev => ({ ...prev, [brandId]: !isBrandCollapsed }))}
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-all ${
-                    darkMode
-                      ? 'bg-gradient-to-r from-[rgba(215,183,151,0.1)] to-transparent hover:from-[rgba(215,183,151,0.15)]'
-                      : 'bg-gradient-to-r from-[rgba(215,183,151,0.14)] to-transparent hover:from-[rgba(215,183,151,0.22)]'
-                  }`}
+                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-all ${'bg-gradient-to-r from-[rgba(215,183,151,0.14)] to-transparent hover:from-[rgba(215,183,151,0.22)]'}`}
                 >
-                  <span className={`p-1 rounded-lg transition-colors ${darkMode ? 'bg-white/10 hover:bg-white/20' : 'bg-[rgba(138,99,64,0.1)] hover:bg-[rgba(138,99,64,0.2)]'}`}>
-                    <ChevronDown size={15} className={`transition-transform duration-200 ${isBrandCollapsed ? '-rotate-90' : ''} ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`} />
+                  <span className={`p-1 rounded-lg transition-colors ${'bg-[rgba(138,99,64,0.1)] hover:bg-[rgba(138,99,64,0.2)]'}`}>
+                    <ChevronDown size={15} className={`transition-transform duration-200 ${isBrandCollapsed ? '-rotate-90' : ''} ${'text-[#6B4D30]'}`} />
                   </span>
-                  <Tag size={15} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+                  <Tag size={15} className={'text-[#6B4D30]'} />
                   <div className="flex flex-col min-w-0">
                     {brand.group_brand?.name || brand.groupBrand?.name ? (
-                      <span className={`text-[10px] font-medium font-['Montserrat'] uppercase tracking-widest ${darkMode ? 'text-[#D7B797]/60' : 'text-[#6B4D30]/60'}`}>
+                      <span className={`text-[10px] font-medium font-['Montserrat'] uppercase tracking-widest ${'text-[#6B4D30]/60'}`}>
                         {brand.group_brand?.name || brand.groupBrand?.name}
                       </span>
                     ) : null}
-                    <span className={`font-bold text-sm font-['Montserrat'] uppercase tracking-wide ${darkMode ? 'text-[#F2F2F2]' : 'text-[#1A1A1A]'}`}>
+                    <span className={`font-bold text-sm font-['Montserrat'] uppercase tracking-wide ${'text-[#1A1A1A]'}`}>
                       {brand.name || brand.code || `Brand ${brand.id}`}
                     </span>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ml-2 ${darkMode ? 'bg-[rgba(215,183,151,0.15)] text-[#999999]' : 'bg-[rgba(160,120,75,0.12)] text-[#6B5B4D]'}`}>
+                  <span className={`text-xs px-2 py-0.5 rounded-full ml-2 ${'bg-[rgba(160,120,75,0.12)] text-[#6B5B4D]'}`}>
                     {brandBlocks.length} Rails • {brandSkuCount} SKUs
                   </span>
                   {/* Per-brand Version & Choice dropdown buttons — only when allocation+planning validated */}
@@ -1785,10 +1730,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                           className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
                             curVer
                               ? isFinal
-                                ? darkMode ? 'bg-[rgba(160,120,75,0.2)] text-[#D7B797]' : 'bg-[rgba(215,183,151,0.25)] text-[#6B4D30]'
-                                : darkMode ? 'bg-[rgba(18,119,73,0.2)] text-[#2A9E6A]' : 'bg-[rgba(18,119,73,0.15)] text-[#127749]'
-                              : darkMode ? 'bg-[#2E2E2E] text-[#999999] hover:text-[#F2F2F2]' : 'bg-[rgba(215,183,151,0.15)] text-[#666666] hover:text-[#333333]'
-                          }`}
+                                ?'bg-[rgba(215,183,151,0.25)] text-[#6B4D30]':'bg-[rgba(18,119,73,0.15)] text-[#127749]':'bg-[rgba(215,183,151,0.15)] text-[#666666] hover:text-[#333333]'}`}
                         >
                           <ChevronDown size={11} className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                           {curVer ? (
@@ -1823,10 +1765,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                           className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
                             curChoice
                               ? isFinal
-                                ? darkMode ? 'bg-[rgba(160,120,75,0.2)] text-[#D7B797]' : 'bg-[rgba(215,183,151,0.25)] text-[#6B4D30]'
-                                : darkMode ? 'bg-[rgba(18,119,73,0.2)] text-[#2A9E6A]' : 'bg-[rgba(18,119,73,0.15)] text-[#127749]'
-                              : darkMode ? 'bg-[#2E2E2E] text-[#999999] hover:text-[#F2F2F2]' : 'bg-[rgba(215,183,151,0.15)] text-[#666666] hover:text-[#333333]'
-                          }`}
+                                ?'bg-[rgba(215,183,151,0.25)] text-[#6B4D30]':'bg-[rgba(18,119,73,0.15)] text-[#127749]':'bg-[rgba(215,183,151,0.15)] text-[#666666] hover:text-[#333333]'}`}
                         >
                           <ChevronDown size={11} className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
                           {curChoice ? (
@@ -1852,8 +1791,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                   // Case 1: Filters not complete — show prompt
                   if (!filtersComplete) {
                     return (
-                      <div className={`flex flex-col items-center gap-2 px-4 py-6 border-t ${darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'}`}>
-                        <span className={`text-xs font-['Montserrat'] font-medium ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>
+                      <div className={`flex flex-col items-center gap-2 px-4 py-6 border-t ${'border-[#C4B5A5]'}`}>
+                        <span className={`text-xs font-['Montserrat'] font-medium ${'text-[#999999]'}`}>
                           Please select Season Group and Season to view proposals.
                         </span>
                       </div>
@@ -1863,10 +1802,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                   // Case 2: No final AllocateHeader — "not allocated" warning
                   if (!hasFinalAH) {
                     return (
-                      <div className={`flex flex-col items-center gap-2 px-4 py-3 border-t ${darkMode ? 'border-[#2E2E2E] bg-[rgba(227,179,65,0.06)]' : 'border-[#C4B5A5] bg-[rgba(227,179,65,0.08)]'}`}>
+                      <div className={`flex flex-col items-center gap-2 px-4 py-3 border-t ${'border-[#C4B5A5] bg-[rgba(227,179,65,0.08)]'}`}>
                         <div className="flex items-center gap-2">
-                          <AlertTriangle size={14} className={darkMode ? 'text-[#E3B341]' : 'text-[#B8860B]'} />
-                          <span className={`text-xs font-['Montserrat'] font-medium ${darkMode ? 'text-[#E3B341]' : 'text-[#8B6914]'}`}>
+                          <AlertTriangle size={14} className={'text-[#B8860B]'} />
+                          <span className={`text-xs font-['Montserrat'] font-medium ${'text-[#8B6914]'}`}>
                             This brand has not been allocated yet. Please complete Budget Allocation first.
                           </span>
                         </div>
@@ -1883,15 +1822,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                               groupBrandId,
                               brandId,
                               seasonGroupId: seasonGroupFilter !== 'all' ? seasonGroupFilter : null,
-                              seasonId: seasonFilter !== 'all' ? seasonFilter : null,
-                            });
+                              seasonId: seasonFilter !== 'all' ? seasonFilter : null});
                             router.push('/planning');
                           }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all ${
-                            darkMode
-                              ? 'bg-[rgba(215,183,151,0.15)] border-[rgba(215,183,151,0.4)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.22)]'
-                              : 'bg-[#6B4D30] border-[#6B4D30] text-white hover:bg-[#5C4028] hover:border-[#5C4028]'
-                          }`}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all ${'bg-[#6B4D30] border-[#6B4D30] text-white hover:bg-[#5C4028] hover:border-[#5C4028]'}`}
                         >
                           Go to Budget Allocation
                           <ArrowRight size={13} />
@@ -1903,9 +1837,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                   // Case 3: Loading planning data
                   if (isLoadingPlanning) {
                     return (
-                      <div className={`flex items-center justify-center gap-2 px-4 py-6 border-t ${darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'}`}>
-                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" style={{ borderColor: darkMode ? '#D7B797' : '#6B4D30', borderTopColor: 'transparent' }} />
-                        <span className={`text-xs font-['Montserrat'] ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>Loading planning data...</span>
+                      <div className={`flex items-center justify-center gap-2 px-4 py-6 border-t ${'border-[#C4B5A5]'}`}>
+                        <div className="w-4 h-4 border-2 border-current border-t-transparent rounded-full animate-spin" style={{ borderColor:'#6B4D30', borderTopColor: 'transparent' }} />
+                        <span className={`text-xs font-['Montserrat'] ${'text-[#666666]'}`}>Loading planning data...</span>
                       </div>
                     );
                   }
@@ -1913,10 +1847,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                   // Case 4: No final PlanningHeader — "not planned" warning
                   if (!hasFinalPlanning) {
                     return (
-                      <div className={`flex flex-col items-center gap-2 px-4 py-3 border-t ${darkMode ? 'border-[#2E2E2E] bg-[rgba(227,179,65,0.06)]' : 'border-[#C4B5A5] bg-[rgba(227,179,65,0.08)]'}`}>
+                      <div className={`flex flex-col items-center gap-2 px-4 py-3 border-t ${'border-[#C4B5A5] bg-[rgba(227,179,65,0.08)]'}`}>
                         <div className="flex items-center gap-2">
-                          <AlertTriangle size={14} className={darkMode ? 'text-[#E3B341]' : 'text-[#B8860B]'} />
-                          <span className={`text-xs font-['Montserrat'] font-medium ${darkMode ? 'text-[#E3B341]' : 'text-[#8B6914]'}`}>
+                          <AlertTriangle size={14} className={'text-[#B8860B]'} />
+                          <span className={`text-xs font-['Montserrat'] font-medium ${'text-[#8B6914]'}`}>
                             OTB Analysis has not been finalized for this brand. Please complete OTB Analysis first.
                           </span>
                         </div>
@@ -1933,15 +1867,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                               brandId,
                               brandName: brand.name || brand.code || '',
                               seasonGroup: seasonGroupFilter,
-                              season: seasonFilter,
-                            });
+                              season: seasonFilter});
                             router.push('/otb-analysis');
                           }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all ${
-                            darkMode
-                              ? 'bg-[rgba(215,183,151,0.15)] border-[rgba(215,183,151,0.4)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.22)]'
-                              : 'bg-[#6B4D30] border-[#6B4D30] text-white hover:bg-[#5C4028] hover:border-[#5C4028]'
-                          }`}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all ${'bg-[#6B4D30] border-[#6B4D30] text-white hover:bg-[#5C4028] hover:border-[#5C4028]'}`}
                         >
                           Go to OTB Analysis
                           <ArrowRight size={13} />
@@ -1954,7 +1883,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                   return (
                   <div className="space-y-3 p-3">
                     {brandBlocks.length === 0 ? (
-                      <div className={`p-6 text-center ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>
+                      <div className={`p-6 text-center ${'text-[#999999]'}`}>
                         <p className="text-sm">No subcategories available for this brand</p>
                       </div>
                     ) : brandBlocks.map((block: any) => {
@@ -1962,24 +1891,20 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                       const isCollapsed = collapsed[key];
                       const isEmpty = !block.items || block.items.length === 0;
                       return (
-                        <div key={key} data-rail-card className={`rounded-xl border ${darkMode ? 'bg-[#121212] border-[#2E2E2E]' : 'bg-white border-[rgba(215,183,151,0.2)]'}`} style={{ overflow: 'clip' }}>
+                        <div key={key} data-rail-card className={`rounded-xl border ${'bg-white border-[rgba(215,183,151,0.2)]'}`} style={{ overflow: 'clip' }}>
                           <button
                             type="button"
                             onClick={() => !isEmpty && handleToggle(key)}
-                            className={`w-full flex items-center gap-0 ${
-                              darkMode
-                                ? 'bg-[rgba(215,183,151,0.12)] border-b border-[rgba(215,183,151,0.25)]'
-                                : 'bg-[rgba(215,183,151,0.18)] border-b border-[rgba(215,183,151,0.3)]'
-                            }`}
+                            className={`w-full flex items-center gap-0 ${'bg-[rgba(215,183,151,0.18)] border-b border-[rgba(215,183,151,0.3)]'}`}
                           >
-                            <div className={`w-1.5 self-stretch rounded-l-xl ${darkMode ? 'bg-[#D7B797]' : 'bg-[#8A6340]'}`} />
+                            <div className={`w-1.5 self-stretch rounded-l-xl ${'bg-[#8A6340]'}`} />
                             <div className="flex items-center gap-3 px-4 py-2 flex-1">
-                              {!isEmpty && <ChevronDown size={14} className={`transition-transform ${isCollapsed ? '-rotate-90' : ''} ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`} />}
+                              {!isEmpty && <ChevronDown size={14} className={`transition-transform ${isCollapsed ? '-rotate-90' : ''} ${'text-[#6B4D30]'}`} />}
                               <div className="text-left flex-1">
                                 <div className="flex items-center gap-2">
-                                  <span className={`text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${darkMode ? 'text-[#999999]' : 'text-[#8A6340]'}`}>RAIL</span>
-                                  <span className={`font-semibold text-sm ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{block.subCategory}</span>
-                                  <span className={`text-xs px-2 py-0.5 rounded-full ${darkMode ? 'bg-[rgba(215,183,151,0.15)] text-[#999999]' : 'bg-[rgba(160,120,75,0.12)] text-[#6B5B4D]'}`}>
+                                  <span className={`text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#8A6340]'}`}>RAIL</span>
+                                  <span className={`font-semibold text-sm ${'text-[#6B4D30]'}`}>{block.subCategory}</span>
+                                  <span className={`text-xs px-2 py-0.5 rounded-full ${'bg-[rgba(160,120,75,0.12)] text-[#6B5B4D]'}`}>
                                     {block.items?.length || 0} SKUs
                                   </span>
                                   {!isEmpty && (() => {
@@ -1995,26 +1920,26 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                                     ) : null;
                                   })()}
                                 </div>
-                                <div className={`text-xs mt-0.5 ${darkMode ? 'text-[#666666]' : 'text-[#8A6340]'}`}>
+                                <div className={`text-xs mt-0.5 ${'text-[#8A6340]'}`}>
                                   {block.gender} • {block.category}
                                 </div>
                               </div>
                               {!isEmpty && (
-                                <div className={`hidden md:flex items-center gap-4 text-xs font-['JetBrains_Mono'] ${darkMode ? 'text-[#999999]' : 'text-[#6B5B4D]'}`}>
+                                <div className={`hidden md:flex items-center gap-4 text-xs font-['JetBrains_Mono'] ${'text-[#6B5B4D]'}`}>
                                   <div className="flex flex-col items-center">
-                                    <span className={`text-[10px] font-['Montserrat'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>Order</span>
-                                    <span className={`font-semibold ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{block.items.reduce((s: number, i: any) => s + (i.order || 0), 0)}</span>
+                                    <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>Order</span>
+                                    <span className={`font-semibold ${'text-[#6B4D30]'}`}>{block.items.reduce((s: number, i: any) => s + (i.order || 0), 0)}</span>
                                   </div>
                                   {stores.map((st: any) => (
                                     <div key={st.code} className="flex flex-col items-center">
-                                      <span className={`text-[10px] font-['Montserrat'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>{st.code}</span>
+                                      <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>{st.code}</span>
                                       <span className="font-semibold">{block.items.reduce((s: number, i: any) => s + ((i.storeQty || {})[st.code] || 0), 0)}</span>
                                     </div>
                                   ))}
-                                  <div className={`h-6 w-px ${darkMode ? 'bg-[rgba(215,183,151,0.2)]' : 'bg-[rgba(215,183,151,0.4)]'}`} />
+                                  <div className={`h-6 w-px ${'bg-[rgba(215,183,151,0.4)]'}`} />
                                   <div className="flex flex-col items-center">
-                                    <span className={`text-[10px] font-['Montserrat'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>Value</span>
-                                    <span className={`font-semibold ${darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'}`}>{formatCurrency(block.items.reduce((s: number, i: any) => s + (i.ttlValue || 0), 0))}</span>
+                                    <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>Value</span>
+                                    <span className={`font-semibold ${'text-[#127749]'}`}>{formatCurrency(block.items.reduce((s: number, i: any) => s + (i.ttlValue || 0), 0))}</span>
                                   </div>
                                 </div>
                               )}
@@ -2025,11 +1950,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 {isEmpty && (
                   <div className="overflow-x-auto" style={{ overflowY: 'clip' }}>
                     {(() => {
-                      const labelCls = `px-3 py-1.5 font-semibold font-['Montserrat'] whitespace-nowrap sticky left-0 z-10 ${darkMode ? 'bg-[#121212] text-[#D7B797] !border-r-[#555]' : 'bg-white text-[#6B4D30] !border-r-[rgba(160,120,75,0.4)]'}`;
-                      const emptyCls = `px-3 py-1.5 text-center min-w-[140px] ${darkMode ? 'bg-[#121212] text-[#555]' : 'bg-white text-[#ccc]'}`;
+                      const labelCls = `px-3 py-1.5 font-semibold font-['Montserrat'] whitespace-nowrap sticky left-0 z-10 ${'bg-white text-[#6B4D30] !border-r-[rgba(160,120,75,0.4)]'}`;
+                      const emptyCls = `px-3 py-1.5 text-center min-w-[140px] ${'bg-white text-[#ccc]'}`;
                       const rowLabels = ['Actions', 'Image', 'SKU', 'Name', 'Product Type (L3)', 'Theme', 'Color', 'Composition', 'Unit cost', 'SRP', 'Order', 'Customer Target', 'Comment'];
                       return (
-                        <table className={`w-full text-xs border-separate border-spacing-0 ${darkMode ? '[&_td]:border-[#2E2E2E]' : '[&_td]:border-[rgba(215,183,151,0.2)]'} [&_td]:border`}>
+                        <table className={`w-full text-xs border-separate border-spacing-0 ${'[&_td]:border-[rgba(215,183,151,0.2)]'} [&_td]:border`}>
                           <tbody>
                             {rowLabels.map((label, ri) => (
                               <tr key={label}>
@@ -2038,12 +1963,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                                   {label === 'Image' ? <span className="text-[11px] italic opacity-50">—</span> : <span className="opacity-30">—</span>}
                                 </td>
                                 {ri === 0 && (
-                                  <td rowSpan={999} className={`border-l-2 ${darkMode ? 'bg-[rgba(215,183,151,0.03)] border-l-[rgba(215,183,151,0.2)]' : 'bg-[rgba(215,183,151,0.04)] border-l-[rgba(215,183,151,0.35)]'}`} style={{ minWidth: 52, verticalAlign: 'middle' }}>
+                                  <td rowSpan={999} className={`border-l-2 ${'bg-[rgba(215,183,151,0.04)] border-l-[rgba(215,183,151,0.35)]'}`} style={{ minWidth: 52, verticalAlign: 'middle' }}>
                                     <div className="flex items-center justify-center h-full" style={{ minHeight: 200 }}>
                                       <button
                                         type="button"
                                         onClick={() => setAddSkuModal({ open: true, blockKey: key, block })}
-                                        className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg transition-colors ${darkMode ? 'text-[#D7B797] hover:bg-[rgba(215,183,151,0.1)]' : 'text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
+                                        className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg transition-colors ${'text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
                                         style={{ writingMode: 'vertical-lr' }}
                                       >
                                         <Plus size={14} />
@@ -2065,26 +1990,26 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 {!isEmpty && !isCollapsed && (<>
                   <div className="overflow-x-auto" data-table-wrapper style={{ overflowY: 'clip' }}>
                     {(() => {
-                      const hlBg = darkMode ? 'bg-[rgba(215,183,151,0.12)]' : 'bg-[rgba(160,120,75,0.1)]';
-                      const hlLabel = darkMode ? 'bg-[#1f1a14]' : 'bg-[#ede4d8]';
-                      const normLabel = darkMode ? 'bg-[#121212]' : 'bg-white';
+                      const hlBg ='bg-[rgba(160,120,75,0.1)]';
+                      const hlLabel ='bg-[#ede4d8]';
+                      const normLabel ='bg-white';
                       const labelBase = `px-3 py-1.5 font-semibold font-['Montserrat'] whitespace-nowrap sticky left-0 z-10 cursor-pointer select-none transition-colors`;
-                      const labelBorder = darkMode ? '!border-r-[#555]' : '!border-r-[rgba(160,120,75,0.4)]';
-                      const labelColor = darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]';
+                      const labelBorder ='!border-r-[rgba(160,120,75,0.4)]';
+                      const labelColor ='text-[#6B4D30]';
                       const isHl = (rowId: string) => highlightedRow === `${key}_${rowId}`;
                       const toggleHl = (rowId: string) => setHighlightedRow(prev => prev === `${key}_${rowId}` ? null : `${key}_${rowId}`);
                       const trCls = (rowId: string, extra?: string) => `${isHl(rowId) ? hlBg : ''} ${extra || ''}`;
                       const tdLabel = (rowId: string, extra?: string) => `${labelBase} ${labelColor} ${isHl(rowId) ? hlLabel : normLabel} ${labelBorder} ${extra || ''}`;
                       return (
-                    <table className={`w-full text-xs border-separate border-spacing-0 ${darkMode ? '[&_td]:border-[#2E2E2E]' : '[&_td]:border-[rgba(215,183,151,0.2)]'} [&_td]:border`}>
+                    <table className={`w-full text-xs border-separate border-spacing-0 ${'[&_td]:border-[rgba(215,183,151,0.2)]'} [&_td]:border`}>
                       <tbody>
                         {/* Image row (with actions in top-right corner) */}
                         <tr className={trCls('image')}>
                           <td className={tdLabel('image', 'py-2')} onClick={() => toggleHl('image')}>Image</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-2 min-w-[140px] ${darkMode ? 'bg-[#121212]' : 'bg-white'}`} style={{ position: 'relative' }}>
+                            <td key={idx} className={`px-3 py-2 min-w-[140px] ${'bg-white'}`} style={{ position: 'relative' }}>
                               <div className="flex justify-end gap-0.5 absolute top-1 right-1">
-                                <button type="button" onClick={() => handleOpenLightbox(`${key}_${String(item.sku) || 'new'}_${idx}`, 'sizing', item, key, idx, block)} className={`p-1 rounded-md transition-colors relative ${darkMode ? 'text-[#999999] hover:text-[#D7B797] hover:bg-[rgba(215,183,151,0.1)]' : 'text-[#666666] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`} title="Sizing">
+                                <button type="button" onClick={() => handleOpenLightbox(`${key}_${String(item.sku) || 'new'}_${idx}`, 'sizing', item, key, idx, block)} className={`p-1 rounded-md transition-colors relative ${'text-[#666666] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`} title="Sizing">
                                   <Ruler size={14} />
                                   {isSizingComplete(key, idx) && (
                                     <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#2A9E6A] rounded-full flex items-center justify-center">
@@ -2092,20 +2017,20 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                                     </span>
                                   )}
                                 </button>
-                                <button type="button" onClick={() => handleDeleteSkuRow(key, idx)} className={`p-1 rounded-md transition-colors ${darkMode ? 'text-[#999999] hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.1)]' : 'text-[#666666] hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.1)]'}`} title={t('proposal.deleteSku')}><Trash2 size={14} /></button>
+                                <button type="button" onClick={() => handleDeleteSkuRow(key, idx)} className={`p-1 rounded-md transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.1)]'}`} title={t('proposal.deleteSku')}><Trash2 size={14} /></button>
                               </div>
                               <div className="mx-auto w-fit pt-3">
-                                <ProductImage subCategory={block.subCategory} sku={item.sku} size={64} darkMode={darkMode} />
+                                <ProductImage subCategory={block.subCategory} sku={item.sku} size={64} />
                               </div>
                             </td>
                           ))}
                           {/* Add New column */}
-                          <td rowSpan={999} className={`border-l-2 ${darkMode ? 'bg-[rgba(215,183,151,0.03)] border-l-[rgba(215,183,151,0.2)]' : 'bg-[rgba(215,183,151,0.04)] border-l-[rgba(215,183,151,0.35)]'}`} style={{ minWidth: 52, verticalAlign: 'middle' }}>
+                          <td rowSpan={999} className={`border-l-2 ${'bg-[rgba(215,183,151,0.04)] border-l-[rgba(215,183,151,0.35)]'}`} style={{ minWidth: 52, verticalAlign: 'middle' }}>
                             <div className="flex items-center justify-center h-full" style={{ minHeight: 200 }}>
                               <button
                                 type="button"
                                 onClick={() => setAddSkuModal({ open: true, blockKey: key, block })}
-                                className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg transition-colors ${darkMode ? 'text-[#D7B797] hover:bg-[rgba(215,183,151,0.1)]' : 'text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
+                                className={`flex flex-col items-center gap-1.5 py-3 px-2 rounded-lg transition-colors ${'text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
                                 style={{ writingMode: 'vertical-lr' }}
                               >
                                 <Plus size={14} />
@@ -2118,12 +2043,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                         <tr className={trCls('sku')}>
                           <td className={tdLabel('sku')} onClick={() => toggleHl('sku')}>SKU</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-semibold font-['JetBrains_Mono'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>
+                            <td key={idx} className={`px-3 py-1.5 text-center font-semibold font-['JetBrains_Mono'] ${'text-[#333333]'}`}>
                               {item.isNew ? (
                                 <select
                                   value={item.sku}
                                   onChange={(e) => handleSkuSelect(key, idx, e.target.value)}
-                                  className={`w-full px-1 py-0.5 rounded border text-xs font-['JetBrains_Mono'] ${darkMode ? 'border-[#2A9E6A] bg-[#121212] text-[#F2F2F2]' : 'border-[#127749] bg-white text-[#333333]'}`}
+                                  className={`w-full px-1 py-0.5 rounded border text-xs font-['JetBrains_Mono'] ${'border-[#127749] bg-white text-[#333333]'}`}
                                 >
                                   <option value="">{t('proposal.selectSku')}</option>
                                   {skuCatalog.map((sku: any) => (
@@ -2138,56 +2063,56 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                         <tr className={trCls('name')}>
                           <td className={tdLabel('name')} onClick={() => toggleHl('name')}>Name</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>{item.name}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center ${'text-[#333333]'}`}>{item.name}</td>
                           ))}
                         </tr>
                         {/* Product Type (L3) row */}
                         <tr className={trCls('productType')}>
                           <td className={tdLabel('productType')} onClick={() => toggleHl('productType')}>Product Type (L3)</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>{item.productType}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center ${'text-[#666666]'}`}>{item.productType}</td>
                           ))}
                         </tr>
                         {/* Theme row */}
                         <tr className={trCls('theme')}>
                           <td className={tdLabel('theme')} onClick={() => toggleHl('theme')}>Theme</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>{item.theme}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center ${'text-[#666666]'}`}>{item.theme}</td>
                           ))}
                         </tr>
                         {/* Color row */}
                         <tr className={trCls('color')}>
                           <td className={tdLabel('color')} onClick={() => toggleHl('color')}>Color</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>{item.color}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center ${'text-[#666666]'}`}>{item.color}</td>
                           ))}
                         </tr>
                         {/* Composition row */}
                         <tr className={trCls('composition')}>
                           <td className={tdLabel('composition')} onClick={() => toggleHl('composition')}>Composition</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center max-w-[160px] ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`} title={item.composition}>{item.composition}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center max-w-[160px] ${'text-[#666666]'}`} title={item.composition}>{item.composition}</td>
                           ))}
                         </tr>
                         {/* Unit cost row */}
                         <tr className={trCls('unitCost')}>
                           <td className={tdLabel('unitCost')} onClick={() => toggleHl('unitCost')}>Unit cost</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-['JetBrains_Mono'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>{formatCurrency(item.unitCost)}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center font-['JetBrains_Mono'] ${'text-[#333333]'}`}>{formatCurrency(item.unitCost)}</td>
                           ))}
                         </tr>
                         {/* SRP row */}
                         <tr className={trCls('srp')}>
                           <td className={tdLabel('srp')} onClick={() => toggleHl('srp')}>SRP</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-medium font-['JetBrains_Mono'] ${darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'}`}>{formatCurrency(item.srp)}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center font-medium font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(item.srp)}</td>
                           ))}
                         </tr>
                         {/* Order row - always highlighted */}
-                        <tr className={trCls('order', darkMode ? 'bg-[rgba(215,183,151,0.06)]' : 'bg-[rgba(160,120,75,0.06)]')}>
-                          <td className={`${labelBase} font-bold cursor-pointer select-none transition-colors ${labelBorder} ${darkMode ? 'text-[#D7B797]' : 'text-[#c0392b]'} ${isHl('order') ? hlLabel : (darkMode ? 'bg-[#1a1714]' : 'bg-[#f5efe8]')}`} onClick={() => toggleHl('order')}>Order</td>
+                        <tr className={trCls('order','bg-[rgba(160,120,75,0.06)]')}>
+                          <td className={`${labelBase} font-bold cursor-pointer select-none transition-colors ${labelBorder} ${'text-[#c0392b]'} ${isHl('order') ? hlLabel : ('bg-[#f5efe8]')}`} onClick={() => toggleHl('order')}>Order</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-bold font-['JetBrains_Mono'] ${darkMode ? 'text-[#D7B797]' : 'text-[#c0392b]'}`}>{item.order}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#c0392b]'}`}>{item.order}</td>
                           ))}
                         </tr>
                         {/* Dynamic store rows */}
@@ -2208,7 +2133,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                                         onChange={(e) => setEditValue(e.target.value)}
                                         onBlur={() => handleSaveEdit(storeKey)}
                                         onKeyDown={(e) => handleKeyDown(e, storeKey)}
-                                        className={`w-14 pl-4 py-0.5 text-center border-2 rounded-md text-xs font-semibold font-['JetBrains_Mono'] ${darkMode ? 'border-[#D7B797] bg-[#121212] text-[#F2F2F2]' : 'border-[#D7B797] bg-white text-[#333333]'}`}
+                                        className={`w-14 pl-4 py-0.5 text-center border-2 rounded-md text-xs font-semibold font-['JetBrains_Mono'] ${'border-[#D7B797] bg-white text-[#333333]'}`}
                                         autoFocus
                                       />
                                       <Pencil size={8} className="absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none text-[#8A6340]/30" />
@@ -2217,7 +2142,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                                     <button
                                       type="button"
                                       onClick={() => handleStartEdit(storeKey, storeVal)}
-                                      className={`px-2 py-0.5 rounded-md font-['JetBrains_Mono'] transition-colors ${darkMode ? 'text-[#F2F2F2] hover:bg-[rgba(215,183,151,0.1)]' : 'text-[#333333] hover:bg-[rgba(160,120,75,0.12)]'}`}
+                                      className={`px-2 py-0.5 rounded-md font-['JetBrains_Mono'] transition-colors ${'text-[#333333] hover:bg-[rgba(160,120,75,0.12)]'}`}
                                     >
                                       {storeVal}
                                     </button>
@@ -2228,10 +2153,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                           </tr>
                         ))}
                         {/* TTL value row - always highlighted */}
-                        <tr className={trCls('ttlValue', darkMode ? 'bg-[rgba(215,183,151,0.06)]' : 'bg-[rgba(160,120,75,0.06)]')}>
-                          <td className={`${labelBase} font-bold cursor-pointer select-none transition-colors ${labelBorder} ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} ${isHl('ttlValue') ? hlLabel : (darkMode ? 'bg-[#1a1714]' : 'bg-[#f5efe8]')}`} onClick={() => toggleHl('ttlValue')}>TTL value</td>
+                        <tr className={trCls('ttlValue','bg-[rgba(160,120,75,0.06)]')}>
+                          <td className={`${labelBase} font-bold cursor-pointer select-none transition-colors ${labelBorder} ${'text-[#6B4D30]'} ${isHl('ttlValue') ? hlLabel : ('bg-[#f5efe8]')}`} onClick={() => toggleHl('ttlValue')}>TTL value</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-bold font-['JetBrains_Mono'] ${darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'}`}>{formatCurrency(item.ttlValue || (item.order * (item.srp || 0)))}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(item.ttlValue || (item.order * (item.srp || 0)))}</td>
                           ))}
                         </tr>
                         {/* Customer Target row */}
@@ -2245,7 +2170,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                                 onChange={(val) => handleSelectChange(key, idx, 'customerTarget', val)}
                                 onCreateOption={(val) => setCustomerTargetOptions(prev => [...prev, val])}
                                 placeholder="Target..."
-                                darkMode={darkMode}
                               />
                             </td>
                           ))}
@@ -2267,11 +2191,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                                     }
                                   }}
                                   placeholder="..."
-                                  className={`w-full min-w-[80px] px-2 py-1 text-xs text-center border rounded-md outline-none transition-colors truncate ${
-                                    darkMode
-                                      ? 'bg-transparent border-[#2E2E2E] text-[#F2F2F2] placeholder-[#555] focus:border-[#D7B797]'
-                                      : 'bg-transparent border-[rgba(215,183,151,0.3)] text-[#333333] placeholder-[#aaa] focus:border-[#C4A77D]'
-                                  }`}
+                                  className={`w-full min-w-[80px] px-2 py-1 text-xs text-center border rounded-md outline-none transition-colors truncate ${'bg-transparent border-[rgba(215,183,151,0.3)] text-[#333333] placeholder-[#aaa] focus:border-[#C4A77D]'}`}
                                 />
                               </div>
                             </td>
@@ -2292,18 +2212,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
 
                 {/* Per-brand Save / Save as New Version footer */}
                 {!isBrandCollapsed && brandReady && (
-                  <div className={`flex items-center justify-end gap-2 px-4 py-2 border-t ${darkMode ? 'border-[#2E2E2E] bg-[#0A0A0A]' : 'border-[#C4B5A5] bg-[#F9F7F5]'}`}>
+                  <div className={`flex items-center justify-end gap-2 px-4 py-2 border-t ${'border-[#C4B5A5] bg-[#F9F7F5]'}`}>
                     {brandSaving[brandId] && (
-                      <span className={`text-xs font-['Montserrat'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>Saving...</span>
+                      <span className={`text-xs font-['Montserrat'] ${'text-[#999999]'}`}>Saving...</span>
                     )}
                     <button
                       disabled={brandSaving[brandId]}
                       onClick={(e) => { e.stopPropagation(); handleSaveBrand(brandId, false); }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                        darkMode
-                          ? 'bg-[rgba(215,183,151,0.1)] border-[rgba(215,183,151,0.3)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.18)] hover:border-[rgba(215,183,151,0.5)]'
-                          : 'bg-[rgba(160,120,75,0.1)] border-[rgba(160,120,75,0.35)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] hover:border-[rgba(160,120,75,0.5)]'
-                      }`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${'bg-[rgba(160,120,75,0.1)] border-[rgba(160,120,75,0.35)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] hover:border-[rgba(160,120,75,0.5)]'}`}
                     >
                       <Save size={13} />
                       Save
@@ -2311,11 +2227,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                     <button
                       disabled={brandSaving[brandId]}
                       onClick={(e) => { e.stopPropagation(); handleSaveBrand(brandId, true); }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${
-                        darkMode
-                          ? 'bg-[rgba(215,183,151,0.15)] border-[rgba(215,183,151,0.4)] text-[#D7B797] hover:bg-[rgba(215,183,151,0.22)]'
-                          : 'bg-[#6B4D30] border-[#6B4D30] text-white hover:bg-[#5C4028] hover:border-[#5C4028]'
-                      }`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${'bg-[#6B4D30] border-[#6B4D30] text-white hover:bg-[#5C4028] hover:border-[#5C4028]'}`}
                     >
                       <FilePlus size={13} />
                       Save as New Version
@@ -2328,28 +2240,28 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
 
           {/* Sticky Grand Total Bar */}
           {grandTotals.skuCount > 0 && (
-            <div className={`rounded-xl border overflow-hidden ${darkMode ? 'bg-[#121212] border-[#D7B797]/30' : 'bg-white border-[#D7B797]/40'}`}>
+            <div className={`rounded-xl border overflow-hidden ${'bg-white border-[#D7B797]/40'}`}>
               <div className="flex items-center gap-0">
-                <div className={`w-1.5 self-stretch ${darkMode ? 'bg-[#2A9E6A]' : 'bg-[#127749]'}`} />
+                <div className={`w-1.5 self-stretch ${'bg-[#127749]'}`} />
                 <div className="flex flex-wrap items-center flex-1 px-4 py-2.5 gap-3">
-                  <span className={`text-xs font-semibold font-['Montserrat'] uppercase tracking-wide ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+                  <span className={`text-xs font-semibold font-['Montserrat'] uppercase tracking-wide ${'text-[#6B4D30]'}`}>
                     GRAND TOTAL — {displayBrands.length} Brands • {grandTotals.skuCount} SKUs
                   </span>
                   <div className="flex items-center gap-5 text-xs font-['JetBrains_Mono']">
                     <div className="flex flex-col items-center">
-                      <span className={`text-[10px] font-['Montserrat'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>Order</span>
-                      <span className={`font-bold ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{grandTotals.order}</span>
+                      <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>Order</span>
+                      <span className={`font-bold ${'text-[#6B4D30]'}`}>{grandTotals.order}</span>
                     </div>
                     {stores.map((st: any) => (
                       <div key={st.code} className="flex flex-col items-center">
-                        <span className={`text-[10px] font-['Montserrat'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>{st.code}</span>
-                        <span className={`font-bold ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{grandTotals.storeQty[st.code] || 0}</span>
+                        <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>{st.code}</span>
+                        <span className={`font-bold ${'text-[#6B4D30]'}`}>{grandTotals.storeQty[st.code] || 0}</span>
                       </div>
                     ))}
-                    <div className={`h-6 w-px ${darkMode ? 'bg-[rgba(215,183,151,0.3)]' : 'bg-[rgba(215,183,151,0.5)]'}`} />
+                    <div className={`h-6 w-px ${'bg-[rgba(215,183,151,0.5)]'}`} />
                     <div className="flex flex-col items-center">
-                      <span className={`text-[10px] font-['Montserrat'] uppercase tracking-wider ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>Total Value</span>
-                      <span className={`font-bold text-lg font-['JetBrains_Mono'] ${darkMode ? 'text-[#D7B797]' : 'text-[#C4A77D]'}`}>{formatCurrency(grandTotals.ttlValue)}</span>
+                      <span className={`text-[10px] font-['Montserrat'] uppercase tracking-wider ${'text-[#999999]'}`}>Total Value</span>
+                      <span className={`font-bold text-lg font-['JetBrains_Mono'] ${'text-[#C4A77D]'}`}>{formatCurrency(grandTotals.ttlValue)}</span>
                     </div>
                   </div>
                   <div className="ml-auto">
@@ -2368,8 +2280,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                               const sizing = getSizing(blockKey, idx, bId);
                               const choiceSizing = sizing[choiceKey] || {};
                               return { ...item, sizing: choiceSizing };
-                            }),
-                          }));
+                            })}));
                           onSubmitTicket({ budgetId: budgetFilter !== 'all' ? budgetFilter : '', skuBlocks: enrichedBlocks, grandTotals, stores });
                         } else {
                           router.push(`/tickets?source=proposal&budgetId=${budgetFilter !== 'all' ? budgetFilter : ''}`);
@@ -2378,9 +2289,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                       disabled={grandTotals.order === 0}
                       className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold font-['Montserrat'] transition-colors ${
                         grandTotals.order > 0
-                          ? darkMode ? 'bg-[#D7B797] text-[#0A0A0A] hover:bg-[#C4A584]' : 'bg-[#C4A77D] text-white hover:bg-[#B8956D]'
-                          : darkMode ? 'bg-[#2E2E2E] text-[#666666] cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed'
-                      }`}
+                          ?'bg-[#C4A77D] text-white hover:bg-[#B8956D]':'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                     >
                       <Send size={16} />
                       Submit Ticket
@@ -2410,12 +2319,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
               right: overflowRight ? Math.max(8, window.innerWidth - rect.right) : undefined,
               left: overflowRight ? undefined : rect.left,
               zIndex: 99999,
-              minWidth: dropdownW,
-            }}
+              minWidth: dropdownW}}
           >
-            <div className={`border rounded-lg shadow-xl overflow-hidden ${darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E]' : 'bg-white border-[#C4B5A5]'}`}>
-              <div className={`px-2 py-1 border-b ${darkMode ? 'border-[#2E2E2E] bg-[#121212]' : 'border-[#D4C8BB] bg-[rgba(160,120,75,0.08)]'}`}>
-                <span className={`text-[10px] font-semibold uppercase tracking-wide font-['Montserrat'] ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
+            <div className={`border rounded-lg shadow-xl overflow-hidden ${'bg-white border-[#C4B5A5]'}`}>
+              <div className={`px-2 py-1 border-b ${'border-[#D4C8BB] bg-[rgba(160,120,75,0.08)]'}`}>
+                <span className={`text-[10px] font-semibold uppercase tracking-wide font-['Montserrat'] ${'text-[#666666]'}`}>
                   {isVersion ? 'SKU Versions' : 'Sizing Choices'}
                 </span>
               </div>
@@ -2437,22 +2345,18 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                         setOpenDropdown(null);
                         setDropdownAnchorEl(null);
                       }}
-                      className={`px-3 py-1.5 flex items-center justify-between cursor-pointer transition-colors text-xs border-t ${darkMode ? 'border-[#2E2E2E]/50' : 'border-[#E5E0DB]'} ${
+                      className={`px-3 py-1.5 flex items-center justify-between cursor-pointer transition-colors text-xs border-t ${'border-[#E5E0DB]'} ${
                         isSelected
-                          ? darkMode ? 'bg-[rgba(18,119,73,0.15)] text-[#2A9E6A]' : 'bg-[rgba(18,119,73,0.1)] text-[#127749]'
-                          : darkMode ? 'hover:bg-[rgba(215,183,151,0.08)] text-[#F2F2F2]' : 'hover:bg-[rgba(160,120,75,0.18)] text-[#0A0A0A]'
-                      }`}
+                          ?'bg-[rgba(18,119,73,0.1)] text-[#127749]':'hover:bg-[rgba(160,120,75,0.18)] text-[#0A0A0A]'}`}
                     >
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
-                        {isFinal && <Star size={11} className={darkMode ? 'text-[#D7B797] fill-[#D7B797] shrink-0' : 'text-[#6B4D30] fill-[#6B4D30] shrink-0'} />}
+                        {isFinal && <Star size={11} className={'text-[#6B4D30] fill-[#6B4D30] shrink-0'} />}
                         <span className="font-medium truncate">{isVersion ? `Version ${item.version}` : `Choice ${item.version}`}</span>
                         {isVersion && item.status && (
                           <span className={`text-[9px] px-1 rounded ${
                             item.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' :
                             item.status === 'SUBMITTED' ? 'bg-blue-500/20 text-blue-400' :
-                            item.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' :
-                            darkMode ? 'bg-[#2E2E2E] text-[#999]' : 'bg-[#E5E0DB] text-[#666]'
-                          }`}>{item.status}</span>
+                            item.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' :'bg-[#E5E0DB] text-[#666]'}`}>{item.status}</span>
                         )}
                         {isFinal && <span className="px-1 py-px text-[8px] font-bold bg-[#D7B797] text-[#0A0A0A] rounded shrink-0">FINAL</span>}
                       </div>
@@ -2467,7 +2371,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                               setDropdownAnchorEl(null);
                             }}
                             title={isVersion ? 'Set as final version' : 'Set as final choice'}
-                            className={`p-0.5 rounded transition-colors ${darkMode ? 'text-[#666] hover:text-[#D7B797] hover:bg-[rgba(215,183,151,0.1)]' : 'text-[#aaa] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.15)]'}`}
+                            className={`p-0.5 rounded transition-colors ${'text-[#aaa] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.15)]'}`}
                           >
                             <Star size={10} />
                           </button>
@@ -2487,30 +2391,30 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
       {/* SKU Lightbox Modal — Portal to body for full-screen blur */}
       {lightbox && lightbox.open && lightbox.item && createPortal(
         <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50" onClick={(e) => { if (e.target === e.currentTarget) handleCloseLightbox(); }}>
-          <div ref={lightboxRef} className={`rounded-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col border ${darkMode ? 'bg-[#121212] border-[#2E2E2E]' : 'bg-white border-[rgba(215,183,151,0.3)]'}`} style={{ boxShadow: '0 25px 60px -12px rgba(0,0,0,0.4), 0 10px 30px -8px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.05)' }}>
+          <div ref={lightboxRef} className={`rounded-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col border ${'bg-white border-[rgba(215,183,151,0.3)]'}`} style={{ boxShadow: '0 25px 60px -12px rgba(0,0,0,0.4), 0 10px 30px -8px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.05)' }}>
             {/* Header */}
-            <div className={`px-6 py-4 flex items-center justify-between ${darkMode ? 'bg-[rgba(215,183,151,0.1)] border-b border-[rgba(215,183,151,0.2)]' : 'bg-[rgba(160,120,75,0.18)] border-b border-[rgba(215,183,151,0.3)]'}`}>
+            <div className={`px-6 py-4 flex items-center justify-between ${'bg-[rgba(160,120,75,0.18)] border-b border-[rgba(215,183,151,0.3)]'}`}>
               <div className="flex items-center gap-3">
-                <ProductImage subCategory={lightbox.block?.subCategory || ''} sku={lightbox.item.sku} size={40} darkMode={darkMode} rounded="rounded-xl" />
+                <ProductImage subCategory={lightbox.block?.subCategory || ''} sku={lightbox.item.sku} size={40} rounded="rounded-xl" />
                 <div>
-                  <h3 className={`text-base font-bold font-['Montserrat'] ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+                  <h3 className={`text-base font-bold font-['Montserrat'] ${'text-[#6B4D30]'}`}>
                     <span className="font-['JetBrains_Mono']">{lightbox.item.sku}</span> - {lightbox.item.name}
                   </h3>
-                  <p className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-[#6B5B4D]'}`}>
+                  <p className={`text-xs ${'text-[#6B5B4D]'}`}>
                     {lightbox.block?.gender} {lightbox.block?.category && `• ${lightbox.block.category}`} {lightbox.block?.subCategory && `• ${lightbox.block.subCategory}`}
                   </p>
                 </div>
               </div>
               <button
                 onClick={handleCloseLightbox}
-                className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-[rgba(215,183,151,0.15)]' : 'hover:bg-[rgba(215,183,151,0.2)]'}`}
+                className={`p-2 rounded-lg transition-colors ${'hover:bg-[rgba(215,183,151,0.2)]'}`}
               >
-                <X size={20} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+                <X size={20} className={'text-[#6B4D30]'} />
               </button>
             </div>
 
             {/* Tab Buttons */}
-            <div className={`flex border-b ${darkMode ? 'border-[#2E2E2E]' : 'border-[rgba(215,183,151,0.3)]'}`}>
+            <div className={`flex border-b ${'border-[rgba(215,183,151,0.3)]'}`}>
               {([['details', t('skuProposal.showDetails')], ['storeOrder', t('skuProposal.storeOrder')], ['sizing', t('skuProposal.sizing')]] as const).map(([tabId, label]) => (
                 <button
                   key={tabId}
@@ -2518,13 +2422,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                   onClick={() => setLightbox(prev => prev ? { ...prev, tab: tabId as 'details' | 'storeOrder' | 'sizing' } : null)}
                   className={`flex-1 px-4 py-2.5 text-xs font-semibold font-['Montserrat'] transition-colors relative ${
                     lightbox.tab === tabId
-                      ? darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'
-                      : darkMode ? 'text-[#666666] hover:text-[#999999]' : 'text-[#999999] hover:text-[#666666]'
-                  }`}
+                      ?'text-[#6B4D30]':'text-[#999999] hover:text-[#666666]'}`}
                 >
                   {label}
                   {lightbox.tab === tabId && (
-                    <span className={`absolute bottom-0 left-2 right-2 h-0.5 rounded-full ${darkMode ? 'bg-[#D7B797]' : 'bg-[#6B4D30]'}`} />
+                    <span className={`absolute bottom-0 left-2 right-2 h-0.5 rounded-full ${'bg-[#6B4D30]'}`} />
                   )}
                 </button>
               ))}
@@ -2536,28 +2438,28 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
               {lightbox.tab === 'details' && (
                 <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
                   <div>
-                    <span className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>Product type</span>
-                    <div className={`font-medium ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>{lightbox.item.productType}</div>
+                    <span className={`text-xs ${'text-[#666666]'}`}>Product type</span>
+                    <div className={`font-medium ${'text-[#333333]'}`}>{lightbox.item.productType}</div>
                   </div>
                   <div>
-                    <span className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>Theme</span>
-                    <div className={`font-medium ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>{lightbox.item.theme}</div>
+                    <span className={`text-xs ${'text-[#666666]'}`}>Theme</span>
+                    <div className={`font-medium ${'text-[#333333]'}`}>{lightbox.item.theme}</div>
                   </div>
                   <div>
-                    <span className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>Color</span>
-                    <div className={`font-medium ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>{lightbox.item.color}</div>
+                    <span className={`text-xs ${'text-[#666666]'}`}>Color</span>
+                    <div className={`font-medium ${'text-[#333333]'}`}>{lightbox.item.color}</div>
                   </div>
                   <div>
-                    <span className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>Composition</span>
-                    <div className={`font-medium ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>{lightbox.item.composition}</div>
+                    <span className={`text-xs ${'text-[#666666]'}`}>Composition</span>
+                    <div className={`font-medium ${'text-[#333333]'}`}>{lightbox.item.composition}</div>
                   </div>
                   <div>
-                    <span className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>Unit cost</span>
-                    <div className={`font-medium font-['JetBrains_Mono'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>{formatCurrency(lightbox.item.unitCost)}</div>
+                    <span className={`text-xs ${'text-[#666666]'}`}>Unit cost</span>
+                    <div className={`font-medium font-['JetBrains_Mono'] ${'text-[#333333]'}`}>{formatCurrency(lightbox.item.unitCost)}</div>
                   </div>
                   <div>
-                    <span className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>SRP</span>
-                    <div className={`font-medium font-['JetBrains_Mono'] ${darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]'}`}>{formatCurrency(lightbox.item.srp)}</div>
+                    <span className={`text-xs ${'text-[#666666]'}`}>SRP</span>
+                    <div className={`font-medium font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(lightbox.item.srp)}</div>
                   </div>
                   <div>
                     <CreatableSelect
@@ -2566,7 +2468,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                       onChange={(val) => handleSelectChange(lightbox.blockKey, lightbox.idx, 'customerTarget', val)}
                       onCreateOption={(val) => setCustomerTargetOptions(prev => [...prev, val])}
                       placeholder="Select target..."
-                      darkMode={darkMode}
                       label="Customer target"
                     />
                   </div>
@@ -2578,7 +2479,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10">
-                      <tr className={darkMode ? 'bg-[#1A1A1A] text-[#999999]' : 'bg-[rgba(160,120,75,0.12)] text-[#666666]'}>
+                      <tr className={'bg-[rgba(160,120,75,0.12)] text-[#666666]'}>
                         <th className="px-4 py-2 text-left">Store</th>
                         <th className="px-4 py-2 text-center font-['JetBrains_Mono']">ORDER</th>
                         <th className="px-4 py-2 text-right font-['JetBrains_Mono']">TTL VALUE</th>
@@ -2589,8 +2490,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                         const storeVal = (lightbox.item.storeQty || {})[st.code] || 0;
                         const colors = ['bg-[#D7B797]', 'bg-[#127749]', 'bg-[#58A6FF]', 'bg-[#A371F7]', 'bg-[#E3B341]'];
                         return (
-                          <tr key={st.code} className={`border-t ${darkMode ? 'border-[#2E2E2E]' : 'border-gray-300'}`}>
-                            <td className={`px-4 py-2 ${darkMode ? 'text-[#F2F2F2]' : 'text-gray-700'}`}>
+                          <tr key={st.code} className={`border-t ${'border-gray-300'}`}>
+                            <td className={`px-4 py-2 ${'text-gray-700'}`}>
                               <span className="inline-flex items-center gap-1.5"><span className={`w-2 h-2 rounded-full ${colors[si % colors.length]}`} />{st.code}</span>
                             </td>
                             <td className="px-4 py-2 text-center">
@@ -2600,23 +2501,19 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                                   min="0"
                                   value={storeVal}
                                   onChange={(e) => handleNumberChange(lightbox.blockKey, lightbox.idx, `store_${st.code}`, e.target.value)}
-                                  className={`w-20 pl-5 text-center font-['JetBrains_Mono'] text-sm rounded-lg border py-1 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] ${
-                                    darkMode
-                                      ? 'bg-[#121212] border-[rgba(215,183,151,0.3)] text-[#F2F2F2] focus:border-[#D7B797]'
-                                      : 'bg-white border-[rgba(215,183,151,0.4)] text-gray-800 focus:border-[#D7B797]'
-                                  }`}
+                                  className={`w-20 pl-5 text-center font-['JetBrains_Mono'] text-sm rounded-lg border py-1 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] ${'bg-white border-[rgba(215,183,151,0.4)] text-gray-800 focus:border-[#D7B797]'}`}
                                 />
                                 <Pencil size={8} className="absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#8A6340]/30" />
                               </div>
                             </td>
-                            <td className={`px-4 py-2 text-right font-['JetBrains_Mono'] ${darkMode ? 'text-[#F2F2F2]' : 'text-gray-800'}`}>{formatCurrency(storeVal * (lightbox.item.srp || 0))}</td>
+                            <td className={`px-4 py-2 text-right font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency(storeVal * (lightbox.item.srp || 0))}</td>
                           </tr>
                         );
                       })}
-                      <tr className={`border-t-2 ${darkMode ? 'border-[#D7B797]/30 bg-[rgba(215,183,151,0.05)]' : 'border-[#D7B797]/40 bg-[rgba(160,120,75,0.12)]'}`}>
-                        <td className={`px-4 py-2 font-semibold ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{t('skuProposal.total')}</td>
-                        <td className={`px-4 py-2 text-center font-bold font-['JetBrains_Mono'] ${darkMode ? 'text-[#F2F2F2]' : 'text-gray-800'}`}>{lightbox.item.order || 0}</td>
-                        <td className={`px-4 py-2 text-right font-bold font-['JetBrains_Mono'] ${darkMode ? 'text-[#F2F2F2]' : 'text-gray-800'}`}>{formatCurrency(lightbox.item.ttlValue || (lightbox.item.order || 0) * (lightbox.item.srp || 0))}</td>
+                      <tr className={`border-t-2 ${'border-[#D7B797]/40 bg-[rgba(160,120,75,0.12)]'}`}>
+                        <td className={`px-4 py-2 font-semibold ${'text-[#6B4D30]'}`}>{t('skuProposal.total')}</td>
+                        <td className={`px-4 py-2 text-center font-bold font-['JetBrains_Mono'] ${'text-gray-800'}`}>{lightbox.item.order || 0}</td>
+                        <td className={`px-4 py-2 text-right font-bold font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency(lightbox.item.ttlValue || (lightbox.item.order || 0) * (lightbox.item.srp || 0))}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -2628,39 +2525,38 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                 <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10">
-                      <tr className={darkMode ? 'bg-[rgba(215,183,151,0.15)] text-[#D7B797]' : 'bg-[rgba(215,183,151,0.2)] text-[#6B4D30]'}>
+                      <tr className={'bg-[rgba(215,183,151,0.2)] text-[#6B4D30]'}>
                         <th className="px-4 py-2 text-left font-semibold font-['Montserrat']">{lightbox.item.productType}</th>
                         <th className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">0002</th>
                         <th className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">0004</th>
                         <th className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">0006</th>
                         <th className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">0008</th>
-                        <th className={`px-4 py-2 text-center font-semibold font-['Montserrat'] ${darkMode ? 'bg-[rgba(215,183,151,0.2)]' : 'bg-[rgba(215,183,151,0.25)]'}`}>Sum</th>
+                        <th className={`px-4 py-2 text-center font-semibold font-['Montserrat'] ${'bg-[rgba(215,183,151,0.25)]'}`}>Sum</th>
                       </tr>
                     </thead>
-                    <tbody className={darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}>
-                      <tr className={darkMode ? 'border-b border-[#2E2E2E] bg-[#1A1A1A]' : 'border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.08)]'}>
-                        <td className={`px-4 py-2 font-medium ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>% Sales mix</td>
+                    <tbody className={'text-[#333333]'}>
+                      <tr className={'border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.08)]'}>
+                        <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% Sales mix</td>
                         <td className="px-4 py-2 text-center font-['JetBrains_Mono']">6%</td>
                         <td className="px-4 py-2 text-center font-['JetBrains_Mono']">33%</td>
                         <td className="px-4 py-2 text-center font-['JetBrains_Mono']">33%</td>
                         <td className="px-4 py-2 text-center font-['JetBrains_Mono']">28%</td>
-                        <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${darkMode ? 'bg-[rgba(215,183,151,0.08)]' : 'bg-[rgba(160,120,75,0.12)]'}`}>100%</td>
+                        <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${'bg-[rgba(160,120,75,0.12)]'}`}>100%</td>
                       </tr>
-                      <tr className={darkMode ? 'border-b border-[#2E2E2E]' : 'border-b border-[rgba(215,183,151,0.2)]'}>
-                        <td className={`px-4 py-2 font-medium ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>% ST</td>
+                      <tr className={'border-b border-[rgba(215,183,151,0.2)]'}>
+                        <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% ST</td>
                         <td className="px-4 py-2 text-center font-['JetBrains_Mono']">50%</td>
                         <td className="px-4 py-2 text-center font-['JetBrains_Mono']">43%</td>
                         <td className="px-4 py-2 text-center font-['JetBrains_Mono']">30%</td>
                         <td className="px-4 py-2 text-center font-['JetBrains_Mono']">63%</td>
-                        <td className={`px-4 py-2 text-center font-['JetBrains_Mono'] ${darkMode ? 'text-[#666666] bg-[rgba(215,183,151,0.08)]' : 'text-[#999999] bg-[rgba(160,120,75,0.12)]'}`}>-</td>
+                        <td className={`px-4 py-2 text-center font-['JetBrains_Mono'] ${'text-[#999999] bg-[rgba(160,120,75,0.12)]'}`}>-</td>
                       </tr>
                       {(() => {
                         // Use per-item sizing headers (each SKU has its own A/B/C)
                         const itemHeaders = (lightbox.item.proposal_sizing_headers || []).map((sh: any) => ({
                           id: String(sh.id),
                           version: sh.version ?? 1,
-                          isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false,
-                        })).sort((a: any, b: any) => a.version - b.version);
+                          isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false})).sort((a: any, b: any) => a.version - b.version);
                         return itemHeaders.length >= 3 ? itemHeaders.slice(0, 3) : [
                           { id: 'choiceA', version: 1, isFinal: false },
                           { id: 'choiceB', version: 2, isFinal: false },
@@ -2670,14 +2566,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                         const choiceKey = String(choice.id);
                         const lbBrandId = lightbox.blockKey.split('_')[0] || 'all';
                         const sizing = getSizing(lightbox.blockKey, lightbox.idx, lbBrandId);
-                        const choiceData = sizing[choiceKey] || { s0002: 0, s0004: 0, s0006: 0, s0008: 0 };
+                        const choiceData = sizing[choiceKey] || { ...EMPTY_SIZE_DATA };
                         const isFirst = ci === 0;
                         return (
                           <tr key={choice.id} className={isFirst
-                            ? (darkMode ? 'border-b border-[#2E2E2E] bg-[rgba(215,183,151,0.08)]' : 'border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.12)]')
-                            : (darkMode ? 'border-b border-[#2E2E2E] bg-[rgba(42,158,106,0.05)]' : 'border-b border-[rgba(215,183,151,0.2)] bg-[rgba(18,119,73,0.03)]')
+                            ? ('border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.12)]')
+                            : ('border-b border-[rgba(215,183,151,0.2)] bg-[rgba(18,119,73,0.03)]')
                           }>
-                            <td className={`px-4 py-2 font-medium ${isFirst ? (darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]') : (darkMode ? 'text-[#2A9E6A]' : 'text-[#127749]')}`}>
+                            <td className={`px-4 py-2 font-medium ${isFirst ? ('text-[#6B4D30]') : ('text-[#127749]')}`}>
                               Choice {choice.version === 1 ? 'A' : choice.version === 2 ? 'B' : 'C'}{choice.isFinal && <span className="ml-1 text-[10px] font-bold text-[#2A9E6A]">FINAL</span>}
                             </td>
                             {['s0002', 's0004', 's0006', 's0008'].map((size: any) => (
@@ -2689,13 +2585,13 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
                                   onChange={(e) => updateSizing(lightbox.blockKey, lightbox.idx, choiceKey, size, e.target.value, lbBrandId)}
                                   className={`w-14 text-center font-['JetBrains_Mono'] text-sm rounded border py-0.5 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] ${
                                     isFirst
-                                      ? (darkMode ? 'bg-[rgba(42,158,106,0.1)] border-[rgba(42,158,106,0.25)] text-[#D7B797]' : 'bg-emerald-50 border-emerald-200 text-[#6B4D30]')
-                                      : (darkMode ? 'bg-[rgba(42,158,106,0.1)] border-[rgba(42,158,106,0.25)] text-[#2A9E6A]' : 'bg-emerald-50 border-emerald-200 text-[#127749]')
+                                      ? ('bg-emerald-50 border-emerald-200 text-[#6B4D30]')
+                                      : ('bg-emerald-50 border-emerald-200 text-[#127749]')
                                   }`}
                                 />
                               </td>
                             ))}
-                            <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${isFirst ? (darkMode ? 'text-[#D7B797] bg-[rgba(215,183,151,0.15)]' : 'text-[#6B4D30] bg-[rgba(215,183,151,0.2)]') : (darkMode ? 'text-[#2A9E6A] bg-[rgba(42,158,106,0.1)]' : 'text-[#127749] bg-[rgba(18,119,73,0.08)]')}`}>{calculateSum(choiceData)}</td>
+                            <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${isFirst ? ('text-[#6B4D30] bg-[rgba(215,183,151,0.2)]') : ('text-[#127749] bg-[rgba(18,119,73,0.08)]')}`}>{calculateSum(choiceData)}</td>
                           </tr>
                         );
                       })}
@@ -2706,16 +2602,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
             </div>
 
             {/* Footer */}
-            <div className={`px-6 py-3 flex justify-end gap-3 border-t ${darkMode ? 'border-[#2E2E2E]' : 'border-[rgba(215,183,151,0.3)]'}`}>
+            <div className={`px-6 py-3 flex justify-end gap-3 border-t ${'border-[rgba(215,183,151,0.3)]'}`}>
               <button
                 onClick={handleCloseLightbox}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${darkMode ? 'text-[#999999] hover:bg-[rgba(215,183,151,0.1)] hover:text-[#D7B797]' : 'text-[#666666] hover:bg-[rgba(160,120,75,0.12)] hover:text-[#6B4D30]'}`}
+                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${'text-[#666666] hover:bg-[rgba(160,120,75,0.12)] hover:text-[#6B4D30]'}`}
               >
                 Close
               </button>
               <button
                 onClick={handleCloseLightbox}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors shadow-sm ${darkMode ? 'bg-[#D7B797] text-[#0A0A0A] hover:bg-[#C4A584]' : 'bg-[#D7B797] text-[#333333] hover:bg-[#C4A584]'}`}
+                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors shadow-sm ${'bg-[#D7B797] text-[#333333] hover:bg-[#C4A584]'}`}
               >
                 Done
               </button>
@@ -2734,20 +2630,17 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
             key: 'brand',
             label: 'Brand',
             type: 'single',
-            options: brandOptions.filter((b: any) => b.value !== 'all').map((b: any) => ({ label: b.label, value: b.value })),
-          },
+            options: brandOptions.filter((b: any) => b.value !== 'all').map((b: any) => ({ label: b.label, value: b.value }))},
           {
             key: 'seasonGroup',
             label: t('otbAnalysis.seasonGroup'),
             type: 'single',
-            options: seasonGroupOptions.filter((s: any) => s.value !== 'all').map((s: any) => ({ label: s.label, value: s.value })),
-          },
+            options: seasonGroupOptions.filter((s: any) => s.value !== 'all').map((s: any) => ({ label: s.label, value: s.value }))},
           {
             key: 'season',
             label: t('otbAnalysis.season') || 'Season',
             type: 'single',
-            options: seasonOptions.filter((s: any) => s.value !== 'all').map((s: any) => ({ label: s.label, value: s.value })),
-          },
+            options: seasonOptions.filter((s: any) => s.value !== 'all').map((s: any) => ({ label: s.label, value: s.value }))},
         ]}
         values={mobileFilterValues}
         onChange={(key, value) => setMobileFilterValues(prev => ({ ...prev, [key]: value }))}
@@ -2763,7 +2656,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
           setSeasonFilter('all');
         }}
       />
-      <ConfirmDialog darkMode={darkMode} {...dialogProps} />
+      <ConfirmDialog {...dialogProps} />
 
       {/* Add SKU Modal */}
       {addSkuModal && (
@@ -2780,7 +2673,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
               ?.items.map((i: any) => i.sku).filter(Boolean) || []
           }
           onAddSkus={(skus) => handleAddSkusFromModal(addSkuModal.blockKey, skus, addSkuModal.block)}
-          darkMode={darkMode}
           stores={stores}
           customerTargetOptions={customerTargetOptions}
           onCreateCustomerTarget={(val) => setCustomerTargetOptions(prev => [...prev, val])}
@@ -2794,27 +2686,18 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket, darkMode
           onClick={() => setCommentPopup(null)}
         >
           <div
-            className={`fixed rounded-lg border px-4 py-3 max-w-xs shadow-xl ${
-              darkMode
-                ? 'bg-[#1a1a1a] border-[#D7B797]/30 text-[#F2F2F2]'
-                : 'bg-white border-[#D4CCC2] text-[#333333]'
-            }`}
+            className={`fixed rounded-lg border px-4 py-3 max-w-xs shadow-xl ${'bg-white border-[#D4CCC2] text-[#333333]'}`}
             style={{
               top: commentPopup.rect.top - 8,
               left: commentPopup.rect.left + commentPopup.rect.width / 2,
               transform: 'translate(-50%, -100%)',
-              boxShadow: darkMode
-                ? '0 8px 24px rgba(0,0,0,0.6)'
-                : '0 8px 24px rgba(0,0,0,0.12)',
-            }}
+              boxShadow:'0 8px 24px rgba(0,0,0,0.12)'}}
             onClick={(e) => e.stopPropagation()}
           >
-            <div className={`text-[10px] uppercase tracking-wider font-semibold mb-1 font-['Montserrat'] ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>Comment</div>
+            <div className={`text-[10px] uppercase tracking-wider font-semibold mb-1 font-['Montserrat'] ${'text-[#6B4D30]'}`}>Comment</div>
             <div className="text-sm whitespace-pre-wrap break-words">{commentPopup.text}</div>
             <div
-              className={`absolute left-1/2 -translate-x-1/2 bottom-[-6px] w-3 h-3 rotate-45 border-r border-b ${
-                darkMode ? 'bg-[#1a1a1a] border-[#D7B797]/30' : 'bg-white border-[#D4CCC2]'
-              }`}
+              className={`absolute left-1/2 -translate-x-1/2 bottom-[-6px] w-3 h-3 rotate-45 border-r border-b ${'bg-white border-[#D4CCC2]'}`}
             />
           </div>
         </div>,

@@ -121,21 +121,46 @@ export const useDataImport = () => {
       if (autoKeys.length > 0) setMatchKeys(autoKeys);
 
     } else if (ext === 'xlsx' || ext === 'xls') {
-      // Dynamic import SheetJS
+      // Dynamic import ExcelJS
       try {
-        const xlsxModule = await import('xlsx');
-        const XLSX = (xlsxModule as any).default || xlsxModule;
+        const ExcelJS = await import('exceljs');
+        const workbook = new ExcelJS.Workbook();
         const buffer = await selectedFile.arrayBuffer();
-        const workbook = XLSX.read(buffer, { type: 'array' });
-        const sheet = workbook.Sheets[workbook.SheetNames[0]];
-        const jsonData: Record<string, any>[] = XLSX.utils.sheet_to_json(sheet, { defval: '' });
+        await workbook.xlsx.load(buffer);
+        const worksheet = workbook.worksheets[0];
+
+        if (!worksheet || worksheet.rowCount < 2) {
+          setError('Excel file is empty or has no data rows');
+          return;
+        }
+
+        // Extract headers from first row
+        const headerRow = worksheet.getRow(1);
+        const parsedHeaders: string[] = [];
+        headerRow.eachCell({ includeEmpty: true }, (cell, colNumber) => {
+          parsedHeaders[colNumber - 1] = String(cell.value || `Column${colNumber}`);
+        });
+
+        // Extract data rows
+        const jsonData: Record<string, any>[] = [];
+        for (let i = 2; i <= worksheet.rowCount; i++) {
+          const row = worksheet.getRow(i);
+          const rowData: Record<string, any> = {};
+          let hasData = false;
+          parsedHeaders.forEach((h, idx) => {
+            const cell = row.getCell(idx + 1);
+            const val = cell.value;
+            rowData[h] = val !== null && val !== undefined ? String(val) : '';
+            if (val !== null && val !== undefined && String(val).trim()) hasData = true;
+          });
+          if (hasData) jsonData.push(rowData);
+        }
 
         if (jsonData.length === 0) {
           setError('Excel file is empty or has no data rows');
           return;
         }
 
-        const parsedHeaders = Object.keys(jsonData[0]);
         setHeaders(parsedHeaders);
         setParsedData(jsonData);
         setPreviewRows(jsonData.slice(0, 10));
@@ -145,7 +170,7 @@ export const useDataImport = () => {
         );
         if (autoKeys.length > 0) setMatchKeys(autoKeys);
       } catch {
-        setError('Failed to parse Excel file. Make sure xlsx package is installed: npm install xlsx');
+        setError('Failed to parse Excel file');
       }
     } else {
       setError('Unsupported file format. Use .csv, .tsv, .xlsx, or .xls');

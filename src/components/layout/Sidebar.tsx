@@ -13,7 +13,7 @@ import {
 import { ROUTE_MAP } from '@/utils/routeMap';
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) => {
+const Sidebar = ({ currentScreen, user, onLogout }: any) => {
   const router = useRouter();
   const { t } = useLanguage();
   const navigateTo = (screenId: any) => {
@@ -69,21 +69,17 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
   const getIconClass = (itemId: any) => {
     const isActive = currentScreen === itemId;
     if (isActive) {
-      return darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]';
+      return 'text-[#6B4D30]';
     }
-    return darkMode
-      ? 'text-[#555555] group-hover:text-[#D7B797]'
-      : 'text-gray-600 group-hover:text-[#6B4D30]';
+    return 'text-gray-600 group-hover:text-[#6B4D30]';
   };
 
   const getTextClass = (itemId: any) => {
     const isActive = currentScreen === itemId;
     if (isActive) {
-      return darkMode ? 'text-[#D7B797] font-bold' : 'text-[#6B4D30] font-bold';
+      return 'text-[#6B4D30] font-bold';
     }
-    return darkMode
-      ? 'text-[#888888] font-medium group-hover:text-[#D7B797]'
-      : 'text-gray-600 font-medium group-hover:text-[#6B4D30]';
+    return 'text-gray-600 font-medium group-hover:text-[#6B4D30]';
   };
 
   // Collapsed sidebar item with tooltip
@@ -120,8 +116,8 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
               strokeWidth={isActive ? 2.5 : 2}
               className={`transition-all duration-200 ${
                 isActive
-                  ? (darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]')
-                  : darkMode ? 'text-[#555555] group-hover:text-[#D7B797]' : 'text-gray-600 group-hover:text-[#6B4D30]'
+                  ? 'text-[#6B4D30]'
+                  : 'text-gray-600 group-hover:text-[#6B4D30]'
               }`}
               style={isActive ? { filter: 'drop-shadow(0 0 4px rgba(215,183,151,0.4))' } : undefined}
             />
@@ -130,26 +126,17 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
           {/* Tooltip */}
           {hoveredItem === item.id && (
             <div className="absolute left-full ml-3 top-1/2 -translate-y-1/2 z-50 pointer-events-none">
-              <div className={`px-2.5 py-1 rounded-lg shadow-lg whitespace-nowrap text-[11px] font-medium font-['Montserrat']
-                ${darkMode
-                  ? 'bg-[#1A1A1A] text-[#F2F2F2] border border-[#2E2E2E]'
-                  : 'bg-white text-gray-800 border border-gray-300'
-                }`}
-              >
+              <div className="px-2.5 py-1 rounded-lg shadow-lg whitespace-nowrap text-[11px] font-medium font-['Montserrat'] bg-white text-gray-800 border border-gray-300">
                 {item.label}
               </div>
-              <div className={`absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent
-                ${darkMode ? 'border-r-[#1A1A1A]' : 'border-r-white'}`}
-              />
+              <div className="absolute right-full top-1/2 -translate-y-1/2 border-4 border-transparent border-r-white" />
             </div>
           )}
         </div>
         {showDividerAfter && (
           <div className="my-1.5 mx-2">
             <div className="h-px" style={{
-              background: darkMode
-                ? 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.15) 50%, transparent 100%)'
-                : 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.25) 50%, transparent 100%)',
+              background: 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.25) 50%, transparent 100%)',
             }} />
           </div>
         )}
@@ -161,20 +148,16 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
     <div
       className={`${isCollapsed ? 'w-[56px]' : 'w-[264px]'} h-screen border-r flex flex-col sticky top-0 z-40 transition-[width] duration-200 ease-out`}
       style={{
-        background: darkMode
-          ? 'linear-gradient(180deg, #0A0A0A 0%, #080808 50%, rgba(13,11,9,1) 100%)'
-          : 'linear-gradient(180deg, #ffffff 0%, #fefefe 50%, #fdfbf9 100%)',
-        borderColor: darkMode ? '#1A1A1A' : '#D1D5DB',
+        background: 'linear-gradient(180deg, #ffffff 0%, #fefefe 50%, #fdfbf9 100%)',
+        borderColor: '#D1D5DB',
       }}
     >
       {/* Logo Header */}
       <div
-        className={`h-11 flex items-center justify-center`}
+        className="h-11 flex items-center justify-center"
         style={{
-          borderBottom: `1px solid ${darkMode ? '#1A1A1A' : '#D1D5DB'}`,
-          background: darkMode
-            ? 'linear-gradient(135deg, #0A0A0A 0%, rgba(215,183,151,0.03) 100%)'
-            : 'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.12) 100%)',
+          borderBottom: '1px solid #D1D5DB',
+          background: 'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.12) 100%)',
         }}
       >
         {isCollapsed ? (
@@ -190,25 +173,13 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
             <img src="/dafc-logo.png" alt="DAFC" className="h-9 w-auto object-contain flex-shrink-0 -mt-[2px]" />
             <span
               className="flex-1 text-xs font-bold tracking-widest whitespace-nowrap leading-none"
-              style={darkMode ? {
-                background: 'linear-gradient(135deg, #666666 0%, #888888 100%)',
-                WebkitBackgroundClip: 'text',
-                WebkitTextFillColor: 'transparent',
-                backgroundClip: 'text',
-                color: 'transparent',
-              } : {
-                color: '#8A6340',
-              }}
+              style={{ color: '#8A6340' }}
             >
               {t('components.otbSystem')}
             </span>
             <button
               onClick={() => setIsExpanded(false)}
-              className={`p-1 rounded-md flex-shrink-0 transition-all duration-200 ${
-                darkMode
-                  ? 'text-[#555555] hover:text-[#D7B797] hover:bg-[rgba(215,183,151,0.06)]'
-                  : 'text-gray-500 hover:text-[#6B4D30] hover:bg-[rgba(215,183,151,0.08)]'
-              }`}
+              className="p-1 rounded-md flex-shrink-0 transition-all duration-200 text-gray-500 hover:text-[#6B4D30] hover:bg-[rgba(215,183,151,0.08)]"
               title={t('components.collapseSidebar')}
             >
               <PanelLeftClose size={14} strokeWidth={2} />
@@ -236,9 +207,7 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
             ))}
             <div className="my-1.5 mx-2">
               <div className="h-px" style={{
-                background: darkMode
-                  ? 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.15) 50%, transparent 100%)'
-                  : 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.25) 50%, transparent 100%)',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.25) 50%, transparent 100%)',
               }} />
             </div>
             <CollapsedMenuItem item={{ id: 'master-brands', label: t('nav.masterData'), icon: Database }} />
@@ -281,21 +250,12 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
                       strokeWidth={2.5}
                       className="transition-colors duration-150"
                       style={{
-                        color: darkMode ? '#D7B797' : '#8A6340',
-                        filter: darkMode ? 'drop-shadow(0 0 3px rgba(215,183,151,0.3))' : 'none',
+                        color: '#8A6340',
                       }}
                     />
                     <span
                       className="font-bold text-[10px] uppercase tracking-wider font-['Montserrat']"
-                      style={darkMode ? {
-                        background: 'linear-gradient(135deg, #888888 0%, #AAAAAA 100%)',
-                        WebkitBackgroundClip: 'text',
-                        WebkitTextFillColor: 'transparent',
-                        backgroundClip: 'text',
-                        color: 'transparent',
-                      } : {
-                        color: '#8A6340',
-                      }}
+                      style={{ color: '#8A6340' }}
                     >
                       {group.label}
                     </span>
@@ -303,7 +263,7 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
                   <ChevronDown
                     size={10}
                     strokeWidth={2.5}
-                    className={`${darkMode ? 'text-[#444444]' : 'text-gray-500'} transition-transform duration-200 ${
+                    className={`text-gray-500 transition-transform duration-200 ${
                       openGroups[group.id] ? 'rotate-180' : ''
                     }`}
                   />
@@ -312,9 +272,7 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
                 {/* Group Items */}
                 {openGroups[group.id] && (
                   <div className="space-y-0.5 ml-1.5 pl-2.5 mt-0.5" style={{
-                    borderLeft: darkMode
-                      ? '1.5px solid rgba(215,183,151,0.3)'
-                      : '1.5px solid rgba(215,183,151,0.45)',
+                    borderLeft: '1.5px solid rgba(215,183,151,0.45)',
                   }}>
                     {group.items.map((item: any) => {
                       const isActive = currentScreen === item.id;
@@ -348,9 +306,7 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
             {/* Gradient Divider */}
             <div className="py-1.5">
               <div className="h-px" style={{
-                background: darkMode
-                  ? 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.15) 50%, transparent 100%)'
-                  : 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.25) 50%, transparent 100%)',
+                background: 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.25) 50%, transparent 100%)',
               }} />
             </div>
 
@@ -365,22 +321,11 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
                     size={13}
                     strokeWidth={2.5}
                     className="transition-colors duration-150"
-                    style={{
-                      color: darkMode ? '#D7B797' : '#8A6340',
-                      filter: darkMode ? 'drop-shadow(0 0 3px rgba(215,183,151,0.3))' : 'none',
-                    }}
+                    style={{ color: '#8A6340' }}
                   />
                   <span
                     className="font-bold text-[10px] uppercase tracking-wider font-['Montserrat']"
-                    style={darkMode ? {
-                      background: 'linear-gradient(135deg, #888888 0%, #AAAAAA 100%)',
-                      WebkitBackgroundClip: 'text',
-                      WebkitTextFillColor: 'transparent',
-                      backgroundClip: 'text',
-                      color: 'transparent',
-                    } : {
-                      color: '#8A6340',
-                    }}
+                    style={{ color: '#8A6340' }}
                   >
                     {t('nav.masterData')}
                   </span>
@@ -388,7 +333,7 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
                 <ChevronDown
                   size={10}
                   strokeWidth={2.5}
-                  className={`${darkMode ? 'text-[#444444]' : 'text-gray-500'} transition-transform duration-200 ${
+                  className={`text-gray-500 transition-transform duration-200 ${
                     isMasterDataOpen ? 'rotate-180' : ''
                   }`}
                 />
@@ -396,9 +341,7 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
 
               {isMasterDataOpen && (
                 <div className="space-y-0.5 ml-1.5 pl-2.5 mt-0.5" style={{
-                  borderLeft: darkMode
-                    ? '1.5px solid rgba(215,183,151,0.3)'
-                    : '1.5px solid rgba(215,183,151,0.45)',
+                  borderLeft: '1.5px solid rgba(215,183,151,0.45)',
                 }}>
                   {[
                     { id: 'master-brands', label: t('nav.brands'), icon: Building2 },
@@ -459,10 +402,8 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
 
       {/* Footer Section - User Profile */}
       <div className="p-2 relative" style={{
-        borderTop: `1px solid ${darkMode ? '#1A1A1A' : '#D1D5DB'}`,
-        background: darkMode
-          ? 'linear-gradient(180deg, transparent 0%, rgba(215,183,151,0.02) 100%)'
-          : 'linear-gradient(180deg, transparent 0%, rgba(215,183,151,0.03) 100%)',
+        borderTop: '1px solid #D1D5DB',
+        background: 'linear-gradient(180deg, transparent 0%, rgba(215,183,151,0.03) 100%)',
       }}>
         {/* User Menu Popup */}
         {showUserMenu && (
@@ -471,46 +412,38 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
             <div
               className={`absolute ${isCollapsed ? 'left-full ml-2 bottom-0' : 'left-2 right-2 bottom-full mb-2'} z-50 rounded-xl shadow-xl border overflow-hidden`}
               style={{
-                background: darkMode
-                  ? 'linear-gradient(135deg, #141414 0%, #171513 40%, #1a1816 100%)'
-                  : 'linear-gradient(135deg, #ffffff 0%, #fdfcfa 35%, #faf8f5 100%)',
-                borderColor: darkMode ? '#2E2E2E' : '#D1D5DB',
-                boxShadow: darkMode
-                  ? '0 -8px 30px rgba(0,0,0,0.6), inset 0 1px 0 rgba(215,183,151,0.06)'
-                  : '0 -8px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(215,183,151,0.08)',
+                background: 'linear-gradient(135deg, #ffffff 0%, #fdfcfa 35%, #faf8f5 100%)',
+                borderColor: '#D1D5DB',
+                boxShadow: '0 -8px 30px rgba(0,0,0,0.08), inset 0 1px 0 rgba(215,183,151,0.08)',
                 minWidth: isCollapsed ? '200px' : 'auto',
               }}
             >
               {/* User Info Header */}
               <div className="p-3" style={{
-                borderBottom: `1px solid ${darkMode ? '#2E2E2E' : '#D1D5DB'}`,
-                background: darkMode
-                  ? 'linear-gradient(135deg, #111111 0%, #161412 100%)'
-                  : 'linear-gradient(135deg, #F9FAFB 0%, #f5f3f0 100%)',
+                borderBottom: '1px solid #D1D5DB',
+                background: 'linear-gradient(135deg, #F9FAFB 0%, #f5f3f0 100%)',
               }}>
                 <div className="flex items-center gap-2.5">
                   <div
                     className="w-9 h-9 rounded-full flex items-center justify-center text-xs font-semibold font-['Montserrat']"
                     style={{
-                      border: `2px solid ${darkMode ? '#D7B797' : '#8A6340'}`,
-                      color: darkMode ? '#D7B797' : '#8A6340',
-                      background: darkMode
-                        ? 'linear-gradient(135deg, rgba(215,183,151,0.08) 0%, rgba(215,183,151,0.16) 100%)'
-                        : 'linear-gradient(135deg, rgba(215,183,151,0.08) 0%, rgba(215,183,151,0.16) 100%)',
+                      border: '2px solid #8A6340',
+                      color: '#8A6340',
+                      background: 'linear-gradient(135deg, rgba(215,183,151,0.08) 0%, rgba(215,183,151,0.16) 100%)',
                     }}
                   >
                     {user?.name?.split(' ').map((n: any) => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
                   </div>
                   <div className="flex-1 min-w-0">
-                    <div className={`text-xs font-semibold font-['Montserrat'] truncate ${darkMode ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>
+                    <div className="text-xs font-semibold font-['Montserrat'] truncate text-gray-900">
                       {user?.name || 'User'}
                     </div>
-                    <div className={`text-[11px] ${darkMode ? 'text-[#666666]' : 'text-gray-700'}`}>
+                    <div className="text-[11px] text-gray-700">
                       {user?.email || user?.role?.name || 'User'}
                     </div>
                     <div className="flex items-center gap-1 mt-0.5">
                       <div className="w-1.5 h-1.5 rounded-full bg-[#2A9E6A]" style={{ boxShadow: '0 0 4px rgba(42,158,106,0.5)' }} />
-                      <span className={`text-[9px] font-medium ${darkMode ? 'text-[#2A9E6A]' : 'text-green-600'}`}>
+                      <span className="text-[9px] font-medium text-green-600">
                         {t('common.online')}
                       </span>
                     </div>
@@ -522,16 +455,14 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
               <div className="p-1.5">
                 <button
                   onClick={() => { navigateTo('profile'); setShowUserMenu(false); }}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-1 rounded-lg transition-all duration-200 ${
-                    darkMode ? 'text-[#F2F2F2] hover:bg-[rgba(215,183,151,0.06)]' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1 rounded-lg transition-all duration-200 text-gray-700 hover:bg-gray-100"
                 >
-                  <div className={`p-1 rounded-md ${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100'}`}>
-                    <Crown size={14} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} style={darkMode ? { filter: 'drop-shadow(0 0 3px rgba(215,183,151,0.4))' } : undefined} />
+                  <div className="p-1 rounded-md bg-gray-100">
+                    <Crown size={14} className="text-[#6B4D30]" />
                   </div>
                   <div className="flex-1 text-left">
                     <div className="text-xs font-medium font-['Montserrat']">{t('userMenu.myProfile')}</div>
-                    <div className={`text-[10px] ${darkMode ? 'text-[#555555]' : 'text-gray-700'}`}>
+                    <div className="text-[10px] text-gray-700">
                       {t('userMenu.viewAndEditProfile')}
                     </div>
                   </div>
@@ -539,40 +470,34 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
 
                 <button
                   onClick={() => { navigateTo('settings'); setShowUserMenu(false); }}
-                  className={`w-full flex items-center gap-2.5 px-2.5 py-1 rounded-lg transition-all duration-200 ${
-                    darkMode ? 'text-[#F2F2F2] hover:bg-[rgba(215,183,151,0.06)]' : 'text-gray-700 hover:bg-gray-100'
-                  }`}
+                  className="w-full flex items-center gap-2.5 px-2.5 py-1 rounded-lg transition-all duration-200 text-gray-700 hover:bg-gray-100"
                 >
-                  <div className={`p-1 rounded-md ${darkMode ? 'bg-[#1A1A1A]' : 'bg-gray-100'}`}>
-                    <Settings size={14} className={darkMode ? 'text-[#888888]' : 'text-gray-700'} />
+                  <div className="p-1 rounded-md bg-gray-100">
+                    <Settings size={14} className="text-gray-700" />
                   </div>
                   <div className="flex-1 text-left">
                     <div className="text-xs font-medium font-['Montserrat']">{t('userMenu.settings')}</div>
-                    <div className={`text-[10px] ${darkMode ? 'text-[#555555]' : 'text-gray-700'}`}>
+                    <div className="text-[10px] text-gray-700">
                       {t('userMenu.appPreferences')}
                     </div>
                   </div>
                 </button>
 
                 <div className="my-1.5 mx-2 h-px" style={{
-                  background: darkMode
-                    ? 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.12) 50%, transparent 100%)'
-                    : 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.2) 50%, transparent 100%)',
+                  background: 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.2) 50%, transparent 100%)',
                 }} />
 
                 {onLogout && (
                   <button
                     onClick={() => { setShowUserMenu(false); onLogout(); }}
-                    className={`w-full flex items-center gap-2.5 px-2.5 py-1 rounded-lg transition-all duration-200 ${
-                      darkMode ? 'text-[#FF7B72] hover:bg-[rgba(248,81,73,0.06)]' : 'text-red-600 hover:bg-red-50'
-                    }`}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1 rounded-lg transition-all duration-200 text-red-600 hover:bg-red-50"
                   >
-                    <div className={`p-1 rounded-md ${darkMode ? 'bg-[rgba(248,81,73,0.08)]' : 'bg-red-100'}`}>
-                      <LogOut size={14} className={darkMode ? 'text-[#FF7B72]' : 'text-red-500'} />
+                    <div className="p-1 rounded-md bg-red-100">
+                      <LogOut size={14} className="text-red-500" />
                     </div>
                     <div className="flex-1 text-left">
                       <div className="text-xs font-medium font-['Montserrat']">{t('userMenu.logout')}</div>
-                      <div className={`text-[10px] ${darkMode ? 'text-[#555555]' : 'text-gray-700'}`}>
+                      <div className="text-[10px] text-gray-700">
                         {t('userMenu.signOutOfAccount')}
                       </div>
                     </div>
@@ -593,12 +518,11 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold font-['Montserrat'] transition-all duration-200"
                 style={{
-                  border: `2px solid ${darkMode ? '#D7B797' : '#8A6340'}`,
-                  color: darkMode ? '#D7B797' : '#8A6340',
+                  border: '2px solid #8A6340',
+                  color: '#8A6340',
                   background: showUserMenu
                     ? 'linear-gradient(135deg, rgba(215,183,151,0.10) 0%, rgba(215,183,151,0.20) 100%)'
                     : 'transparent',
-                  boxShadow: darkMode ? '0 0 8px rgba(215,183,151,0.15)' : 'none',
                 }}
               >
                 {user?.name?.split(' ').map((n: any) => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
@@ -606,7 +530,7 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
               <div
                 className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#2A9E6A]"
                 style={{
-                  border: `2px solid ${darkMode ? '#0A0A0A' : '#ffffff'}`,
+                  border: '2px solid #ffffff',
                   boxShadow: '0 0 4px rgba(42,158,106,0.5)',
                 }}
               />
@@ -618,27 +542,17 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
             className="w-full rounded-lg p-2 flex items-center gap-2.5 transition-all duration-200"
             style={{
               background: showUserMenu
-                ? darkMode
-                  ? 'linear-gradient(135deg, rgba(215,183,151,0.06) 0%, rgba(215,183,151,0.14) 100%)'
-                  : 'linear-gradient(135deg, rgba(215,183,151,0.08) 0%, rgba(215,183,151,0.16) 100%)'
-                : darkMode
-                  ? 'linear-gradient(135deg, #0D0D0D 0%, rgba(215,183,151,0.03) 100%)'
-                  : 'linear-gradient(135deg, #F9FAFB 0%, rgba(215,183,151,0.06) 100%)',
-              border: `1px solid ${
-                showUserMenu
-                  ? darkMode ? 'rgba(215,183,151,0.2)' : 'rgba(215,183,151,0.3)'
-                  : darkMode ? '#1A1A1A' : '#D1D5DB'
-              }`,
-              boxShadow: darkMode ? 'inset 0 1px 0 rgba(215,183,151,0.04)' : 'none',
+                ? 'linear-gradient(135deg, rgba(215,183,151,0.08) 0%, rgba(215,183,151,0.16) 100%)'
+                : 'linear-gradient(135deg, #F9FAFB 0%, rgba(215,183,151,0.06) 100%)',
+              border: `1px solid ${showUserMenu ? 'rgba(215,183,151,0.3)' : '#D1D5DB'}`,
             }}
           >
             <div className="relative flex-shrink-0">
               <div
                 className="w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold font-['Montserrat']"
                 style={{
-                  border: `2px solid ${darkMode ? '#D7B797' : '#8A6340'}`,
-                  color: darkMode ? '#D7B797' : '#8A6340',
-                  boxShadow: darkMode ? '0 0 8px rgba(215,183,151,0.15)' : 'none',
+                  border: '2px solid #8A6340',
+                  color: '#8A6340',
                 }}
               >
                 {user?.name?.split(' ').map((n: any) => n[0]).join('').slice(0, 2).toUpperCase() || 'U'}
@@ -646,24 +560,24 @@ const Sidebar = ({ currentScreen, darkMode, setDarkMode, user, onLogout }: any) 
               <div
                 className="absolute -bottom-0.5 -right-0.5 w-2.5 h-2.5 rounded-full bg-[#2A9E6A]"
                 style={{
-                  border: `2px solid ${darkMode ? '#0D0D0D' : '#F9FAFB'}`,
+                  border: '2px solid #F9FAFB',
                   boxShadow: '0 0 4px rgba(42,158,106,0.5)',
                 }}
               />
             </div>
 
             <div className="flex-1 min-w-0 text-left">
-              <div className={`text-xs font-semibold font-['Montserrat'] truncate ${darkMode ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>
+              <div className="text-xs font-semibold font-['Montserrat'] truncate text-gray-900">
                 {user?.name || 'User'}
               </div>
-              <div className={`text-[11px] ${darkMode ? 'text-[#555555]' : 'text-gray-700'}`}>
+              <div className="text-[11px] text-gray-700">
                 {user?.role?.name || 'User'}
               </div>
             </div>
 
             <ChevronRight
               size={14}
-              className={`transition-transform duration-200 ${showUserMenu ? 'rotate-90' : ''} ${darkMode ? 'text-[#444444]' : 'text-gray-500'}`}
+              className={`transition-transform duration-200 ${showUserMenu ? 'rotate-90' : ''} text-gray-500`}
             />
           </button>
         )}

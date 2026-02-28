@@ -4,7 +4,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import { useLanguage } from '@/contexts/LanguageContext';
 
-const LoadingSpinner = ({ darkMode = true, size = 'md', message }: any) => {
+const LoadingSpinner = ({ size = 'md', message }: any) => {
   const { t } = useLanguage();
   const resolvedMessage = message !== undefined ? message : t('components.loadingMessage');
   const sizes: any = {
@@ -20,7 +20,7 @@ const LoadingSpinner = ({ darkMode = true, size = 'md', message }: any) => {
         style={{ borderStyle: 'solid' }}
       />
       {resolvedMessage && (
-        <p className={`mt-4 text-sm ${darkMode ? 'text-slate-400' : 'text-slate-500'}`}>
+        <p className={`mt-4 text-sm text-slate-500`}>
           {resolvedMessage}
         </p>
       )}

@@ -3,17 +3,16 @@
 interface TableSkeletonProps {
   rows?: number;
   cols?: number;
-  darkMode?: boolean;
 }
 
-const TableSkeleton = ({ rows = 5, cols = 6, darkMode = false }: TableSkeletonProps) => {
-  const bg = darkMode ? 'bg-[#2E2E2E]' : 'bg-[#E8DDD0]';
-  const rowBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-[rgba(215,183,151,0.05)]';
+const TableSkeleton = ({ rows = 5, cols = 6 }: TableSkeletonProps) => {
+  const bg = 'bg-[#E8DDD0]';
+  const rowBg = 'bg-[rgba(215,183,151,0.05)]';
 
   return (
-    <div className={`rounded-xl border overflow-hidden ${darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'}`}>
+    <div className={`rounded-xl border overflow-hidden border-[#C4B5A5]`}>
       {/* Header skeleton */}
-      <div className={`flex items-center gap-2 px-4 py-2.5 ${darkMode ? 'bg-[#1A1A1A]' : 'bg-[rgba(215,183,151,0.2)]'}`}>
+      <div className={`flex items-center gap-2 px-4 py-2.5 bg-[rgba(215,183,151,0.2)]`}>
         {Array.from({ length: cols }).map((_, i) => (
           <div
             key={i}
@@ -26,9 +25,7 @@ const TableSkeleton = ({ rows = 5, cols = 6, darkMode = false }: TableSkeletonPr
       {Array.from({ length: rows }).map((_, r) => (
         <div
           key={r}
-          className={`flex items-center gap-2 px-4 py-2 border-t ${
-            darkMode ? 'border-[#2E2E2E]' : 'border-[#E8DDD0]'
-          } ${r % 2 === 0 ? '' : rowBg}`}
+          className={`flex items-center gap-2 px-4 py-2 border-t border-[#E8DDD0] ${r % 2 === 0 ? '' : rowBg}`}
         >
           {Array.from({ length: cols }).map((_, c) => (
             <div

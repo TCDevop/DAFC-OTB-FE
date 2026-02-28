@@ -57,3 +57,5 @@ performance-testing/reports/*.json
 performance-testing/reports/*.md
 !performance-testing/reports/COMPARISON_TEMPLATE.md
 performance-testing/reports/lighthouse/
+
+certificates

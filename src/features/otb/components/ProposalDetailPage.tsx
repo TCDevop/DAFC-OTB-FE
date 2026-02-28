@@ -19,7 +19,7 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { useSessionRecoveryGeneric } from '../hooks/useSessionRecovery';
 import { ConfirmDialog, PrintButton } from '@/components/ui';
 
-const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: any) => {
+const ProposalDetailPage = ({ proposal, onBack, onSave, entityId }: any) => {
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const { user } = useAuth();
@@ -32,21 +32,21 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
   );
 
   // Theme helpers
-  const bg = darkMode ? 'bg-[#0A0A0A]' : 'bg-slate-100';
-  const cardBg = darkMode ? 'bg-[#121212]' : 'bg-white';
-  const borderColor = darkMode ? 'border-[#2E2E2E]' : 'border-slate-200';
-  const textPrimary = darkMode ? 'text-[#F2F2F2]' : 'text-slate-800';
-  const textSecondary = darkMode ? 'text-[#999999]' : 'text-slate-600';
-  const textMuted = darkMode ? 'text-[#666666]' : 'text-slate-400';
-  const hoverBg = darkMode ? 'hover:bg-[#1A1A1A]' : 'hover:bg-slate-100';
-  const inputBg = darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2]' : 'bg-slate-50 border-slate-200 text-gray-800';
-  const accentBg = darkMode ? 'bg-[rgba(215,183,151,0.15)]' : 'bg-purple-100';
-  const accentText = darkMode ? 'text-[#D7B797]' : 'text-purple-600';
-  const btnPrimary = darkMode ? 'bg-[#D7B797] text-[#0A0A0A] hover:bg-[#C4A682]' : 'bg-purple-600 text-white hover:bg-purple-700';
-  const btnSecondary = darkMode ? 'bg-[#1A1A1A] text-[#F2F2F2] hover:bg-[#2E2E2E]' : 'bg-slate-100 text-slate-700 hover:bg-slate-200';
-  const subtleBg = darkMode ? 'bg-[#1A1A1A]' : 'bg-slate-50';
-  const headerGradient = darkMode ? 'bg-[rgba(215,183,151,0.12)]' : 'bg-[rgba(160,120,75,0.18)]';
-  const expandedRowBg = darkMode ? 'bg-[rgba(215,183,151,0.08)]' : 'bg-[rgba(160,120,75,0.12)]';
+  const bg ='bg-slate-100';
+  const cardBg ='bg-white';
+  const borderColor ='border-slate-200';
+  const textPrimary ='text-slate-800';
+  const textSecondary ='text-slate-600';
+  const textMuted ='text-slate-400';
+  const hoverBg ='hover:bg-slate-100';
+  const inputBg ='bg-slate-50 border-slate-200 text-gray-800';
+  const accentBg ='bg-purple-100';
+  const accentText ='text-purple-600';
+  const btnPrimary ='bg-purple-600 text-white hover:bg-purple-700';
+  const btnSecondary ='bg-slate-100 text-slate-700 hover:bg-slate-200';
+  const subtleBg ='bg-slate-50';
+  const headerGradient ='bg-[rgba(160,120,75,0.18)]';
+  const expandedRowBg ='bg-[rgba(160,120,75,0.12)]';
 
   // Approval action states
   const [pendingApproval, setPendingApproval] = useState<any>(null);
@@ -260,8 +260,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
       onConfirm: () => {
         setSkuList((prev: any) => prev.filter((s: any) => s.id !== skuId));
         setSelectedSkuIds(prev => { const next = new Set(prev); next.delete(skuId); return next; });
-      },
-    });
+      }});
   };
 
   // UX-18: Multi-select delete handlers
@@ -292,8 +291,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
         setSkuList((prev: any) => prev.filter((s: any) => !selectedSkuIds.has(s.id)));
         toast.success(`${selectedSkuIds.size} ${t('proposal.skusRemoved')}`);
         setSelectedSkuIds(new Set());
-      },
-    });
+      }});
   }, [selectedSkuIds, t, confirm]);
 
 
@@ -383,12 +381,12 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
     <div className={`min-h-screen ${bg}`}>
       {/* UX-21: Session recovery banner */}
       {proposalRecovery.hasDraft && (
-        <div className={`mx-3 md:mx-6 mt-2 px-4 py-2.5 rounded-lg border flex items-center justify-between gap-3 ${darkMode ? 'bg-[rgba(215,183,151,0.12)] border-[rgba(215,183,151,0.3)] text-[#F2F2F2]' : 'bg-amber-50 border-amber-200 text-amber-900'}`}>
+        <div className={`mx-3 md:mx-6 mt-2 px-4 py-2.5 rounded-lg border flex items-center justify-between gap-3 ${'bg-amber-50 border-amber-200 text-amber-900'}`}>
           <div className="flex items-center gap-2 text-sm">
-            <History size={16} className={darkMode ? 'text-[#D7B797]' : 'text-amber-600'} />
+            <History size={16} className={'text-amber-600'} />
             <span className="font-medium">{t('planning.recoveryTitle')}</span>
             {proposalRecovery.draftInfo && (
-              <span className={`text-xs ${darkMode ? 'text-[#999999]' : 'text-amber-600'}`}>
+              <span className={`text-xs ${'text-amber-600'}`}>
                 {new Date(proposalRecovery.draftInfo.savedAt).toLocaleString('vi-VN')} — {proposalRecovery.draftInfo.changeCount} SKUs
               </span>
             )}
@@ -396,13 +394,13 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
           <div className="flex items-center gap-2">
             <button
               onClick={handleRecoverProposalDraft}
-              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${darkMode ? 'bg-[#D7B797] text-[#0A0A0A] hover:bg-[#C4A682]' : 'bg-amber-600 text-white hover:bg-amber-700'}`}
+              className={`px-3 py-1 rounded text-xs font-medium transition-colors ${'bg-amber-600 text-white hover:bg-amber-700'}`}
             >
               {t('planning.recoverData')}
             </button>
             <button
               onClick={() => proposalRecovery.dismissDraft()}
-              className={`p-1 rounded transition-colors ${darkMode ? 'hover:bg-[#2E2E2E] text-[#999999]' : 'hover:bg-amber-100 text-amber-500'}`}
+              className={`p-1 rounded transition-colors ${'hover:bg-amber-100 text-amber-500'}`}
             >
               <X size={14} />
             </button>
@@ -436,17 +434,17 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
             </div>
             {/* Context Info from OTB Analysis */}
             {contextInfo.gender && (
-              <div className={`flex flex-wrap items-center gap-2 ml-0 md:ml-4 px-2 md:px-3 py-0.5 rounded-lg border ${darkMode ? 'bg-[rgba(215,183,151,0.08)] border-[#2E2E2E]' : 'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200'}`}>
+              <div className={`flex flex-wrap items-center gap-2 ml-0 md:ml-4 px-2 md:px-3 py-0.5 rounded-lg border ${'bg-gradient-to-r from-indigo-50 to-purple-50 border-indigo-200'}`}>
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className={textMuted}>{t('budget.fiscalYear')}</span>
                   <span className={`font-semibold ${accentText}`}>{contextInfo.fiscalYear}</span>
                 </div>
-                <div className={`w-px h-4 ${darkMode ? 'bg-[#2E2E2E]' : 'bg-indigo-200'} hidden md:block`}></div>
+                <div className={`w-px h-4 ${'bg-indigo-200'} hidden md:block`}></div>
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className={textMuted}>{t('skuProposal.season')}:</span>
-                  <span className={`font-semibold ${darkMode ? 'text-[#E3B341]' : 'text-amber-700'}`}>{contextInfo.seasonGroup} - {contextInfo.season}</span>
+                  <span className={`font-semibold ${'text-amber-700'}`}>{contextInfo.seasonGroup} - {contextInfo.season}</span>
                 </div>
-                <div className={`w-px h-4 ${darkMode ? 'bg-[#2E2E2E]' : 'bg-indigo-200'} hidden md:block`}></div>
+                <div className={`w-px h-4 ${'bg-indigo-200'} hidden md:block`}></div>
                 <div className="flex items-center gap-1.5 text-xs">
                   <span className={textMuted}>{t('skuProposal.category')}:</span>
                   <span className={`font-semibold ${accentText}`}>{contextInfo.gender?.name} / {contextInfo.category?.name} / {contextInfo.subCategory?.name}</span>
@@ -469,7 +467,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
               <DollarSign size={14} className={textMuted} />
               <span className={textSecondary}>{t('proposal.totalValue')}: <strong className={isOverBudget ? 'text-red-600' : 'text-emerald-600'}>{formatCurrency(grandTotals.totalValue)}</strong></span>
             </div>
-            <div className={`h-6 w-px ${darkMode ? 'bg-[#2E2E2E]' : 'bg-slate-200'} hidden md:block`}></div>
+            <div className={`h-6 w-px ${'bg-slate-200'} hidden md:block`}></div>
             <div className={textSecondary}>
               {t('proposal.remainingBudget')}: <strong className={accentText}>{formatCurrency(budgetInfo.remainingBudget)}</strong>
             </div>
@@ -505,7 +503,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
               </>
             ) : (
               <>
-                <PrintButton darkMode={darkMode} />
+                <PrintButton />
                 <button onClick={handleSave} className={`flex items-center justify-center gap-2 px-4 py-0.5 rounded-lg text-sm font-medium transition-colors ${btnSecondary}`}>
                   <Save size={16} />
                   {t('common.save')}
@@ -522,7 +520,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
 
       {/* Budget Warning */}
       {isOverBudget && (
-        <div className={`px-3 md:px-6 py-0.5 border-b flex flex-wrap items-center justify-center gap-2 text-sm ${darkMode ? 'bg-[rgba(248,81,73,0.1)] border-[rgba(248,81,73,0.3)] text-red-400' : 'bg-red-50 border-red-200 text-red-700'}`}>
+        <div className={`px-3 md:px-6 py-0.5 border-b flex flex-wrap items-center justify-center gap-2 text-sm ${'bg-red-50 border-red-200 text-red-700'}`}>
           <AlertCircle size={16} />
           <span>{t('budget.remaining')}: -<strong>{formatCurrency(grandTotals.totalValue - budgetInfo.remainingBudget)}</strong></span>
         </div>
@@ -572,7 +570,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
             </div>
           ) : isMobile ? (
             /* Mobile Card View */
-            <div className={`divide-y ${darkMode ? 'divide-[#2E2E2E]' : 'divide-slate-100'}`}>
+            <div className={`divide-y ${'divide-slate-100'}`}>
               {skuList.map((sku: any) => {
                 const { order, ttlValue } = calculateSkuTotals(sku);
                 const isExpanded = expandedSku === sku.id;
@@ -597,7 +595,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
                             <div className={`font-medium ${textPrimary} text-sm truncate`}>{sku.name}</div>
                             <div className={`text-xs ${textMuted}`}>{sku.theme}</div>
                           </div>
-                          <button onClick={() => handleRemoveSku(sku.id)} className={`p-1.5 ${darkMode ? 'hover:bg-red-500/10' : 'hover:bg-red-50'} rounded-lg transition-colors shrink-0`}>
+                          <button onClick={() => handleRemoveSku(sku.id)} className={`p-1.5 ${'hover:bg-red-50'} rounded-lg transition-colors shrink-0`}>
                             <Trash2 size={14} className="text-red-500" />
                           </button>
                         </div>
@@ -632,7 +630,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
 
                     {/* Expanded Store Details */}
                     {isExpanded && (
-                      <div className={`mt-3 ml-2 pl-3 border-l-2 ${darkMode ? 'border-[#D7B797]' : 'border-purple-300'}`}>
+                      <div className={`mt-3 ml-2 pl-3 border-l-2 ${'border-purple-300'}`}>
                         <div className="flex items-center justify-between mb-2">
                           <h4 className={`text-xs font-semibold ${textSecondary} flex items-center gap-1`}>
                             <Store size={12} className={accentText} />
@@ -680,19 +678,19 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
                                       if (e.key === 'Enter') { handleQuantityChange(sku.id, storeQty.storeId, editValue); setEditingCell(null); }
                                       if (e.key === 'Escape') setEditingCell(null);
                                     }}
-                                    className={`w-12 px-1 py-0.5 text-center border rounded text-xs focus:outline-none focus:ring-1 ${darkMode ? 'border-[#D7B797] bg-[#1A1A1A] text-[#F2F2F2] focus:ring-[#D7B797]' : 'border-purple-400 focus:ring-purple-500'}`}
+                                    className={`w-12 px-1 py-0.5 text-center border rounded text-xs focus:outline-none focus:ring-1 ${'border-purple-400 focus:ring-purple-500'}`}
                                     autoFocus
                                   />
                                 ) : (
                                   <div
                                     onClick={() => { setEditingCell(cellKey); setEditValue(storeQty.quantity.toString()); }}
-                                    className={`w-12 px-1 py-0.5 text-center rounded cursor-pointer text-xs font-medium ${darkMode ? 'bg-[#1A1A1A] border border-[#2E2E2E] hover:border-[#D7B797] text-[#F2F2F2]' : 'bg-slate-50 border border-slate-200 hover:border-purple-300 text-slate-700'}`}
+                                    className={`w-12 px-1 py-0.5 text-center rounded cursor-pointer text-xs font-medium ${'bg-slate-50 border border-slate-200 hover:border-purple-300 text-slate-700'}`}
                                   >
                                     {storeQty.quantity}
                                   </div>
                                 )}
                                 {sku.stores.length > 1 && (
-                                  <button onClick={() => handleRemoveStore(sku.id, storeQty.storeId)} className={`p-0.5 ${darkMode ? 'hover:bg-red-500/10' : 'hover:bg-red-50'} rounded`}>
+                                  <button onClick={() => handleRemoveStore(sku.id, storeQty.storeId)} className={`p-0.5 ${'hover:bg-red-50'} rounded`}>
                                     <X size={10} className="text-red-400" />
                                   </button>
                                 )}
@@ -707,7 +705,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
               })}
 
               {/* Totals */}
-              <div className={`p-3 ${darkMode ? 'bg-[rgba(215,183,151,0.12)]' : 'bg-[rgba(160,120,75,0.18)]'}`}>
+              <div className={`p-3 ${'bg-[rgba(160,120,75,0.18)]'}`}>
                 <div className="flex items-center justify-between">
                   <span className={`text-sm font-semibold ${textMuted}`}>{t('skuProposal.total')}</span>
                   <div className="flex items-center gap-4">
@@ -721,14 +719,14 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
             <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
-                <tr className={`${headerGradient} border-b ${darkMode ? 'border-[rgba(215,183,151,0.2)]' : 'border-[rgba(160,120,75,0.25)]'}`}>
-                  <th className={`w-8 px-2 py-0.5 sticky left-0 z-10 ${darkMode ? 'bg-[#0A0A0A]' : 'bg-white'}`}>
+                <tr className={`${headerGradient} border-b ${'border-[rgba(160,120,75,0.25)]'}`}>
+                  <th className={`w-8 px-2 py-0.5 sticky left-0 z-10 ${'bg-white'}`}>
                     <button onClick={toggleSelectAllSkus} className="p-0.5">
                       {selectedSkuIds.size === skuList.length ? <CheckSquare size={16} className={accentText} /> : selectedSkuIds.size > 0 ? <MinusSquare size={16} className={accentText} /> : <Square size={16} className={textMuted} />}
                     </button>
                   </th>
-                  <th className={`w-10 px-3 py-0.5 sticky left-8 z-10 ${darkMode ? 'bg-[#0A0A0A]' : 'bg-white'}`}></th>
-                  <th className={`text-left px-4 py-0.5 text-xs font-semibold ${textMuted} uppercase sticky left-[72px] z-10 ${darkMode ? 'bg-[#0A0A0A]' : 'bg-white'}`}>{t('proposal.skuCode')}</th>
+                  <th className={`w-10 px-3 py-0.5 sticky left-8 z-10 ${'bg-white'}`}></th>
+                  <th className={`text-left px-4 py-0.5 text-xs font-semibold ${textMuted} uppercase sticky left-[72px] z-10 ${'bg-white'}`}>{t('proposal.skuCode')}</th>
                   <th className={`text-left px-4 py-0.5 text-xs font-semibold ${textMuted} uppercase`}>{t('proposal.productName')}</th>
                   <th className={`text-left px-4 py-0.5 text-xs font-semibold ${textMuted} uppercase`}>{t('proposal.rail')} / {t('proposal.productType')}</th>
                   <th className={`text-left px-4 py-0.5 text-xs font-semibold ${textMuted} uppercase`}>{t('proposal.color')}</th>
@@ -747,13 +745,13 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
 
                   return (
                     <React.Fragment key={sku.id}>
-                      <tr className={`border-b ${darkMode ? 'border-[#2E2E2E]' : 'border-slate-100'} ${darkMode ? 'hover:bg-[#1A1A1A]' : 'hover:bg-slate-50'} ${isExpanded ? (darkMode ? 'bg-[rgba(215,183,151,0.05)]' : 'bg-purple-50/50') : ''}`}>
-                        <td className={`px-2 py-0.5 sticky left-0 z-10 ${darkMode ? 'bg-[#121212]' : 'bg-white'}`}>
+                      <tr className={`border-b ${'border-slate-100'} ${'hover:bg-slate-50'} ${isExpanded ? ('bg-purple-50/50') : ''}`}>
+                        <td className={`px-2 py-0.5 sticky left-0 z-10 ${'bg-white'}`}>
                           <button onClick={() => toggleSkuSelect(sku.id)} className="p-0.5">
                             {selectedSkuIds.has(sku.id) ? <CheckSquare size={16} className={accentText} /> : <Square size={16} className={textMuted} />}
                           </button>
                         </td>
-                        <td className={`px-3 py-0.5 sticky left-8 z-10 ${darkMode ? 'bg-[#121212]' : 'bg-white'}`}>
+                        <td className={`px-3 py-0.5 sticky left-8 z-10 ${'bg-white'}`}>
                           <button
                             onClick={() => setExpandedSku(isExpanded ? null : sku.id)}
                             className={`p-1 ${hoverBg} rounded transition-colors`}
@@ -761,7 +759,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
                             {isExpanded ? <ChevronDown size={16} className={textMuted} /> : <ChevronRight size={16} className={textMuted} />}
                           </button>
                         </td>
-                        <td className={`px-4 py-0.5 sticky left-[72px] z-10 ${darkMode ? 'bg-[#121212]' : 'bg-white'}`}>
+                        <td className={`px-4 py-0.5 sticky left-[72px] z-10 ${'bg-white'}`}>
                           <div className="flex items-center gap-3">
                             <img
                               src={sku.imageUrl}
@@ -791,7 +789,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
                         <td className={`px-4 py-0.5 text-center font-semibold ${textPrimary}`}>{order}</td>
                         <td className="px-4 py-0.5 text-right font-semibold text-emerald-600">{formatCurrency(ttlValue)}</td>
                         <td className="px-3 py-0.5">
-                          <button onClick={() => handleRemoveSku(sku.id)} className={`p-1.5 ${darkMode ? 'hover:bg-red-500/10' : 'hover:bg-red-50'} rounded-lg transition-colors`}>
+                          <button onClick={() => handleRemoveSku(sku.id)} className={`p-1.5 ${'hover:bg-red-50'} rounded-lg transition-colors`}>
                             <Trash2 size={15} className="text-red-500" />
                           </button>
                         </td>
@@ -801,7 +799,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
                       {isExpanded && (
                         <tr className={expandedRowBg}>
                           <td colSpan={10} className="px-4 py-4">
-                            <div className={`ml-8 pl-4 border-l-2 ${darkMode ? 'border-[#D7B797]' : 'border-purple-300'}`}>
+                            <div className={`ml-8 pl-4 border-l-2 ${'border-purple-300'}`}>
                               <div className="flex items-center justify-between mb-3">
                                 <h4 className={`text-sm font-semibold ${textSecondary} flex items-center gap-2`}>
                                   <Store size={14} className={accentText} />
@@ -852,20 +850,20 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
                                             if (e.key === 'Enter') { handleQuantityChange(sku.id, storeQty.storeId, editValue); setEditingCell(null); }
                                             if (e.key === 'Escape') setEditingCell(null);
                                           }}
-                                          className={`w-14 px-2 py-0.5 text-center border rounded text-sm focus:outline-none focus:ring-1 ${darkMode ? 'border-[#D7B797] bg-[#1A1A1A] text-[#F2F2F2] focus:ring-[#D7B797]' : 'border-purple-400 focus:ring-purple-500'}`}
+                                          className={`w-14 px-2 py-0.5 text-center border rounded text-sm focus:outline-none focus:ring-1 ${'border-purple-400 focus:ring-purple-500'}`}
                                           autoFocus
                                         />
                                       ) : (
                                         <div
                                           onClick={() => { setEditingCell(cellKey); setEditValue(storeQty.quantity.toString()); }}
-                                          className={`w-14 px-2 py-0.5 text-center rounded cursor-pointer text-sm font-medium ${darkMode ? 'bg-[#1A1A1A] border border-[#2E2E2E] hover:border-[#D7B797] text-[#F2F2F2]' : 'bg-slate-50 border border-slate-200 hover:border-purple-300 text-slate-700'}`}
+                                          className={`w-14 px-2 py-0.5 text-center rounded cursor-pointer text-sm font-medium ${'bg-slate-50 border border-slate-200 hover:border-purple-300 text-slate-700'}`}
                                         >
                                           {storeQty.quantity}
                                         </div>
                                       )}
 
                                       {sku.stores.length > 1 && (
-                                        <button onClick={() => handleRemoveStore(sku.id, storeQty.storeId)} className={`p-1 ${darkMode ? 'hover:bg-red-500/10' : 'hover:bg-red-50'} rounded`}>
+                                        <button onClick={() => handleRemoveStore(sku.id, storeQty.storeId)} className={`p-1 ${'hover:bg-red-50'} rounded`}>
                                           <X size={12} className="text-red-400" />
                                         </button>
                                       )}
@@ -882,7 +880,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
                 })}
 
                 {/* Totals Row */}
-                <tr className={`${darkMode ? 'bg-[rgba(215,183,151,0.12)]' : 'bg-[rgba(160,120,75,0.18)]'} font-semibold`}>
+                <tr className={`${'bg-[rgba(160,120,75,0.18)]'} font-semibold`}>
                   <td colSpan={7} className={`px-4 py-0.5 text-right ${textMuted}`}>{t('skuProposal.total')}</td>
                   <td className={`px-4 py-0.5 text-center ${textPrimary}`}>{grandTotals.totalOrder}</td>
                   <td className="px-4 py-0.5 text-right text-emerald-600">{formatCurrency(grandTotals.totalValue)}</td>
@@ -936,10 +934,10 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
                           else setSelectedSkusToAdd((prev: any) => [...prev, sku.id]);
                         }}
                         className={`flex items-center gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                          isSelected ? (darkMode ? 'border-[#D7B797] bg-[rgba(215,183,151,0.1)]' : 'border-purple-500 bg-purple-50') : (darkMode ? 'border-[#2E2E2E] hover:border-[#D7B797]' : 'border-slate-200 hover:border-purple-300')
+                          isSelected ? ('border-purple-500 bg-purple-50') : ('border-slate-200 hover:border-purple-300')
                         }`}
                       >
-                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? (darkMode ? 'border-[#D7B797] bg-[#D7B797]' : 'border-purple-500 bg-purple-500') : (darkMode ? 'border-[#444444]' : 'border-slate-300')}`}>
+                        <div className={`w-5 h-5 rounded-full border-2 flex items-center justify-center ${isSelected ? ('border-purple-500 bg-purple-500') : ('border-slate-300')}`}>
                           {isSelected && <Check size={12} className="text-white" />}
                         </div>
                         <img src={sku.imageUrl} alt={sku.name} className={`w-12 h-12 rounded-lg object-cover ${subtleBg}`} />
@@ -971,7 +969,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
                   onClick={handleAddSkus}
                   disabled={selectedSkusToAdd.length === 0}
                   className={`px-4 py-0.5 rounded-lg text-sm font-medium ${
-                    selectedSkusToAdd.length > 0 ? btnPrimary : (darkMode ? 'bg-[#2E2E2E] text-[#666666] cursor-not-allowed' : 'bg-slate-200 text-slate-400 cursor-not-allowed')
+                    selectedSkusToAdd.length > 0 ? btnPrimary : ('bg-slate-200 text-slate-400 cursor-not-allowed')
                   }`}
                 >
                   {t('proposal.addSku')}
@@ -981,7 +979,7 @@ const ProposalDetailPage = ({ proposal, onBack, onSave, entityId, darkMode }: an
           </div>
         </div>
       )}
-      <ConfirmDialog darkMode {...dialogProps} />
+      <ConfirmDialog {...dialogProps} />
     </div>
   );
 };

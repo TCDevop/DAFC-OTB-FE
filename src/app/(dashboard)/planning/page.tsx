@@ -2,12 +2,11 @@
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/contexts/AppContext';
 import { useBudget, usePlanning } from '@/hooks';
-import BudgetAllocateScreen from '@/screens/BudgetAllocateScreen';
+import { BudgetAllocateScreen } from '@/features/otb';
 
 export default function PlanningPage() {
   const router = useRouter();
   const {
-    darkMode,
     allocationData,
     setAllocationData,
     setOtbAnalysisContext,
@@ -31,7 +30,6 @@ export default function PlanningPage() {
       allocationData={allocationData}
       onAllocationDataUsed={() => setAllocationData(null)}
       availableBudgets={budgets}
-      darkMode={darkMode}
     />
   );
 }

@@ -10,7 +10,6 @@ interface CreatableSelectProps {
   onChange: (value: string) => void;
   onCreateOption?: (value: string) => void;
   placeholder?: string;
-  darkMode?: boolean;
   label?: string;
   className?: string;
   disabled?: boolean;
@@ -22,7 +21,6 @@ function CreatableSelect({
   onChange,
   onCreateOption,
   placeholder = 'Select or type...',
-  darkMode = false,
   label,
   className = '',
   disabled = false,
@@ -114,22 +112,20 @@ function CreatableSelect({
     setTimeout(() => inputRef.current?.focus(), 0);
   };
 
-  const bg = darkMode ? 'bg-[#141414]' : 'bg-white';
-  const border = darkMode ? 'border-[#2E2E2E]' : 'border-[#D4CCC2]';
-  const text = darkMode ? 'text-[#F2F2F2]' : 'text-[#1A1A1A]';
-  const textMuted = darkMode ? 'text-[#888888]' : 'text-[#888888]';
-  const hoverBg = darkMode ? 'hover:bg-[rgba(215,183,151,0.06)]' : 'hover:bg-[rgba(215,183,151,0.08)]';
-  const dropBg = darkMode ? 'bg-[#161616]' : 'bg-white';
-  const dropBorder = darkMode ? 'border-[#2E2E2E]' : 'border-[#D4CCC2]';
-  const accentText = darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]';
+  const bg = 'bg-white';
+  const border = 'border-[#D4CCC2]';
+  const text = 'text-[#1A1A1A]';
+  const textMuted = 'text-[#888888]';
+  const hoverBg = 'hover:bg-[rgba(215,183,151,0.08)]';
+  const dropBg = 'bg-white';
+  const dropBorder = 'border-[#D4CCC2]';
+  const accentText = 'text-[#6B4D30]';
 
   return (
     <div ref={containerRef} className={`relative ${className}`}>
       {label && (
         <div
-          className={`text-[10px] uppercase tracking-[0.12em] font-semibold mb-1.5 font-['Montserrat'] ${
-            darkMode ? 'text-[#666666]' : 'text-[#999999]'
-          }`}
+          className={`text-[10px] uppercase tracking-[0.12em] font-semibold mb-1.5 font-['Montserrat'] text-[#999999]`}
         >
           {label}
         </div>
@@ -176,13 +172,11 @@ function CreatableSelect({
             left: dropdownPos.left,
             minWidth: dropdownPos.width,
             width: 'max-content',
-            boxShadow: darkMode
-              ? '0 8px 32px rgba(0,0,0,0.5), 0 2px 8px rgba(0,0,0,0.3)'
-              : '0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06)',
+            boxShadow: '0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06)',
           }}
         >
           {/* Search input */}
-          <div className={`px-2 py-1.5 border-b ${darkMode ? 'border-[#2E2E2E]' : 'border-[#E8E0D8]'}`}>
+          <div className={`px-2 py-1.5 border-b border-[#E8E0D8]`}>
             <input
               ref={inputRef}
               type="text"
@@ -190,11 +184,7 @@ function CreatableSelect({
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               placeholder={placeholder}
-              className={`w-full px-2 py-1 text-sm rounded outline-none ${
-                darkMode
-                  ? 'bg-[#0A0A0A] text-[#F2F2F2] placeholder-[#555555]'
-                  : 'bg-[#FAFAF8] text-[#1A1A1A] placeholder-[#AAAAAA]'
-              }`}
+              className={`w-full px-2 py-1 text-sm rounded outline-none bg-[#FAFAF8] text-[#1A1A1A] placeholder-[#AAAAAA]`}
             />
           </div>
 
@@ -209,12 +199,8 @@ function CreatableSelect({
                   onClick={() => handleSelect(option)}
                   className={`w-full flex items-center gap-2.5 px-3 py-[6px] text-sm transition-colors duration-150 ${
                     isSelected
-                      ? darkMode
-                        ? 'bg-[rgba(215,183,151,0.08)] text-[#D7B797]'
-                        : 'bg-[rgba(215,183,151,0.1)] text-[#6B4D30]'
-                      : darkMode
-                        ? 'text-[#CCCCCC] hover:bg-[rgba(215,183,151,0.04)] hover:text-[#F2F2F2]'
-                        : 'text-[#444444] hover:bg-[rgba(215,183,151,0.06)] hover:text-[#1A1A1A]'
+                      ? 'bg-[rgba(215,183,151,0.1)] text-[#6B4D30]'
+                      : 'text-[#444444] hover:bg-[rgba(215,183,151,0.06)] hover:text-[#1A1A1A]'
                   }`}
                 >
                   <span className={`flex-1 text-left truncate ${isSelected ? 'font-semibold' : ''}`}>
@@ -230,11 +216,7 @@ function CreatableSelect({
               <button
                 type="button"
                 onClick={handleCreate}
-                className={`w-full flex items-center gap-2 px-3 py-[6px] text-sm font-medium transition-colors duration-150 ${
-                  darkMode
-                    ? 'text-[#2A9E6A] hover:bg-[rgba(42,158,106,0.08)]'
-                    : 'text-[#127749] hover:bg-[rgba(18,119,73,0.06)]'
-                }`}
+                className={`w-full flex items-center gap-2 px-3 py-[6px] text-sm font-medium transition-colors duration-150 text-[#127749] hover:bg-[rgba(18,119,73,0.06)]`}
               >
                 <Plus size={13} strokeWidth={2.5} />
                 <span>Create &quot;{inputValue.trim()}&quot;</span>

@@ -83,10 +83,10 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   const handleDragMove = useCallback((e: React.TouchEvent | React.MouseEvent) => {
     if (!isDragging.current || !sheetRef.current) return;
-    
+
     const clientY = 'touches' in e ? e.touches[0].clientY : e.clientY;
     const deltaY = clientY - startY.current;
-    
+
     // Only allow dragging down
     if (deltaY > 0) {
       currentY.current = deltaY;
@@ -96,16 +96,16 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
   const handleDragEnd = useCallback(() => {
     if (!isDragging.current || !sheetRef.current) return;
-    
+
     isDragging.current = false;
-    
+
     // Close if dragged more than 100px
     if (currentY.current > 100) {
       onClose();
     } else {
       sheetRef.current.style.transform = '';
     }
-    
+
     currentY.current = 0;
   }, [onClose]);
 
@@ -135,7 +135,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         ref={sheetRef}
         className={`
           fixed bottom-0 left-0 right-0 z-[101]
-          bg-white dark:bg-gray-900
+          bg-white
           rounded-t-[28px]
           ${heightClasses[height]}
           shadow-2xl
@@ -157,22 +157,22 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
         {/* Drag Handle (visual indicator) */}
         {showHandle && (
           <div className="flex justify-center pt-3 pb-2">
-            <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full" />
+            <div className="w-12 h-1.5 bg-gray-300 rounded-full" />
           </div>
         )}
 
         {/* Header */}
         {title && (
-          <div className="flex items-center justify-between px-5 pb-4 border-b border-gray-100 dark:border-gray-800">
+          <div className="flex items-center justify-between px-5 pb-4 border-b border-gray-100">
             <h2
               id="bottom-sheet-title"
-              className="text-[20px] font-bold text-gray-900 dark:text-white"
+              className="text-[20px] font-bold text-gray-900"
             >
               {title}
             </h2>
             <button
               onClick={onClose}
-              className="w-8 h-8 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center"
+              className="w-8 h-8 rounded-full bg-gray-100 flex items-center justify-center"
               aria-label="Close"
             >
               <svg
@@ -202,7 +202,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
 
         {/* Actions */}
         {(primaryAction || secondaryAction) && (
-          <div className="px-5 pb-8 pt-4 border-t border-gray-100 dark:border-gray-800 space-y-3 safe-area-bottom">
+          <div className="px-5 pb-8 pt-4 border-t border-gray-100 space-y-3 safe-area-bottom">
             {primaryAction && (
               <button
                 onClick={primaryAction.onClick}
@@ -213,7 +213,7 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                   transition-all duration-150
                   active:scale-[0.98]
                   ${primaryAction.disabled
-                    ? 'bg-gray-200 dark:bg-gray-700 text-gray-400 cursor-not-allowed'
+                    ? 'bg-gray-200 text-gray-400 cursor-not-allowed'
                     : 'bg-gradient-to-r from-amber-500 to-amber-400 text-white shadow-lg shadow-amber-500/30'
                   }
                 `}
@@ -226,8 +226,8 @@ export const BottomSheet: React.FC<BottomSheetProps> = ({
                 onClick={secondaryAction.onClick}
                 className="
                   w-full h-12 rounded-2xl
-                  bg-gray-100 dark:bg-gray-800
-                  text-gray-700 dark:text-gray-300
+                  bg-gray-100
+                  text-gray-700
                   text-[15px] font-medium
                   active:scale-[0.98]
                   transition-all duration-150
@@ -324,7 +324,7 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
       <div className="space-y-6">
         {filters.map((filter) => (
           <div key={filter.key}>
-            <label className="text-[13px] font-medium text-gray-500 dark:text-gray-400 mb-2 block">
+            <label className="text-[13px] font-medium text-gray-500 mb-2 block">
               {filter.icon && <span className="mr-1">{filter.icon}</span>}
               {filter.label}
             </label>
@@ -342,7 +342,7 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                         transition-all duration-200
                         ${isSelected
                           ? 'bg-amber-500 text-white shadow-md shadow-amber-500/25'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                          : 'bg-gray-100 text-gray-700'
                         }
                       `}
                     >
@@ -365,8 +365,8 @@ export const FilterBottomSheet: React.FC<FilterBottomSheetProps> = ({
                         flex items-center justify-center gap-2
                         transition-all duration-200
                         ${isSelected
-                          ? 'bg-amber-100 dark:bg-amber-900/30 text-amber-700 dark:text-amber-400 ring-2 ring-amber-500'
-                          : 'bg-gray-100 dark:bg-gray-800 text-gray-700 dark:text-gray-300'
+                          ? 'bg-amber-100 text-amber-700 ring-2 ring-amber-500'
+                          : 'bg-gray-100 text-gray-700'
                         }
                       `}
                     >

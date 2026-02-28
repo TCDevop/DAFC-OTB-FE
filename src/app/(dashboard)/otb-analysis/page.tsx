@@ -1,11 +1,11 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/contexts/AppContext';
-import OTBAnalysisScreen from '@/screens/OTBAnalysisScreen';
+import { OTBAnalysisScreen } from '@/features/otb';
 
 export default function OTBAnalysisPage() {
   const router = useRouter();
-  const { darkMode, otbAnalysisContext, setSkuProposalContext } = useAppContext();
+  const { otbAnalysisContext, setSkuProposalContext } = useAppContext();
 
   const handleOpenSkuProposal = (context: any) => {
     setSkuProposalContext(context);
@@ -16,7 +16,6 @@ export default function OTBAnalysisPage() {
     <OTBAnalysisScreen
       otbContext={otbAnalysisContext}
       onOpenSkuProposal={handleOpenSkuProposal}
-      darkMode={darkMode}
     />
   );
 }

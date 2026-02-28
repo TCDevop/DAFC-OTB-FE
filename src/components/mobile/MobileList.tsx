@@ -36,11 +36,11 @@ export interface MobileListProps {
 }
 
 const statusVariants = {
-  success: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/30 dark:text-emerald-400',
-  warning: 'bg-amber-100 text-amber-700 dark:bg-amber-900/30 dark:text-amber-400',
-  error: 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400',
-  info: 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-400',
-  default: 'bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400',
+  success: 'bg-emerald-100 text-emerald-700',
+  warning: 'bg-amber-100 text-amber-700',
+  error: 'bg-red-100 text-red-700',
+  info: 'bg-blue-100 text-blue-700',
+  default: 'bg-gray-100 text-gray-700',
 };
 
 // ─── List Item Component ────────────────────────────────────────────────────────
@@ -71,14 +71,14 @@ const MobileListItem: React.FC<ListItemProps> = ({
   const hasExpandableContent = item.expandedContent || (item.details && item.details.length > 0);
 
   return (
-    <div className="border-b border-gray-100 dark:border-gray-800 last:border-b-0">
+    <div className="border-b border-gray-100 last:border-b-0">
       {/* Main Row */}
       <button
         onClick={handlePress}
         className="
           w-full p-4 flex items-center gap-3
-          bg-white dark:bg-gray-900
-          active:bg-gray-50 dark:active:bg-gray-800
+          bg-white
+          active:bg-gray-50
           transition-colors duration-150
           text-left
         "
@@ -88,9 +88,8 @@ const MobileListItem: React.FC<ListItemProps> = ({
           <div className="
             w-12 h-12 rounded-xl flex-shrink-0
             bg-gradient-to-br from-amber-100 to-orange-50
-            dark:from-amber-900/30 dark:to-orange-900/20
             flex items-center justify-center
-            text-[15px] font-bold text-amber-700 dark:text-amber-400
+            text-[15px] font-bold text-amber-700
           ">
             {typeof item.avatar === 'string' ? item.avatar : item.avatar}
           </div>
@@ -98,11 +97,11 @@ const MobileListItem: React.FC<ListItemProps> = ({
 
         {/* Content */}
         <div className="flex-1 min-w-0">
-          <div className="text-[15px] font-semibold text-gray-900 dark:text-white truncate">
+          <div className="text-[15px] font-semibold text-gray-900 truncate">
             {item.title}
           </div>
           {item.subtitle && (
-            <div className="text-[13px] text-gray-500 dark:text-gray-400 truncate mt-0.5">
+            <div className="text-[13px] text-gray-500 truncate mt-0.5">
               {item.subtitle}
             </div>
           )}
@@ -112,7 +111,7 @@ const MobileListItem: React.FC<ListItemProps> = ({
                 {item.valueLabel && (
                   <span className="text-[11px] text-gray-400 mr-1">{item.valueLabel}</span>
                 )}
-                <span className="text-[15px] font-semibold text-gray-900 dark:text-white">
+                <span className="text-[15px] font-semibold text-gray-900">
                   {item.value}
                 </span>
               </div>
@@ -168,15 +167,15 @@ const MobileListItem: React.FC<ListItemProps> = ({
 
       {/* Expanded Content */}
       {isExpanded && hasExpandableContent && (
-        <div className="bg-gray-50 dark:bg-gray-800/50 px-4 pb-4">
+        <div className="bg-gray-50 px-4 pb-4">
           {item.details && item.details.length > 0 && (
             <div className="grid grid-cols-2 gap-3 pt-2">
               {item.details.map((detail, i) => (
                 <div key={i}>
-                  <div className="text-[11px] text-gray-500 dark:text-gray-400">
+                  <div className="text-[11px] text-gray-500">
                     {detail.label}
                   </div>
-                  <div className="text-[14px] font-medium text-gray-900 dark:text-white">
+                  <div className="text-[14px] font-medium text-gray-900">
                     {detail.value}
                   </div>
                 </div>
@@ -205,7 +204,7 @@ export const MobileList: React.FC<MobileListProps> = ({
     return (
       <div className="flex flex-col items-center justify-center py-12 px-6 text-center">
         {emptyIcon || (
-          <div className="w-16 h-16 rounded-full bg-gray-100 dark:bg-gray-800 flex items-center justify-center mb-4">
+          <div className="w-16 h-16 rounded-full bg-gray-100 flex items-center justify-center mb-4">
             <svg
               className="w-8 h-8 text-gray-400"
               fill="none"
@@ -221,13 +220,13 @@ export const MobileList: React.FC<MobileListProps> = ({
             </svg>
           </div>
         )}
-        <p className="text-[15px] text-gray-500 dark:text-gray-400">{emptyMessage}</p>
+        <p className="text-[15px] text-gray-500">{emptyMessage}</p>
       </div>
     );
   }
 
   return (
-    <div className={`bg-white dark:bg-gray-900 rounded-2xl overflow-hidden ${className}`}>
+    <div className={`bg-white rounded-2xl overflow-hidden ${className}`}>
       {items.map((item) => (
         <MobileListItem
           key={item.id}
@@ -245,22 +244,22 @@ export const MobileList: React.FC<MobileListProps> = ({
 
 export const MobileListSkeleton: React.FC<{ count?: number }> = ({ count = 5 }) => {
   return (
-    <div className="bg-white dark:bg-gray-900 rounded-2xl overflow-hidden">
+    <div className="bg-white rounded-2xl overflow-hidden">
       {Array.from({ length: count }).map((_, i) => (
         <div
           key={i}
-          className="p-4 flex items-center gap-3 border-b border-gray-100 dark:border-gray-800 last:border-b-0"
+          className="p-4 flex items-center gap-3 border-b border-gray-100 last:border-b-0"
         >
           {/* Avatar skeleton */}
-          <div className="w-12 h-12 rounded-xl bg-gray-200 dark:bg-gray-700 animate-pulse" />
-          
+          <div className="w-12 h-12 rounded-xl bg-gray-200 animate-pulse" />
+
           {/* Content skeleton */}
           <div className="flex-1">
-            <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-3/4 mb-2 animate-pulse" />
-            <div className="h-3 bg-gray-200 dark:bg-gray-700 rounded w-1/2 mb-2 animate-pulse" />
+            <div className="h-4 bg-gray-200 rounded w-3/4 mb-2 animate-pulse" />
+            <div className="h-3 bg-gray-200 rounded w-1/2 mb-2 animate-pulse" />
             <div className="flex justify-between">
-              <div className="h-4 bg-gray-200 dark:bg-gray-700 rounded w-20 animate-pulse" />
-              <div className="h-5 bg-gray-200 dark:bg-gray-700 rounded-full w-16 animate-pulse" />
+              <div className="h-4 bg-gray-200 rounded w-20 animate-pulse" />
+              <div className="h-5 bg-gray-200 rounded-full w-16 animate-pulse" />
             </div>
           </div>
         </div>

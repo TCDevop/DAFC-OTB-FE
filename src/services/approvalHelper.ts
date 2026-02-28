@@ -3,8 +3,7 @@
 // Eliminates 12 duplicate approval methods across budget/planning/proposal
 // ═══════════════════════════════════════════════════════════════════════════
 import api from './api';
-
-const extract = (response: any) => response.data?.data ?? response.data;
+import { extract } from './serviceUtils';
 
 export type EntityType = 'budget' | 'planning' | 'proposal';
 type ApprovalAction = 'APPROVED' | 'REJECTED';

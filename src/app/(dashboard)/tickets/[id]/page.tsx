@@ -1,13 +1,11 @@
 'use client';
 import { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { useAppContext } from '@/contexts/AppContext';
-import TicketDetailPage from '@/screens/TicketDetailPage';
+import { TicketDetailPage } from '@/features/tickets';
 
 export default function TicketDetailRoute() {
   const router = useRouter();
   const searchParams = useSearchParams();
-  const { darkMode } = useAppContext();
   const [ticket, setTicket] = useState<any>(null);
   const showApprovalActions = searchParams.get('source') === 'approvals';
 
@@ -25,7 +23,6 @@ export default function TicketDetailRoute() {
 
   return (
     <TicketDetailPage
-      darkMode={darkMode}
       ticket={ticket}
       onBack={handleBack}
       showApprovalActions={showApprovalActions}

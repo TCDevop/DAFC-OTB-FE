@@ -12,7 +12,6 @@ const BAR_COLORS = ['#D7B797', '#2A9E6A', '#58A6FF', '#F87171', '#F59E0B', '#14B
  * @param {string} title - Card label
  * @param {string|number} value - Main display value
  * @param {string} sub - Subtitle text
- * @param {boolean} darkMode
  * @param {Component} icon - lucide-react icon component
  * @param {string} accent - Color accent key
  * @param {number} trend - Trend percentage (positive = up, negative = down)
@@ -25,22 +24,21 @@ const BAR_COLORS = ['#D7B797', '#2A9E6A', '#58A6FF', '#F87171', '#F59E0B', '#14B
  */
 
 const ACCENTS: any = {
-  gold:    { color: '#D7B797', darkGrad: 'rgba(215,183,151,0.18)', darkMid: 'rgba(215,183,151,0.06)', lightGrad: 'rgba(160,120,70,0.38)', lightMid: 'rgba(180,140,95,0.16)', iconDark: 'rgba(215,183,151,0.12)', iconLight: 'rgba(140,100,55,0.26)', glowDark: 'rgba(215,183,151,0.15)', glowLight: 'rgba(160,120,70,0.20)' },
-  emerald: { color: '#2A9E6A', darkGrad: 'rgba(42,158,106,0.18)',  darkMid: 'rgba(42,158,106,0.05)', lightGrad: 'rgba(15,100,55,0.35)',  lightMid: 'rgba(20,120,65,0.14)',  iconDark: 'rgba(42,158,106,0.12)', iconLight: 'rgba(15,100,55,0.24)', glowDark: 'rgba(42,158,106,0.15)', glowLight: 'rgba(15,100,55,0.18)' },
-  blue:    { color: '#58A6FF', darkGrad: 'rgba(88,166,255,0.16)',   darkMid: 'rgba(88,166,255,0.04)', lightGrad: 'rgba(40,100,200,0.32)', lightMid: 'rgba(50,120,220,0.14)', iconDark: 'rgba(88,166,255,0.12)', iconLight: 'rgba(40,100,200,0.24)', glowDark: 'rgba(88,166,255,0.12)', glowLight: 'rgba(40,100,200,0.18)' },
-  rose:    { color: '#F87171', darkGrad: 'rgba(248,113,113,0.16)', darkMid: 'rgba(248,113,113,0.04)', lightGrad: 'rgba(200,55,55,0.32)',  lightMid: 'rgba(220,70,70,0.14)',  iconDark: 'rgba(248,113,113,0.12)', iconLight: 'rgba(180,45,45,0.24)', glowDark: 'rgba(248,113,113,0.12)', glowLight: 'rgba(200,55,55,0.18)' },
-  amber:   { color: '#D29922', darkGrad: 'rgba(210,153,34,0.16)',   darkMid: 'rgba(210,153,34,0.04)', lightGrad: 'rgba(180,100,5,0.35)', lightMid: 'rgba(200,120,10,0.14)', iconDark: 'rgba(210,153,34,0.12)', iconLight: 'rgba(160,90,5,0.24)', glowDark: 'rgba(210,153,34,0.12)', glowLight: 'rgba(180,100,5,0.18)' },
-  teal:    { color: '#14B8A6', darkGrad: 'rgba(20,184,166,0.16)',   darkMid: 'rgba(20,184,166,0.04)', lightGrad: 'rgba(10,120,110,0.32)', lightMid: 'rgba(15,140,130,0.14)', iconDark: 'rgba(20,184,166,0.12)', iconLight: 'rgba(10,120,110,0.24)', glowDark: 'rgba(20,184,166,0.12)', glowLight: 'rgba(10,120,110,0.18)' },
-  violet:  { color: '#A78BFA', darkGrad: 'rgba(167,139,250,0.16)', darkMid: 'rgba(167,139,250,0.04)', lightGrad: 'rgba(100,70,200,0.32)', lightMid: 'rgba(120,90,220,0.14)', iconDark: 'rgba(167,139,250,0.12)', iconLight: 'rgba(80,55,180,0.24)', glowDark: 'rgba(167,139,250,0.12)', glowLight: 'rgba(100,70,200,0.18)' },
-  indigo:  { color: '#818CF8', darkGrad: 'rgba(129,140,248,0.16)', darkMid: 'rgba(129,140,248,0.04)', lightGrad: 'rgba(60,70,200,0.32)',  lightMid: 'rgba(80,90,220,0.14)', iconDark: 'rgba(129,140,248,0.12)', iconLight: 'rgba(60,70,200,0.24)', glowDark: 'rgba(129,140,248,0.12)', glowLight: 'rgba(60,70,200,0.18)' },
-  red:     { color: '#F85149', darkGrad: 'rgba(248,81,73,0.16)',   darkMid: 'rgba(248,81,73,0.04)', lightGrad: 'rgba(200,55,55,0.32)',  lightMid: 'rgba(220,70,70,0.14)',  iconDark: 'rgba(248,81,73,0.12)', iconLight: 'rgba(180,45,45,0.24)', glowDark: 'rgba(248,81,73,0.12)', glowLight: 'rgba(200,55,55,0.18)' },
+  gold:    { color: '#D7B797', lightGrad: 'rgba(160,120,70,0.38)', lightMid: 'rgba(180,140,95,0.16)', iconLight: 'rgba(140,100,55,0.26)', glowLight: 'rgba(160,120,70,0.20)' },
+  emerald: { color: '#2A9E6A', lightGrad: 'rgba(15,100,55,0.35)',  lightMid: 'rgba(20,120,65,0.14)',  iconLight: 'rgba(15,100,55,0.24)', glowLight: 'rgba(15,100,55,0.18)' },
+  blue:    { color: '#58A6FF', lightGrad: 'rgba(40,100,200,0.32)', lightMid: 'rgba(50,120,220,0.14)', iconLight: 'rgba(40,100,200,0.24)', glowLight: 'rgba(40,100,200,0.18)' },
+  rose:    { color: '#F87171', lightGrad: 'rgba(200,55,55,0.32)',  lightMid: 'rgba(220,70,70,0.14)',  iconLight: 'rgba(180,45,45,0.24)', glowLight: 'rgba(200,55,55,0.18)' },
+  amber:   { color: '#D29922', lightGrad: 'rgba(180,100,5,0.35)', lightMid: 'rgba(200,120,10,0.14)', iconLight: 'rgba(160,90,5,0.24)', glowLight: 'rgba(180,100,5,0.18)' },
+  teal:    { color: '#14B8A6', lightGrad: 'rgba(10,120,110,0.32)', lightMid: 'rgba(15,140,130,0.14)', iconLight: 'rgba(10,120,110,0.24)', glowLight: 'rgba(10,120,110,0.18)' },
+  violet:  { color: '#A78BFA', lightGrad: 'rgba(100,70,200,0.32)', lightMid: 'rgba(120,90,220,0.14)', iconLight: 'rgba(80,55,180,0.24)', glowLight: 'rgba(100,70,200,0.18)' },
+  indigo:  { color: '#818CF8', lightGrad: 'rgba(60,70,200,0.32)',  lightMid: 'rgba(80,90,220,0.14)', iconLight: 'rgba(60,70,200,0.24)', glowLight: 'rgba(60,70,200,0.18)' },
+  red:     { color: '#F85149', lightGrad: 'rgba(200,55,55,0.32)',  lightMid: 'rgba(220,70,70,0.14)',  iconLight: 'rgba(180,45,45,0.24)', glowLight: 'rgba(200,55,55,0.18)' },
 };
 
 const ExpandableStatCard = ({
   title,
   value,
   sub,
-  darkMode,
   icon: Icon,
   accent = 'blue',
   trend,
@@ -54,27 +52,25 @@ const ExpandableStatCard = ({
   const [expanded, setExpanded] = useState(false);
   const { t } = useLanguage();
   const a = ACCENTS[accent] || ACCENTS.blue;
-  const borderColor = darkMode ? 'border-[#2E2E2E]' : 'border-gray-300';
-  const textMuted = darkMode ? 'text-[#666666]' : 'text-gray-600';
-  const textPrimary = darkMode ? 'text-[#F2F2F2]' : 'text-gray-900';
-  const textSecondary = darkMode ? 'text-[#999999]' : 'text-gray-700';
+  const borderColor = 'border-gray-300';
+  const textMuted = 'text-gray-600';
+  const textPrimary = 'text-gray-900';
+  const textSecondary = 'text-gray-700';
   const hasExpandContent = breakdown?.length > 0 || badges?.length > 0 || progress != null;
 
   return (
     <div
       className={`relative overflow-hidden border ${borderColor} rounded-xl group`}
       style={{
-        background: darkMode
-          ? `linear-gradient(135deg, #121212 0%, ${a.darkMid} 40%, ${a.darkGrad} 100%)`
-          : `linear-gradient(135deg, #ffffff 0%, ${a.lightMid} 35%, ${a.lightGrad} 100%)`,
-        boxShadow: `inset 0 -1px 0 ${darkMode ? a.glowDark : a.glowLight}`,
+        background: `linear-gradient(135deg, #ffffff 0%, ${a.lightMid} 35%, ${a.lightGrad} 100%)`,
+        boxShadow: `inset 0 -1px 0 ${a.glowLight}`,
       }}
     >
       {/* Watermark Icon */}
       {Icon && (
         <div
           className="absolute -bottom-1 -right-1 pointer-events-none"
-          style={{ opacity: darkMode ? 0.04 : 0.12 }}
+          style={{ opacity: 0.12 }}
         >
           <Icon size={48} color={a.color} strokeWidth={1} />
         </div>
@@ -110,7 +106,7 @@ const ExpandableStatCard = ({
                       ? 'bg-[rgba(248,81,73,0.15)] text-[#FF7B72]'
                       : `bg-[rgba(102,102,102,0.15)] ${textMuted}`
                 }`}>
-                  {trend > 0 ? '▲' : trend < 0 ? '▼' : '—'} {trendLabel}
+                  {trend > 0 ? '\u25B2' : trend < 0 ? '\u25BC' : '\u2014'} {trendLabel}
                 </span>
               )}
               {sub && <p className={`text-[10px] ${textMuted}`}>{sub}</p>}
@@ -127,7 +123,7 @@ const ExpandableStatCard = ({
                     {Math.round(progress)}%
                   </span>
                 </div>
-                <div className={`h-1 rounded-full overflow-hidden ${darkMode ? 'bg-[#1E1E1E]' : 'bg-gray-200'}`}>
+                <div className={`h-1 rounded-full overflow-hidden bg-gray-200`}>
                   <div
                     className="h-full rounded-full transition-all duration-200"
                     style={{
@@ -144,7 +140,7 @@ const ExpandableStatCard = ({
           {Icon && (
             <div
               className="w-7 h-7 rounded-lg flex items-center justify-center backdrop-blur-sm shrink-0"
-              style={{ backgroundColor: darkMode ? a.iconDark : a.iconLight }}
+              style={{ backgroundColor: a.iconLight }}
             >
               <Icon size={14} color={a.color} />
             </div>
@@ -208,7 +204,7 @@ const ExpandableStatCard = ({
                         {item.displayValue || item.value}
                       </span>
                     </div>
-                    <div className={`h-0.5 rounded-full overflow-hidden mt-0.5 ${darkMode ? 'bg-[#1E1E1E]' : 'bg-gray-200'}`}>
+                    <div className={`h-0.5 rounded-full overflow-hidden mt-0.5 bg-gray-200`}>
                       <div
                         className="h-full rounded-full transition-all duration-200"
                         style={{

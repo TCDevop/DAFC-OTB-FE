@@ -20,14 +20,12 @@ const YEARS = Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 2 +
 const CARD_ACCENTS = {
   total:     { color: '#D7B797', darkGrad: 'rgba(215,183,151,0.06)', lightGrad: 'rgba(180,140,95,0.25)', iconDark: 'rgba(215,183,151,0.07)', iconLight: 'rgba(160,120,75,0.20)' },
   allocated: { color: '#2A9E6A', darkGrad: 'rgba(42,158,106,0.06)',  lightGrad: 'rgba(22,120,70,0.20)',  iconDark: 'rgba(42,158,106,0.07)', iconLight: 'rgba(22,120,70,0.18)' },
-  remaining: { color: '#E3B341', darkGrad: 'rgba(227,179,65,0.06)',  lightGrad: 'rgba(200,150,30,0.22)', iconDark: 'rgba(227,179,65,0.07)', iconLight: 'rgba(180,130,20,0.18)' },
-};
+  remaining: { color: '#E3B341', darkGrad: 'rgba(227,179,65,0.06)',  lightGrad: 'rgba(200,150,30,0.22)', iconDark: 'rgba(227,179,65,0.07)', iconLight: 'rgba(180,130,20,0.18)' }};
 
 const BudgetManagementScreen = ({
   selectedYear,
   setSelectedYear,
-  onAllocate,
-  darkMode = false
+  onAllocate
 }: any) => {
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
@@ -70,8 +68,7 @@ const BudgetManagementScreen = ({
         updatedAt: budget.updated_at || budget.updatedAt,
         createdBy: typeof budget.creator === 'object'
           ? budget.creator?.name
-          : (budget.created_by || budget.createdBy),
-      }));
+          : (budget.created_by || budget.createdBy)}));
       setBudgetData(budgets);
     } catch (err: any) {
       console.error('Failed to fetch budgets:', err);
@@ -112,14 +109,12 @@ const BudgetManagementScreen = ({
       const perStore = Math.floor(totalAmount / stores.length);
       const details = stores.map((store: any, idx: number) => ({
         storeId: store.id,
-        budgetAmount: idx === 0 ? totalAmount - perStore * (stores.length - 1) : perStore,
-      }));
+        budgetAmount: idx === 0 ? totalAmount - perStore * (stores.length - 1) : perStore}));
 
       await budgetService.create({
         budgetCode: `${selectedBudget.budgetName} (Copy)`,
         fiscalYear: selectedBudget.fiscalYear,
-        details,
-      });
+        details});
       invalidateCache('/budgets');
       toast.success(t('budget.duplicateSuccess') || 'Budget duplicated successfully');
       setShowViewModal(false);
@@ -233,8 +228,7 @@ const BudgetManagementScreen = ({
       setEditBudgetForm({
         name: selectedBudget.budgetName || '',
         amount: String(selectedBudget.totalBudget || ''),
-        description: selectedBudget.description || '',
-      });
+        description: selectedBudget.description || ''});
     }
   }, [selectedBudget?.id]);
 
@@ -255,16 +249,14 @@ const BudgetManagementScreen = ({
       await budgetService.update(String(selectedBudget.id), {
         name: editBudgetForm.name.trim(),
         amount,
-        description: editBudgetForm.description.trim() || undefined,
-      });
+        description: editBudgetForm.description.trim() || undefined});
       invalidateCache('/budgets');
       toast.success(t('budget.updateSuccess') || 'Budget updated successfully');
       setSelectedBudget((prev: any) => ({
         ...prev,
         budgetName: editBudgetForm.name.trim(),
         totalBudget: amount,
-        description: editBudgetForm.description.trim(),
-      }));
+        description: editBudgetForm.description.trim()}));
       fetchBudgets();
     } catch (err: any) {
       toast.error(err?.response?.data?.message || t('budget.failedToUpdateBudget') || 'Failed to update budget');
@@ -318,8 +310,7 @@ const BudgetManagementScreen = ({
       approvedPct: total > 0 ? ((approved / total) * 100).toFixed(1) : 0,
       pendingPct: total > 0 ? ((pending / total) * 100).toFixed(1) : 0,
       remainingPct: total > 0 ? ((remaining / total) * 100).toFixed(1) : 0,
-      statusCounts,
-    };
+      statusCounts};
   }, [budgetData]);
 
   // Clear all filters
@@ -330,7 +321,7 @@ const BudgetManagementScreen = ({
 
   const DetailRow = ({ label, value, strong }: any) => (
   <div className="flex justify-between gap-4">
-    <span className={darkMode ? 'text-[#999999]' : 'text-[#666666]'}>{label}</span>
+    <span className={'text-[#666666]'}>{label}</span>
     <span className={`text-right ${strong ? 'font-semibold text-[#2A9E6A] font-[\'JetBrains_Mono\']' : ''}`}>
       {value}
     </span>
@@ -344,7 +335,7 @@ const BudgetManagementScreen = ({
   if (loading) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <LoadingSpinner darkMode={darkMode} size="lg" message={t('budget.loadingBudgets')} />
+        <LoadingSpinner size="lg" message={t('budget.loadingBudgets')} />
       </div>
     );
   }
@@ -353,7 +344,7 @@ const BudgetManagementScreen = ({
   if (error) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
-        <ErrorMessage darkMode={darkMode} message={error} onRetry={fetchBudgets} />
+        <ErrorMessage message={error} onRetry={fetchBudgets} />
       </div>
     );
   }
@@ -361,18 +352,14 @@ const BudgetManagementScreen = ({
   return (
     <div className="space-y-2 md:space-y-3">
       {/* Filters Section */}
-      <div className={`sticky -top-3 md:-top-6 z-30 -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 border-b backdrop-blur-sm ${darkMode ? 'bg-[#121212]/95 border-[#2E2E2E]' : 'bg-white/95 border-[#C4B5A5]'}`}>
+      <div className={`sticky -top-3 md:-top-6 z-30 -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 border-b backdrop-blur-sm ${'bg-white/95 border-[#C4B5A5]'}`}>
         <div className="flex flex-wrap items-center gap-1.5 px-3 md:px-6 py-1.5">
 
           {/* Mobile Filter Button */}
           {isMobile && (
             <button
               onClick={openFilter}
-              className={`flex items-center gap-1.5 px-3 py-1 border rounded-lg text-xs font-medium ${
-                darkMode
-                  ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#D7B797]'
-                  : 'bg-white border-[#C4B5A5] text-[#6B4D30]'
-              }`}
+              className={`flex items-center gap-1.5 px-3 py-1 border rounded-lg text-xs font-medium ${'bg-white border-[#C4B5A5] text-[#6B4D30]'}`}
             >
               <Filter size={12} />
               {t('budget.filters')}
@@ -391,23 +378,17 @@ const BudgetManagementScreen = ({
                 setYearDropdownOpen(!yearDropdownOpen);
               }}
               className={`flex items-center justify-between gap-2 px-3 py-[7px] border rounded-lg transition-colors min-w-[110px] ${selectedYear
-                ? darkMode
-                  ? 'bg-[rgba(215,183,151,0.08)] border-[rgba(215,183,151,0.25)] text-[#D7B797]'
-                  : 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'
-                : darkMode
-                  ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] hover:bg-[rgba(215,183,151,0.08)] hover:border-[rgba(215,183,151,0.25)]'
-                  : 'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:bg-[rgba(160,120,75,0.18)] hover:border-[rgba(215,183,151,0.4)]'
-                }`}
+                ?'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]':'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:bg-[rgba(160,120,75,0.18)] hover:border-[rgba(215,183,151,0.4)]'}`}
               aria-label="Select fiscal year"
             >
               <span className="text-sm font-medium">{selectedYear ? `FY${selectedYear}` : t('budget.allYears')}</span>
               <ChevronDown size={12} className="opacity-50 shrink-0" />
             </button>
             {yearDropdownOpen && (
-              <div className={`absolute top-full left-0 mt-1 rounded-lg shadow-lg border py-0.5 z-20 min-w-[140px] ${darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E]' : 'bg-white border-[#C4B5A5]'}`}>
+              <div className={`absolute top-full left-0 mt-1 rounded-lg shadow-lg border py-0.5 z-20 min-w-[140px] ${'bg-white border-[#C4B5A5]'}`}>
                 <button
                   onClick={() => { setSelectedYear(null); setYearDropdownOpen(false); }}
-                  className={`w-full px-4 py-0.5 text-left text-sm transition-colors ${darkMode ? 'hover:bg-[rgba(215,183,151,0.08)]' : 'hover:bg-[rgba(160,120,75,0.18)]'} ${!selectedYear ? (darkMode ? 'text-[#D7B797] font-medium' : 'text-[#6B4D30] font-medium') : darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}
+                  className={`w-full px-4 py-0.5 text-left text-sm transition-colors ${'hover:bg-[rgba(160,120,75,0.18)]'} ${!selectedYear ? ('text-[#6B4D30] font-medium') :'text-[#0A0A0A]'}`}
                 >
                   {t('budget.allYears')}
                 </button>
@@ -415,7 +396,7 @@ const BudgetManagementScreen = ({
                   <button
                     key={year}
                     onClick={() => { setSelectedYear(year); setYearDropdownOpen(false); }}
-                    className={`w-full px-4 py-0.5 text-left text-sm transition-colors ${darkMode ? 'hover:bg-[rgba(215,183,151,0.08)]' : 'hover:bg-[rgba(160,120,75,0.18)]'} ${selectedYear === year ? (darkMode ? 'text-[#D7B797] font-medium' : 'text-[#6B4D30] font-medium') : darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}
+                    className={`w-full px-4 py-0.5 text-left text-sm transition-colors ${'hover:bg-[rgba(160,120,75,0.18)]'} ${selectedYear === year ? ('text-[#6B4D30] font-medium') :'text-[#0A0A0A]'}`}
                   >
                     FY{year}
                   </button>
@@ -429,7 +410,7 @@ const BudgetManagementScreen = ({
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className={`shrink-0 p-1 rounded transition-colors ${darkMode ? 'text-[#666666] hover:text-red-400 hover:bg-red-400/10' : 'text-[#999999] hover:text-red-500 hover:bg-red-50'}`}
+              className={`shrink-0 p-1 rounded transition-colors ${'text-[#999999] hover:text-red-500 hover:bg-red-50'}`}
               title={t('common.clearAllFilters')}
               aria-label="Clear search"
             >
@@ -446,7 +427,6 @@ const BudgetManagementScreen = ({
           title={t('budget.totalBudget')}
           value={formatCurrency(summaryStats.total)}
           sub={t('budget.allBudgetsCombined')}
-          darkMode={darkMode}
           icon={Wallet}
           accent="gold"
           trendLabel={`${summaryStats.count} budgets`}
@@ -456,7 +436,6 @@ const BudgetManagementScreen = ({
           title={t('budget.allocated')}
           value={formatCurrency(summaryStats.approved)}
           sub={`${summaryStats.approvedPct}% ${t('budget.ofTotal')}`}
-          darkMode={darkMode}
           icon={CircleCheckBig}
           accent="emerald"
           progress={Number(summaryStats.approvedPct)}
@@ -472,7 +451,6 @@ const BudgetManagementScreen = ({
           title={t('budget.remaining')}
           value={formatCurrency(summaryStats.remaining)}
           sub={`${summaryStats.remainingPct}% ${t('budget.ofTotal')}`}
-          darkMode={darkMode}
           icon={Hourglass}
           accent="amber"
           progress={Number(summaryStats.remainingPct)}
@@ -496,8 +474,7 @@ const BudgetManagementScreen = ({
                 { key: 'year', label: t('budget.fiscalYear') },
               ]}
               activeValues={{
-                year: selectedYear ? `FY${selectedYear}` : '',
-              }}
+                year: selectedYear ? `FY${selectedYear}` : ''}}
               onChipPress={openFilter}
               onMorePress={openFilter}
               className="mb-2"
@@ -516,15 +493,14 @@ const BudgetManagementScreen = ({
                     <div className="flex gap-2 mt-2">
                       <button
                         onClick={() => { setSelectedBudget(budget); setShowViewModal(true); }}
-                        className={`flex-1 px-3 py-0.5 text-xs font-medium rounded-lg border ${darkMode ? 'border-[#2E2E2E] text-[#999]' : 'border-[#C4B5A5] text-[#666]'}`}
+                        className={`flex-1 px-3 py-0.5 text-xs font-medium rounded-lg border ${'border-[#C4B5A5] text-[#666]'}`}
                       >
                         {t('budget.view')}
                       </button>
                       <button
                         onClick={() => onAllocate && onAllocate({
                           id: budget.id, year: budget.fiscalYear,
-                          totalBudget: budget.totalBudget, budgetName: budget.budgetName,
-                        })}
+                          totalBudget: budget.totalBudget, budgetName: budget.budgetName})}
                         className="px-2 py-1 rounded-lg bg-[#127749] text-white"
                         title={t('budget.allocate')}
                         aria-label="Allocate budget"
@@ -533,8 +509,7 @@ const BudgetManagementScreen = ({
                       </button>
                     </div>
                   </div>
-                ),
-              }))}
+                )}))}
               expandable
               emptyMessage={hasActiveFilters ? t('budget.noMatchingBudgets') : t('budget.noBudgetsYet')}
             />
@@ -543,48 +518,44 @@ const BudgetManagementScreen = ({
         )}
         {/* Desktop Table */}
         {!isMobile && (
-        <div className={`rounded-xl shadow-sm border overflow-hidden ${darkMode ? 'bg-[#121212] border-[#2E2E2E]' : 'bg-white border-[#C4B5A5]'}`}>
+        <div className={`rounded-xl shadow-sm border overflow-hidden ${'bg-white border-[#C4B5A5]'}`}>
           <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
           <table className="w-full">
-            <thead className={`sticky top-0 z-10 ${darkMode ? 'bg-[#1A1A1A]' : 'bg-[rgba(160,120,75,0.18)]'}`}>
+            <thead className={`sticky top-0 z-10 ${'bg-[rgba(160,120,75,0.18)]'}`}>
               <tr>
-                <th className={`text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
+                <th className={`text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] ${'text-[#666666]'}`}>
                   {t('budget.fiscalYear')}
                 </th>
-                <th className={`text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
+                <th className={`text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] ${'text-[#666666]'}`}>
                   {t('budget.budgetName')}
                 </th>
-                <th className={`text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
+                <th className={`text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] ${'text-[#666666]'}`}>
                   {t('budget.amount')}
                 </th>
-                <th className={`text-right px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
+                <th className={`text-right px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] ${'text-[#666666]'}`}>
                   {t('common.actions')}
                 </th>
               </tr>
             </thead>
-            <tbody className={darkMode ? 'divide-y divide-[#2E2E2E]' : 'divide-y divide-[#2E2E2E]/10'}>
+            <tbody className={'divide-y divide-[#2E2E2E]/10'}>
               {filteredBudgets.map((budget: any) => (
                 <tr
                   key={budget.id}
                   onClick={() => { setSelectedBudget(budget); setShowViewModal(true); }}
-                  className={`transition-colors cursor-pointer ${darkMode ? 'hover:bg-[rgba(215,183,151,0.08)]' : 'hover:bg-[rgba(160,120,75,0.18)]'}`}
+                  className={`transition-colors cursor-pointer ${'hover:bg-[rgba(160,120,75,0.18)]'}`}
                 >
                   <td className="px-3 py-0.5">
-                    <span className={`text-sm font-medium ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}>FY{budget.fiscalYear}</span>
+                    <span className={`text-sm font-medium ${'text-[#0A0A0A]'}`}>FY{budget.fiscalYear}</span>
                   </td>
                   <td className="px-3 py-0.5">
                     <span
                       onClick={() => { setSelectedBudget(budget); setShowViewModal(true); }}
-                      className={`text-sm font-medium cursor-pointer transition-colors ${
-                      darkMode
-                        ? 'text-[#D7B797] hover:text-[#D7B797]/80 hover:underline'
-                        : 'text-[#6B4D30] hover:text-[#6B4D30]/80 hover:underline'
-                    }`}>
+                      className={`text-sm font-medium cursor-pointer transition-colors ${'text-[#6B4D30] hover:text-[#6B4D30]/80 hover:underline'}`}>
                       {budget.budgetName}
                     </span>
                   </td>
                   <td className="px-3 py-0.5">
-                    <span className={`text-sm font-semibold font-['JetBrains_Mono'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}>{formatCurrency(budget.totalBudget)}</span>
+                    <span className={`text-sm font-semibold font-['JetBrains_Mono'] ${'text-[#0A0A0A]'}`}>{formatCurrency(budget.totalBudget)}</span>
                   </td>
                   <td className="px-3 py-0.5" onClick={(e) => e.stopPropagation()}>
                     <div className="flex items-center justify-end gap-2">
@@ -594,10 +565,7 @@ const BudgetManagementScreen = ({
                           setSelectedBudget(budget);
                           setShowViewModal(true);
                         }}
-                        className={`p-2.5 md:p-1.5 rounded-md transition ${darkMode
-                            ? 'text-[#999999] hover:text-[#F2F2F2] hover:bg-[#2E2E2E]'
-                            : 'text-[#666666] hover:text-[#0A0A0A] hover:bg-[#F2F2F2]'
-                          }`}
+                        className={`p-2.5 md:p-1.5 rounded-md transition ${'text-[#666666] hover:text-[#0A0A0A] hover:bg-[#F2F2F2]'}`}
                         title={t('budget.view')}
                         aria-label="View budget"
                       >
@@ -609,10 +577,7 @@ const BudgetManagementScreen = ({
                         <button
                           onClick={() => handleQuickSubmit(budget.id)}
                           disabled={submittingId === budget.id}
-                          className={`p-2.5 md:p-1.5 rounded-md transition ${submittingId === budget.id ? 'opacity-50 cursor-not-allowed' : ''} ${darkMode
-                              ? 'text-blue-400 hover:bg-blue-500/10'
-                              : 'text-blue-600 hover:bg-blue-50'
-                            }`}
+                          className={`p-2.5 md:p-1.5 rounded-md transition ${submittingId === budget.id ? 'opacity-50 cursor-not-allowed' : ''} ${'text-blue-600 hover:bg-blue-50'}`}
                           title={t('budget.submit') || 'Submit for Approval'}
                           aria-label="Submit budget"
                         >
@@ -627,10 +592,7 @@ const BudgetManagementScreen = ({
                             setSelectedBudget(budget);
                             setShowArchiveConfirm(true);
                           }}
-                          className={`p-2.5 md:p-1.5 rounded-md transition ${darkMode
-                              ? 'text-[#E3B341] hover:bg-[rgba(227,179,65,0.1)]'
-                              : 'text-[#9A7B2E] hover:bg-[rgba(227,179,65,0.1)]'
-                            }`}
+                          className={`p-2.5 md:p-1.5 rounded-md transition ${'text-[#9A7B2E] hover:bg-[rgba(227,179,65,0.1)]'}`}
                           title={t('budget.archive') || 'Archive'}
                           aria-label="Archive budget"
                         >
@@ -646,13 +608,9 @@ const BudgetManagementScreen = ({
                             id: budget.id,
                             year: budget.fiscalYear,
                             totalBudget: budget.totalBudget,
-                            budgetName: budget.budgetName,
-                          })
+                            budgetName: budget.budgetName})
                         }
-                        className={`p-2.5 md:p-1.5 rounded-md transition ${darkMode
-                            ? 'bg-[rgba(215,183,151,0.08)] text-[#D7B797] hover:bg-[rgba(160,120,75,0.18)] border border-[rgba(215,183,151,0.25)]'
-                            : 'bg-[rgba(160,120,75,0.18)] text-[#6B4D30] hover:bg-[rgba(215,183,151,0.25)] border border-[rgba(215,183,151,0.4)]'
-                          }`}
+                        className={`p-2.5 md:p-1.5 rounded-md transition ${'bg-[rgba(160,120,75,0.18)] text-[#6B4D30] hover:bg-[rgba(215,183,151,0.25)] border border-[rgba(215,183,151,0.4)]'}`}
                         title={t('budget.allocate')}
                         aria-label="Allocate budget"
                       >
@@ -665,19 +623,19 @@ const BudgetManagementScreen = ({
             </tbody>
             {filteredBudgets.length > 0 && (
               <tfoot>
-                <tr className={darkMode ? 'bg-[rgba(215,183,151,0.06)]' : 'bg-[rgba(160,120,75,0.10)]'}>
+                <tr className={'bg-[rgba(160,120,75,0.10)]'}>
                   <td className="px-3 py-1.5">
-                    <span className={`text-xs font-bold uppercase tracking-wider font-['Montserrat'] ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+                    <span className={`text-xs font-bold uppercase tracking-wider font-['Montserrat'] ${'text-[#6B4D30]'}`}>
                       {t('common.total') || 'TOTAL'}
                     </span>
                   </td>
                   <td className="px-3 py-1.5">
-                    <span className={`text-xs font-medium ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
+                    <span className={`text-xs font-medium ${'text-[#666666]'}`}>
                       {filteredBudgets.length} {t('budget.budgets') || 'budgets'}
                     </span>
                   </td>
                   <td className="px-3 py-1.5">
-                    <span className={`text-sm font-bold font-['JetBrains_Mono'] ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+                    <span className={`text-sm font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>
                       {formatCurrency(filteredBudgets.reduce((sum: number, b: any) => sum + (Number(b.totalBudget) || 0), 0))}
                     </span>
                   </td>
@@ -691,7 +649,6 @@ const BudgetManagementScreen = ({
           {filteredBudgets.length === 0 && (
             <div className="py-8">
               <EmptyState
-                darkMode={darkMode}
                 title={hasActiveFilters ? t('budget.noMatchingBudgets') : t('budget.noBudgetsYet')}
                 message={hasActiveFilters
                   ? t('budget.tryAdjustingFilters')
@@ -704,11 +661,7 @@ const BudgetManagementScreen = ({
                 <div className="text-center">
                   <button
                     onClick={clearFilters}
-                    className={`text-sm font-medium transition-colors ${
-                      darkMode
-                        ? 'text-[#D7B797] hover:text-[#D7B797]/80'
-                        : 'text-[#6B4D30] hover:text-[#6B4D30]/80'
-                    }`}
+                    className={`text-sm font-medium transition-colors ${'text-[#6B4D30] hover:text-[#6B4D30]/80'}`}
                   >
                     {t('common.clearAllFilters')}
                   </button>
@@ -730,8 +683,7 @@ const BudgetManagementScreen = ({
             key: 'year',
             label: t('budget.fiscalYear'),
             type: 'single',
-            options: YEARS.map((y: any) => ({ label: `FY${y}`, value: String(y) })),
-          },
+            options: YEARS.map((y: any) => ({ label: `FY${y}`, value: String(y) }))},
         ]}
         values={mobileFilterValues}
         onChange={(key, value) => setMobileFilterValues(prev => ({ ...prev, [key]: value }))}
@@ -748,10 +700,10 @@ const BudgetManagementScreen = ({
         <div className="fixed inset-0 z-[9999]">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowViewModal(false)} />
           <div className="relative flex min-h-screen items-center justify-center p-4">
-            <div className={`w-full max-w-lg rounded-2xl shadow-xl overflow-hidden ${darkMode ? 'bg-[#121212] text-[#F2F2F2]' : 'bg-white text-[#0A0A0A]'}`}>
+            <div className={`w-full max-w-lg rounded-2xl shadow-xl overflow-hidden ${'bg-white text-[#0A0A0A]'}`}>
 
               {/* Header */}
-              <div className={`flex items-center justify-between px-6 py-4 border-b ${darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'}`}>
+              <div className={`flex items-center justify-between px-6 py-4 border-b ${'border-[#C4B5A5]'}`}>
                 <div className="flex items-center gap-3">
                   <h3 className="text-lg font-semibold font-['Montserrat']">{t('budget.budgetDetail')}</h3>
                   <span className={`text-[11px] font-bold px-2 py-0.5 rounded-full uppercase tracking-wide ${
@@ -760,15 +712,14 @@ const BudgetManagementScreen = ({
                       : selectedBudget.status === 'rejected'
                         ? 'bg-[rgba(248,81,73,0.15)] text-[#F85149]'
                         : selectedBudget.status === 'draft'
-                          ? darkMode ? 'bg-[#2E2E2E] text-[#999999]' : 'bg-[#F2F2F2] text-[#666666]'
-                          : 'bg-[rgba(210,153,34,0.15)] text-[#D29922]'
+                          ?'bg-[#F2F2F2] text-[#666666]': 'bg-[rgba(210,153,34,0.15)] text-[#D29922]'
                   }`}>
                     {selectedBudget.status}
                   </span>
                 </div>
                 <button
                   onClick={() => setShowViewModal(false)}
-                  className={`p-2 rounded-lg transition-colors ${darkMode ? 'hover:bg-[#2E2E2E]' : 'hover:bg-[#F2F2F2]'}`}
+                  className={`p-2 rounded-lg transition-colors ${'hover:bg-[#F2F2F2]'}`}
                   aria-label="Close"
                 >
                   <X size={18} />
@@ -779,38 +730,38 @@ const BudgetManagementScreen = ({
               <div className="px-6 py-5 space-y-4 text-sm max-h-[65vh] overflow-y-auto">
 
                 {/* Read-only info */}
-                <div className={`grid grid-cols-3 gap-3 p-3 rounded-xl ${darkMode ? 'bg-[#1A1A1A]' : 'bg-[#F7F4F1]'}`}>
+                <div className={`grid grid-cols-3 gap-3 p-3 rounded-xl ${'bg-[#F7F4F1]'}`}>
                   <div>
-                    <p className={`text-xs mb-1 ${darkMode ? 'text-[#666]' : 'text-[#999]'}`}>{t('budget.fiscalYear')}</p>
+                    <p className={`text-xs mb-1 ${'text-[#999]'}`}>{t('budget.fiscalYear')}</p>
                     <p className="font-semibold font-['Montserrat']">FY{selectedBudget.fiscalYear}</p>
                   </div>
                   <div>
-                    <p className={`text-xs mb-1 ${darkMode ? 'text-[#666]' : 'text-[#999]'}`}>{t('budget.createdBy')}</p>
+                    <p className={`text-xs mb-1 ${'text-[#999]'}`}>{t('budget.createdBy')}</p>
                     <p className="font-medium truncate">{selectedBudget.createdBy || '-'}</p>
                   </div>
                   <div>
-                    <p className={`text-xs mb-1 ${darkMode ? 'text-[#666]' : 'text-[#999]'}`}>{t('budget.createdOn')}</p>
+                    <p className={`text-xs mb-1 ${'text-[#999]'}`}>{t('budget.createdOn')}</p>
                     <p className="font-medium">{selectedBudget.createdAt ? new Date(selectedBudget.createdAt).toLocaleDateString('vi-VN') : '-'}</p>
                   </div>
                 </div>
 
                 {/* Editable: Budget Name */}
                 <div>
-                  <label className={`block text-xs font-semibold mb-1.5 font-['Montserrat'] ${darkMode ? 'text-[#999]' : 'text-[#666]'}`}>
+                  <label className={`block text-xs font-semibold mb-1.5 font-['Montserrat'] ${'text-[#666]'}`}>
                     {t('budget.budgetName')} <span className="text-[#F85149]">*</span>
                   </label>
                   <input
                     type="text"
                     value={editBudgetForm.name}
                     onChange={(e) => setEditBudgetForm({ ...editBudgetForm, name: e.target.value })}
-                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] ${darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] placeholder-[#555]' : 'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999]'}`}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] ${'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999]'}`}
                     placeholder={t('budget.enterBudgetName')}
                   />
                 </div>
 
                 {/* Editable: Total Budget Amount */}
                 <div>
-                  <label className={`block text-xs font-semibold mb-1.5 font-['Montserrat'] ${darkMode ? 'text-[#999]' : 'text-[#666]'}`}>
+                  <label className={`block text-xs font-semibold mb-1.5 font-['Montserrat'] ${'text-[#666]'}`}>
                     {t('budget.amountVND')} <span className="text-[#F85149]">*</span>
                   </label>
                   <input
@@ -820,11 +771,11 @@ const BudgetManagementScreen = ({
                       const value = e.target.value.replace(/[^0-9]/g, '');
                       setEditBudgetForm({ ...editBudgetForm, amount: value });
                     }}
-                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] font-['JetBrains_Mono'] ${darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] placeholder-[#555]' : 'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999]'}`}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] font-['JetBrains_Mono'] ${'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999]'}`}
                     placeholder="0"
                   />
                   {editBudgetForm.amount && (
-                    <p className={`text-xs mt-1 font-['JetBrains_Mono'] ${darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+                    <p className={`text-xs mt-1 font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>
                       {formatCurrency(parseInt(editBudgetForm.amount) || 0)}
                     </p>
                   )}
@@ -832,21 +783,21 @@ const BudgetManagementScreen = ({
 
                 {/* Editable: Description */}
                 <div>
-                  <label className={`block text-xs font-semibold mb-1.5 font-['Montserrat'] ${darkMode ? 'text-[#999]' : 'text-[#666]'}`}>
+                  <label className={`block text-xs font-semibold mb-1.5 font-['Montserrat'] ${'text-[#666]'}`}>
                     {t('budget.description') || 'Description'}
                   </label>
                   <textarea
                     value={editBudgetForm.description}
                     onChange={(e) => setEditBudgetForm({ ...editBudgetForm, description: e.target.value })}
                     rows={3}
-                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] resize-none ${darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] placeholder-[#555]' : 'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999]'}`}
+                    className={`w-full px-3 py-2 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] resize-none ${'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999]'}`}
                     placeholder={t('budget.enterDescription') || 'Enter description...'}
                   />
                 </div>
               </div>
 
               {/* Footer */}
-              <div className={`flex items-center justify-between px-6 py-4 border-t ${darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'}`}>
+              <div className={`flex items-center justify-between px-6 py-4 border-t ${'border-[#C4B5A5]'}`}>
                 <div className="flex items-center gap-2">
                   {selectedBudget.status === 'draft' && (
                     <button
@@ -860,9 +811,7 @@ const BudgetManagementScreen = ({
                   {selectedBudget.status === 'approved' && (
                     <button
                       onClick={() => setShowArchiveConfirm(true)}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${
-                        darkMode ? 'text-[#E3B341] hover:bg-[rgba(227,179,65,0.1)]' : 'text-[#9A7B2E] hover:bg-[rgba(227,179,65,0.12)]'
-                      }`}
+                      className={`flex items-center gap-1.5 px-3 py-1.5 text-sm font-medium rounded-lg transition-colors ${'text-[#9A7B2E] hover:bg-[rgba(227,179,65,0.12)]'}`}
                     >
                       <Archive size={14} />
                       {t('budget.archive') || 'Archive'}
@@ -872,7 +821,7 @@ const BudgetManagementScreen = ({
                 <div className="flex items-center gap-2">
                   <button
                     onClick={() => setShowViewModal(false)}
-                    className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${darkMode ? 'bg-[#2E2E2E] hover:bg-[#1A1A1A] text-[#F2F2F2]' : 'bg-[#F2F2F2] hover:bg-[#E5E5E5] text-[#0A0A0A]'}`}
+                    className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${'bg-[#F2F2F2] hover:bg-[#E5E5E5] text-[#0A0A0A]'}`}
                   >
                     {t('common.close')}
                   </button>
@@ -881,8 +830,7 @@ const BudgetManagementScreen = ({
                     disabled={saving || !editBudgetForm.name.trim() || !editBudgetForm.amount}
                     className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${
                       saving || !editBudgetForm.name.trim() || !editBudgetForm.amount
-                        ? darkMode ? 'bg-[#2E2E2E] text-[#555] cursor-not-allowed' : 'bg-[#E5E5E5] text-[#999] cursor-not-allowed'
-                        : 'bg-[#127749] hover:bg-[#2A9E6A] text-white'
+                        ?'bg-[#E5E5E5] text-[#999] cursor-not-allowed': 'bg-[#127749] hover:bg-[#2A9E6A] text-white'
                     }`}
                   >
                     {saving && <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
@@ -901,18 +849,18 @@ const BudgetManagementScreen = ({
         <div className="fixed inset-0 z-[10000]">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
           <div className="relative flex min-h-screen items-center justify-center p-4">
-            <div className={`w-full max-w-sm rounded-2xl shadow-xl overflow-hidden ${darkMode ? 'bg-[#121212] text-[#F2F2F2]' : 'bg-white text-[#0A0A0A]'}`}>
+            <div className={`w-full max-w-sm rounded-2xl shadow-xl overflow-hidden ${'bg-white text-[#0A0A0A]'}`}>
               <div className="px-6 py-5 space-y-3">
                 <h3 className="text-lg font-semibold font-['Montserrat']">{t('budget.confirmDelete') || 'Confirm Delete'}</h3>
-                <p className={`text-sm ${darkMode ? 'text-[#999]' : 'text-[#666]'}`}>
+                <p className={`text-sm ${'text-[#666]'}`}>
                   {t('budget.deleteWarning') || 'Are you sure you want to delete this budget? This action cannot be undone.'}
                 </p>
                 <p className="text-sm font-medium">{selectedBudget.budgetName}</p>
               </div>
-              <div className={`flex justify-end gap-3 px-6 py-4 border-t ${darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'}`}>
+              <div className={`flex justify-end gap-3 px-6 py-4 border-t ${'border-[#C4B5A5]'}`}>
                 <button
                   onClick={() => setShowDeleteConfirm(false)}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${darkMode ? 'bg-[#2E2E2E] hover:bg-[#1A1A1A] text-[#F2F2F2]' : 'bg-[#F2F2F2] hover:bg-[#E5E5E5] text-[#0A0A0A]'}`}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${'bg-[#F2F2F2] hover:bg-[#E5E5E5] text-[#0A0A0A]'}`}
                 >
                   {t('common.cancel') || 'Cancel'}
                 </button>
@@ -934,32 +882,28 @@ const BudgetManagementScreen = ({
         <div className="fixed inset-0 z-[10000]">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowArchiveConfirm(false)} />
           <div className="relative flex min-h-screen items-center justify-center p-4">
-            <div className={`w-full max-w-sm rounded-2xl shadow-xl overflow-hidden ${darkMode ? 'bg-[#121212] text-[#F2F2F2]' : 'bg-white text-[#0A0A0A]'}`}>
+            <div className={`w-full max-w-sm rounded-2xl shadow-xl overflow-hidden ${'bg-white text-[#0A0A0A]'}`}>
               <div className="px-6 py-5 space-y-3">
                 <div className="flex items-center gap-2">
-                  <Archive size={18} className={darkMode ? 'text-[#E3B341]' : 'text-[#9A7B2E]'} />
+                  <Archive size={18} className={'text-[#9A7B2E]'} />
                   <h3 className="text-lg font-semibold font-['Montserrat']">{t('budget.confirmArchive') || 'Confirm Archive'}</h3>
                 </div>
-                <p className={`text-sm ${darkMode ? 'text-[#999]' : 'text-[#666]'}`}>
+                <p className={`text-sm ${'text-[#666]'}`}>
                   {t('budget.archiveWarning') || 'Are you sure you want to archive this budget? Archived budgets will no longer appear in active views.'}
                 </p>
                 <p className="text-sm font-medium">{selectedBudget.budgetName}</p>
               </div>
-              <div className={`flex justify-end gap-3 px-6 py-4 border-t ${darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'}`}>
+              <div className={`flex justify-end gap-3 px-6 py-4 border-t ${'border-[#C4B5A5]'}`}>
                 <button
                   onClick={() => setShowArchiveConfirm(false)}
-                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${darkMode ? 'bg-[#2E2E2E] hover:bg-[#1A1A1A] text-[#F2F2F2]' : 'bg-[#F2F2F2] hover:bg-[#E5E5E5] text-[#0A0A0A]'}`}
+                  className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${'bg-[#F2F2F2] hover:bg-[#E5E5E5] text-[#0A0A0A]'}`}
                 >
                   {t('common.cancel') || 'Cancel'}
                 </button>
                 <button
                   onClick={handleArchiveBudget}
                   disabled={archiving}
-                  className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${archiving ? 'opacity-50 cursor-not-allowed' : ''} ${
-                    darkMode
-                      ? 'bg-[#E3B341] hover:bg-[#D29922] text-[#0A0A0A]'
-                      : 'bg-[#E3B341] hover:bg-[#D29922] text-[#0A0A0A]'
-                  }`}
+                  className={`flex items-center gap-1.5 px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${archiving ? 'opacity-50 cursor-not-allowed' : ''} ${'bg-[#E3B341] hover:bg-[#D29922] text-[#0A0A0A]'}`}
                 >
                   <Archive size={14} />
                   {archiving ? (t('budget.archiving') || 'Archiving...') : (t('budget.archive') || 'Archive')}
@@ -973,12 +917,12 @@ const BudgetManagementScreen = ({
       {/* Create Budget Modal */}
       {showCreateModal && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className={`rounded-2xl shadow-xl w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-hidden ${darkMode ? 'bg-[#121212]' : 'bg-white'}`}>
-            <div className={`flex items-center justify-between p-6 border-b ${darkMode ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]'}`}>
-              <h3 className={`text-lg font-semibold font-['Montserrat'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}>{t('budget.createNewBudget')}</h3>
+          <div className={`rounded-2xl shadow-xl w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-hidden ${'bg-white'}`}>
+            <div className={`flex items-center justify-between p-6 border-b ${'border-[#C4B5A5]'}`}>
+              <h3 className={`text-lg font-semibold font-['Montserrat'] ${'text-[#0A0A0A]'}`}>{t('budget.createNewBudget')}</h3>
               <button
                 onClick={() => setShowCreateModal(false)}
-                className={`p-2 rounded-lg transition-colors ${darkMode ? 'text-[#666666] hover:text-[#F2F2F2] hover:bg-[#2E2E2E]' : 'text-[#999999] hover:text-[#0A0A0A] hover:bg-[#F2F2F2]'}`}
+                className={`p-2 rounded-lg transition-colors ${'text-[#999999] hover:text-[#0A0A0A] hover:bg-[#F2F2F2]'}`}
                 aria-label="Close create budget dialog"
               >
                 <X size={20} />
@@ -987,7 +931,7 @@ const BudgetManagementScreen = ({
             <div className="p-3 md:p-6 space-y-4 overflow-y-auto max-h-[calc(100vh-14rem)]">
               {/* Fiscal Year */}
               <div>
-                <label className={`block text-sm font-medium mb-2 font-['Montserrat'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}>
+                <label className={`block text-sm font-medium mb-2 font-['Montserrat'] ${'text-[#0A0A0A]'}`}>
                   {t('budget.fiscalYear')} <span className="text-[#F85149]">{t('common.required')}</span>
                 </label>
                 <select
@@ -995,10 +939,9 @@ const BudgetManagementScreen = ({
                   onChange={(e) =>
                     setNewBudgetForm({
                       ...newBudgetForm,
-                      fiscalYear: parseInt(e.target.value),
-                    })
+                      fiscalYear: parseInt(e.target.value)})
                   }
-                  className={`w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] ${darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2]' : 'bg-white border-[#C4B5A5] text-[#0A0A0A]'}`}
+                  className={`w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] ${'bg-white border-[#C4B5A5] text-[#0A0A0A]'}`}
                 >
                   {YEARS.map((year: any) => (
                     <option key={year} value={year}>
@@ -1012,7 +955,7 @@ const BudgetManagementScreen = ({
 
               {/* Budget Name */}
               <div>
-                <label className={`block text-sm font-medium mb-2 font-['Montserrat'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}>
+                <label className={`block text-sm font-medium mb-2 font-['Montserrat'] ${'text-[#0A0A0A]'}`}>
                   {t('budget.budgetName')} <span className="text-[#F85149]">{t('common.required')}</span>
                 </label>
                 <input
@@ -1020,13 +963,13 @@ const BudgetManagementScreen = ({
                   value={newBudgetForm.name}
                   onChange={(e) => setNewBudgetForm({ ...newBudgetForm, name: e.target.value })}
                   placeholder={t('budget.enterBudgetName')}
-                  className={`w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] ${darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] placeholder-[#666666]' : 'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999999]'}`}
+                  className={`w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] ${'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999999]'}`}
                 />
               </div>
 
               {/* Total Budget */}
               <div>
-                <label className={`block text-sm font-medium mb-2 font-['Montserrat'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}>
+                <label className={`block text-sm font-medium mb-2 font-['Montserrat'] ${'text-[#0A0A0A]'}`}>
                   {t('budget.amountVND')} <span className="text-[#F85149]">{t('common.required')}</span>
                 </label>
                 <input
@@ -1037,10 +980,10 @@ const BudgetManagementScreen = ({
                     setNewBudgetForm({ ...newBudgetForm, totalBudget: value });
                   }}
                   placeholder={t('budget.enterTotalBudgetAmount')}
-                  className={`w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] ${darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] placeholder-[#666666]' : 'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999999]'}`}
+                  className={`w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] ${'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999999]'}`}
                 />
                 {newBudgetForm.totalBudget && (
-                  <p className={`text-xs mt-1 font-['JetBrains_Mono'] ${darkMode ? 'text-[#666666]' : 'text-[#999999]'}`}>
+                  <p className={`text-xs mt-1 font-['JetBrains_Mono'] ${'text-[#999999]'}`}>
                     {formatCurrency(parseInt(newBudgetForm.totalBudget) || 0)}
                   </p>
                 )}
@@ -1050,7 +993,7 @@ const BudgetManagementScreen = ({
 
               {/* Description */}
               <div>
-                <label className={`block text-sm font-medium mb-2 font-['Montserrat'] ${darkMode ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]'}`}>
+                <label className={`block text-sm font-medium mb-2 font-['Montserrat'] ${'text-[#0A0A0A]'}`}>
                   {t('common.description')}
                 </label>
                 <textarea
@@ -1058,17 +1001,17 @@ const BudgetManagementScreen = ({
                   onChange={(e) => setNewBudgetForm({ ...newBudgetForm, description: e.target.value })}
                   placeholder={t('budget.enterDescription')}
                   rows={3}
-                  className={`w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] resize-none ${darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E] text-[#F2F2F2] placeholder-[#666666]' : 'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999999]'}`}
+                  className={`w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] resize-none ${'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999999]'}`}
                 />
               </div>
             </div>
-            <div className={`flex items-center justify-end gap-3 p-6 border-t ${darkMode ? 'border-[#2E2E2E] bg-[#0A0A0A]' : 'border-[#C4B5A5] bg-[#F2F2F2]'} rounded-b-2xl`}>
+            <div className={`flex items-center justify-end gap-3 p-6 border-t ${'border-[#C4B5A5] bg-[#F2F2F2]'} rounded-b-2xl`}>
               <button
                 onClick={() => {
                   setShowCreateModal(false);
                   setNewBudgetForm({ fiscalYear: 2026, seasonGroup: 'SS', seasonType: 'pre', name: '', totalBudget: '', description: '' });
                 }}
-                className={`px-5 py-0.5 text-sm font-medium rounded-lg transition-colors ${darkMode ? 'text-[#999999] hover:bg-[#2E2E2E]' : 'text-[#666666] hover:bg-[#E5E5E5]'}`}
+                className={`px-5 py-0.5 text-sm font-medium rounded-lg transition-colors ${'text-[#666666] hover:bg-[#E5E5E5]'}`}
               >
                 {t('common.cancel')}
               </button>
@@ -1096,15 +1039,13 @@ const BudgetManagementScreen = ({
                     const perStore = Math.floor(totalAmount / stores.length);
                     const details = stores.map((store: any, idx: any) => ({
                       storeId: store.id,
-                      budgetAmount: idx === 0 ? totalAmount - perStore * (stores.length - 1) : perStore,
-                    }));
+                      budgetAmount: idx === 0 ? totalAmount - perStore * (stores.length - 1) : perStore}));
 
                     await budgetService.create({
                       name: newBudgetForm.name,
                       amount: totalAmount,
                       fiscalYear: newBudgetForm.fiscalYear,
-                      description: newBudgetForm.description || undefined,
-                    });
+                      description: newBudgetForm.description || undefined});
                     invalidateCache('/budgets');
                     toast.success(t('budget.budgetCreatedSuccess'));
                     setShowCreateModal(false);

@@ -16,7 +16,6 @@ interface AddSKUModalProps {
   blockSubCategory?: string;
   existingSkus: string[];
   onAddSkus: (skus: any[]) => void;
-  darkMode?: boolean;
   stores?: { code: string; name: string }[];
   customerTargetOptions?: string[];
   onCreateCustomerTarget?: (value: string) => void;
@@ -39,11 +38,9 @@ const AddSKUModal = ({
   blockSubCategory = '',
   existingSkus,
   onAddSkus,
-  darkMode = false,
   stores: propStores,
   customerTargetOptions = ['New', 'Existing'],
-  onCreateCustomerTarget,
-}: AddSKUModalProps) => {
+  onCreateCustomerTarget}: AddSKUModalProps) => {
   const { t } = useLanguage();
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedSkus, setSelectedSkus] = useState<Set<string>>(new Set());
@@ -115,8 +112,7 @@ const AddSKUModal = ({
           storeQty: defaultStoreQty,
           customerTarget: 'New',
           unitCost: sku.unitCost || sku.srp || 0,
-          composition: sku.composition || '',
-        };
+          composition: sku.composition || ''};
       } else {
         data[sku.sku] = formData[sku.sku];
       }
@@ -168,8 +164,7 @@ const AddSKUModal = ({
         customerTarget: fd?.customerTarget || 'New',
         unitCost: fd?.unitCost ?? sku.unitCost ?? 0,
         composition: fd?.composition || sku.composition || '',
-        ttlValue: calcTtlValue(sku.sku),
-      };
+        ttlValue: calcTtlValue(sku.sku)};
     });
     onAddSkus(skusToAdd);
     setSelectedSkus(new Set());
@@ -189,16 +184,14 @@ const AddSKUModal = ({
   };
 
   if (!isOpen) return null;
-
-  const dm = darkMode;
-  const bg = dm ? 'bg-[#1A1A1A]' : 'bg-white';
-  const border = dm ? 'border-[#2E2E2E]' : 'border-[#C4B5A5]';
-  const borderLight = dm ? 'border-[#2E2E2E]' : 'border-[rgba(215,183,151,0.3)]';
-  const textPrimary = dm ? 'text-[#F2F2F2]' : 'text-[#0A0A0A]';
-  const textSecondary = dm ? 'text-[#999]' : 'text-[#666]';
-  const textMuted = dm ? 'text-[#666]' : 'text-[#999]';
-  const inputBg = dm ? 'bg-[#121212] border-[#2E2E2E] text-[#F2F2F2] placeholder-[#666]' : 'bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999]';
-  const accentGreen = dm ? 'bg-[rgba(42,158,106,0.2)] text-[#2A9E6A]' : 'bg-[rgba(18,119,73,0.12)] text-[#127749]';
+  const bg ='bg-white';
+  const border ='border-[#C4B5A5]';
+  const borderLight ='border-[rgba(215,183,151,0.3)]';
+  const textPrimary ='text-[#0A0A0A]';
+  const textSecondary ='text-[#666]';
+  const textMuted ='text-[#999]';
+  const inputBg ='bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999]';
+  const accentGreen ='bg-[rgba(18,119,73,0.12)] text-[#127749]';
 
   return createPortal(
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={handleClose}>
@@ -212,7 +205,7 @@ const AddSKUModal = ({
         <div className={`flex items-center justify-between px-4 py-3 border-b ${borderLight} shrink-0`}>
           <div className="flex items-center gap-2">
             {step === 2 && (
-              <button onClick={goBackToStep1} className={`p-1.5 rounded-lg transition-colors ${dm ? 'hover:bg-[#2E2E2E] text-[#999]' : 'hover:bg-gray-100 text-[#666]'}`}>
+              <button onClick={goBackToStep1} className={`p-1.5 rounded-lg transition-colors ${'hover:bg-gray-100 text-[#666]'}`}>
                 <ArrowLeft size={16} />
               </button>
             )}
@@ -246,10 +239,10 @@ const AddSKUModal = ({
             )}
             {/* Step indicator */}
             <div className="flex items-center gap-1 mr-2">
-              <div className={`w-2 h-2 rounded-full ${step === 1 ? 'bg-[#2A9E6A]' : (dm ? 'bg-[#555]' : 'bg-[#C4B5A5]')}`} />
-              <div className={`w-2 h-2 rounded-full ${step === 2 ? 'bg-[#2A9E6A]' : (dm ? 'bg-[#555]' : 'bg-[#C4B5A5]')}`} />
+              <div className={`w-2 h-2 rounded-full ${step === 1 ? 'bg-[#2A9E6A]' : ('bg-[#C4B5A5]')}`} />
+              <div className={`w-2 h-2 rounded-full ${step === 2 ? 'bg-[#2A9E6A]' : ('bg-[#C4B5A5]')}`} />
             </div>
-            <button onClick={handleClose} className={`p-2.5 md:p-1.5 rounded-lg transition-colors ${dm ? 'hover:bg-[#2E2E2E] text-[#999]' : 'hover:bg-gray-100 text-[#666]'}`}>
+            <button onClick={handleClose} className={`p-2.5 md:p-1.5 rounded-lg transition-colors ${'hover:bg-gray-100 text-[#666]'}`}>
               <X size={18} />
             </button>
           </div>
@@ -276,7 +269,7 @@ const AddSKUModal = ({
             {/* SKU List */}
             <div className="flex-1 overflow-y-auto px-2 py-2 min-h-0">
               {isUnfiltered && filteredCatalog.length > 0 && (
-                <div className={`text-center py-1.5 mb-1 text-[10px] rounded-lg ${dm ? 'bg-[rgba(227,179,65,0.1)] text-[#E3B341]' : 'bg-amber-50 text-amber-600'}`}>
+                <div className={`text-center py-1.5 mb-1 text-[10px] rounded-lg ${'bg-amber-50 text-amber-600'}`}>
                   {t('proposal.showingAllSkus') || 'Showing all available SKUs (no exact match for this block)'}
                 </div>
               )}
@@ -302,26 +295,19 @@ const AddSKUModal = ({
                         onClick={() => toggleSku(sku.sku)}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${
                           isSelected
-                            ? dm
-                              ? 'bg-[rgba(42,158,106,0.15)] border border-[#2A9E6A]/30'
-                              : 'bg-[rgba(18,119,73,0.08)] border border-[#127749]/20'
-                            : dm
-                              ? 'hover:bg-[rgba(215,183,151,0.06)] border border-transparent'
-                              : 'hover:bg-[rgba(215,183,151,0.08)] border border-transparent'
-                        }`}
+                            ?'bg-[rgba(18,119,73,0.08)] border border-[#127749]/20':'hover:bg-[rgba(215,183,151,0.08)] border border-transparent'}`}
                       >
                         <div className={`w-4 h-4 rounded border-2 flex items-center justify-center shrink-0 transition-colors ${
                           isSelected
                             ? 'bg-[#2A9E6A] border-[#2A9E6A]'
-                            : dm ? 'border-[#555] bg-transparent' : 'border-[#C4B5A5] bg-transparent'
-                        }`}>
+                            :'border-[#C4B5A5] bg-transparent'}`}>
                           {isSelected && <Check size={10} className="text-white" />}
                         </div>
-                        <ProductImage subCategory={sku.productType || blockSubCategory} sku={sku.sku} size={40} darkMode={dm} rounded="rounded-lg" />
+                        <ProductImage subCategory={sku.productType || blockSubCategory} sku={sku.sku} size={40} rounded="rounded-lg" />
                         <div className="flex-1 min-w-0">
-                          <div className={`text-xs font-semibold truncate ${dm ? 'text-[#F2F2F2]' : 'text-[#333]'}`}>
+                          <div className={`text-xs font-semibold truncate ${'text-[#333]'}`}>
                             <span className="font-['JetBrains_Mono']">{sku.sku}</span>
-                            <span className={`mx-1.5 ${dm ? 'text-[#555]' : 'text-[#C4B5A5]'}`}>&bull;</span>
+                            <span className={`mx-1.5 ${'text-[#C4B5A5]'}`}>&bull;</span>
                             {sku.name || 'Unnamed'}
                           </div>
                           <div className={`text-[10px] ${textSecondary}`}>
@@ -329,7 +315,7 @@ const AddSKUModal = ({
                           </div>
                         </div>
                         {sku.srp > 0 && (
-                          <span className={`text-[10px] font-['JetBrains_Mono'] shrink-0 ${dm ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+                          <span className={`text-[10px] font-['JetBrains_Mono'] shrink-0 ${'text-[#6B4D30]'}`}>
                             {sku.srp.toLocaleString()}
                           </span>
                         )}
@@ -348,7 +334,7 @@ const AddSKUModal = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handleClose}
-                  className={`px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition-colors ${dm ? 'text-[#999] hover:bg-[#2E2E2E]' : 'text-[#666] hover:bg-gray-100'}`}
+                  className={`px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition-colors ${'text-[#666] hover:bg-gray-100'}`}
                 >
                   {t('common.cancel')}
                 </button>
@@ -357,13 +343,7 @@ const AddSKUModal = ({
                   disabled={selectedSkus.size === 0}
                   className={`flex items-center gap-1.5 px-4 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition-colors ${
                     selectedSkus.size > 0
-                      ? dm
-                        ? 'bg-[rgba(42,158,106,0.2)] text-[#2A9E6A] hover:bg-[rgba(42,158,106,0.3)]'
-                        : 'bg-[rgba(18,119,73,0.12)] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]'
-                      : dm
-                        ? 'bg-[#2E2E2E] text-[#555] cursor-not-allowed'
-                        : 'bg-gray-100 text-gray-400 cursor-not-allowed'
-                  }`}
+                      ?'bg-[rgba(18,119,73,0.12)] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]':'bg-gray-100 text-gray-400 cursor-not-allowed'}`}
                 >
                   {t('common.next') || 'Next'} ({selectedSkus.size})
                   <ArrowRight size={14} />
@@ -389,11 +369,11 @@ const AddSKUModal = ({
               <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0 space-y-3">
                 {/* SKU Header Card — Image + Info + Customer Target */}
                 <div className="flex items-start gap-3">
-                  <ProductImage subCategory={activeSku.productType || blockSubCategory} sku={activeSku.sku} size={56} darkMode={dm} rounded="rounded-xl" />
+                  <ProductImage subCategory={activeSku.productType || blockSubCategory} sku={activeSku.sku} size={56} rounded="rounded-xl" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
-                      <span className={`text-xs font-bold font-['JetBrains_Mono'] ${dm ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{activeSku.sku}</span>
-                      <span className={`text-[9px] px-1.5 py-0.5 rounded ${dm ? 'bg-[#2E2E2E] text-[#999]' : 'bg-gray-100 text-gray-500'}`}>{activeSku.productType}</span>
+                      <span className={`text-xs font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{activeSku.sku}</span>
+                      <span className={`text-[9px] px-1.5 py-0.5 rounded ${'bg-gray-100 text-gray-500'}`}>{activeSku.productType}</span>
                     </div>
                     <div className={`text-sm font-semibold mt-0.5 ${textPrimary}`}>{activeSku.name || 'Unnamed'}</div>
                     <div className={`text-[10px] mt-0.5 ${textSecondary}`}>
@@ -407,16 +387,15 @@ const AddSKUModal = ({
                       onChange={(val) => updateFormField(activeSku.sku, 'customerTarget', val)}
                       onCreateOption={onCreateCustomerTarget}
                       placeholder="Target..."
-                      darkMode={dm}
                     />
-                    <div className={`text-sm font-bold font-['JetBrains_Mono'] mt-1 ${dm ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+                    <div className={`text-sm font-bold font-['JetBrains_Mono'] mt-1 ${'text-[#6B4D30]'}`}>
                       {fd.unitCost.toLocaleString()}
                     </div>
                   </div>
                 </div>
 
                 {/* SKU Details Grid */}
-                <div className={`rounded-lg border p-3 ${dm ? 'border-[#2E2E2E] bg-[#121212]' : 'border-[rgba(215,183,151,0.3)] bg-[#FAFAF8]'}`}>
+                <div className={`rounded-lg border p-3 ${'border-[rgba(215,183,151,0.3)] bg-[#FAFAF8]'}`}>
                   <div className={`text-[9px] font-semibold uppercase tracking-wider mb-2 ${textMuted}`}>
                     {t('proposal.skuDetails') || 'SKU Details'}
                   </div>
@@ -451,7 +430,7 @@ const AddSKUModal = ({
                     </div>
                     <div className="flex justify-between">
                       <span className={`text-[10px] ${textMuted}`}>SRP</span>
-                      <span className={`text-[10px] font-bold font-['JetBrains_Mono'] ${dm ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>{fd.unitCost.toLocaleString()}</span>
+                      <span className={`text-[10px] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{fd.unitCost.toLocaleString()}</span>
                     </div>
                   </div>
                 </div>
@@ -479,7 +458,7 @@ const AddSKUModal = ({
                 </div>
 
                 {/* Order Summary (replaces Composition input) */}
-                <div className={`rounded-lg border p-3 ${dm ? 'border-[rgba(215,183,151,0.2)] bg-[rgba(215,183,151,0.04)]' : 'border-[rgba(215,183,151,0.35)] bg-[rgba(215,183,151,0.06)]'}`}>
+                <div className={`rounded-lg border p-3 ${'border-[rgba(215,183,151,0.35)] bg-[rgba(215,183,151,0.06)]'}`}>
                   <div className={`text-[9px] font-semibold uppercase tracking-wider mb-2 ${textMuted}`}>
                     {t('proposal.orderSummary') || 'Order Summary'}
                   </div>
@@ -491,7 +470,7 @@ const AddSKUModal = ({
                   </div>
                   <div className="flex items-center justify-between">
                     <span className={`text-xs ${textSecondary}`}>{t('proposal.totalValue') || 'Total Value'}</span>
-                    <span className={`text-xl font-bold font-['JetBrains_Mono'] ${dm ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+                    <span className={`text-xl font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>
                       {totalValue.toLocaleString()}
                     </span>
                   </div>
@@ -509,7 +488,7 @@ const AddSKUModal = ({
                   <ShoppingCart size={12} className="inline mr-1" />
                   {selectedSkus.size} SKU{selectedSkus.size > 1 ? 's' : ''}
                   {' · TTL: '}
-                  <span className={`font-['JetBrains_Mono'] font-semibold ${dm ? 'text-[#D7B797]' : 'text-[#6B4D30]'}`}>
+                  <span className={`font-['JetBrains_Mono'] font-semibold ${'text-[#6B4D30]'}`}>
                     {selectedSkuItems.reduce((sum: number, sku: any) => sum + calcTtlValue(sku.sku), 0).toLocaleString()}
                   </span>
                 </div>
@@ -520,7 +499,7 @@ const AddSKUModal = ({
                       <button
                         onClick={() => setActiveSkuIndex(Math.max(0, activeSkuIndex - 1))}
                         disabled={activeSkuIndex === 0}
-                        className={`p-1.5 rounded-lg transition-colors ${activeSkuIndex > 0 ? (dm ? 'hover:bg-[#2E2E2E] text-[#999]' : 'hover:bg-gray-100 text-[#666]') : (dm ? 'text-[#333] cursor-not-allowed' : 'text-gray-300 cursor-not-allowed')}`}
+                        className={`p-1.5 rounded-lg transition-colors ${activeSkuIndex > 0 ? ('hover:bg-gray-100 text-[#666]') : ('text-gray-300 cursor-not-allowed')}`}
                       >
                         <ArrowLeft size={14} />
                       </button>
@@ -528,7 +507,7 @@ const AddSKUModal = ({
                       <button
                         onClick={() => setActiveSkuIndex(Math.min(selectedSkuItems.length - 1, activeSkuIndex + 1))}
                         disabled={activeSkuIndex >= selectedSkuItems.length - 1}
-                        className={`p-1.5 rounded-lg transition-colors ${activeSkuIndex < selectedSkuItems.length - 1 ? (dm ? 'hover:bg-[#2E2E2E] text-[#999]' : 'hover:bg-gray-100 text-[#666]') : (dm ? 'text-[#333] cursor-not-allowed' : 'text-gray-300 cursor-not-allowed')}`}
+                        className={`p-1.5 rounded-lg transition-colors ${activeSkuIndex < selectedSkuItems.length - 1 ? ('hover:bg-gray-100 text-[#666]') : ('text-gray-300 cursor-not-allowed')}`}
                       >
                         <ArrowRight size={14} />
                       </button>
@@ -536,17 +515,13 @@ const AddSKUModal = ({
                   )}
                   <button
                     onClick={goBackToStep1}
-                    className={`px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition-colors ${dm ? 'text-[#999] hover:bg-[#2E2E2E]' : 'text-[#666] hover:bg-gray-100'}`}
+                    className={`px-3 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition-colors ${'text-[#666] hover:bg-gray-100'}`}
                   >
                     {t('common.back') || 'Back'}
                   </button>
                   <button
                     onClick={handleAdd}
-                    className={`flex items-center gap-1.5 px-4 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition-colors ${
-                      dm
-                        ? 'bg-[rgba(42,158,106,0.2)] text-[#2A9E6A] hover:bg-[rgba(42,158,106,0.3)]'
-                        : 'bg-[rgba(18,119,73,0.12)] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]'
-                    }`}
+                    className={`flex items-center gap-1.5 px-4 py-2.5 md:py-1.5 text-xs font-semibold rounded-lg transition-colors ${'bg-[rgba(18,119,73,0.12)] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]'}`}
                   >
                     <Check size={14} />
                     {t('proposal.addSku')} ({selectedSkus.size})

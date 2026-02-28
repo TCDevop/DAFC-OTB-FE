@@ -1,8 +1,6 @@
 'use client';
-import { useAppContext } from '@/contexts/AppContext';
-import ImportDataScreen from '@/screens/ImportDataScreen';
+import { ImportDataScreen } from '@/features/import';
 
 export default function ImportDataPage() {
-  const { darkMode } = useAppContext();
-  return <ImportDataScreen darkMode={darkMode} />;
+  return <ImportDataScreen />;
 }

@@ -2,8 +2,7 @@
 // Notification Service - Fetches user notifications from API
 // ═══════════════════════════════════════════════════════════════════════════
 import api from './api';
-
-const extract = (response: any) => response.data?.data ?? response.data;
+import { extract } from './serviceUtils';
 
 export interface Notification {
   id: string;

@@ -20,11 +20,11 @@ import {
   Check,
   ArrowUpRight
 } from 'lucide-react';
-import { budgetService, masterDataService } from '../services';
-import { useAuth } from '../contexts/AuthContext';
+import { budgetService, masterDataService } from '@/services';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import KPIDetailModal from '../components/ui/KPIDetailModal';
-import { FilterChips, useBottomSheet, FilterBottomSheet } from '../components/mobile';
+import KPIDetailModal from '@/components/ui/KPIDetailModal';
+import { FilterChips, useBottomSheet, FilterBottomSheet } from '@/components/mobile';
 import { useIsMobile } from '@/hooks/useIsMobile';
 
 const STAT_ACCENTS = {
@@ -35,30 +35,26 @@ const STAT_ACCENTS = {
   amber:   { color: '#F59E0B', darkGrad: 'rgba(245,158,11,0.16)',   darkMid: 'rgba(245,158,11,0.04)', lightGrad: 'rgba(180,100,5,0.35)', lightMid: 'rgba(200,120,10,0.14)', iconDark: 'rgba(245,158,11,0.12)', iconLight: 'rgba(160,90,5,0.24)', glowDark: 'rgba(245,158,11,0.12)', glowLight: 'rgba(180,100,5,0.18)' },
   teal:    { color: '#14B8A6', darkGrad: 'rgba(20,184,166,0.16)',   darkMid: 'rgba(20,184,166,0.04)', lightGrad: 'rgba(10,120,110,0.32)', lightMid: 'rgba(15,140,130,0.14)', iconDark: 'rgba(20,184,166,0.12)', iconLight: 'rgba(10,120,110,0.24)', glowDark: 'rgba(20,184,166,0.12)', glowLight: 'rgba(10,120,110,0.18)' },
   violet:  { color: '#A78BFA', darkGrad: 'rgba(167,139,250,0.16)', darkMid: 'rgba(167,139,250,0.04)', lightGrad: 'rgba(100,70,200,0.32)', lightMid: 'rgba(120,90,220,0.14)', iconDark: 'rgba(167,139,250,0.12)', iconLight: 'rgba(80,55,180,0.24)', glowDark: 'rgba(167,139,250,0.12)', glowLight: 'rgba(100,70,200,0.18)' },
-  indigo:  { color: '#818CF8', darkGrad: 'rgba(129,140,248,0.16)', darkMid: 'rgba(129,140,248,0.04)', lightGrad: 'rgba(60,70,200,0.32)',  lightMid: 'rgba(80,90,220,0.14)', iconDark: 'rgba(129,140,248,0.12)', iconLight: 'rgba(60,70,200,0.24)', glowDark: 'rgba(129,140,248,0.12)', glowLight: 'rgba(60,70,200,0.18)' },
-};
+  indigo:  { color: '#818CF8', darkGrad: 'rgba(129,140,248,0.16)', darkMid: 'rgba(129,140,248,0.04)', lightGrad: 'rgba(60,70,200,0.32)',  lightMid: 'rgba(80,90,220,0.14)', iconDark: 'rgba(129,140,248,0.12)', iconLight: 'rgba(60,70,200,0.24)', glowDark: 'rgba(129,140,248,0.12)', glowLight: 'rgba(60,70,200,0.18)' }};
 
-const StatCard = ({ title, value, subtitle, trend, trendLabel, icon: Icon, darkMode, chart, accent = 'gold', onClick, cardKey }: any) => {
+const StatCard = ({ title, value, subtitle, trend, trendLabel, icon: Icon, chart, accent = 'gold', onClick, cardKey }: any) => {
   const a = (STAT_ACCENTS as any)[accent] || STAT_ACCENTS.gold;
-  const borderColor = darkMode ? 'border-[#2E2E2E]' : 'border-gray-300';
-  const textMuted = darkMode ? 'text-[#666666]' : 'text-gray-700';
-  const textPrimary = darkMode ? 'text-[#F2F2F2]' : 'text-gray-900';
+  const borderColor ='border-gray-300';
+  const textMuted ='text-gray-700';
+  const textPrimary ='text-gray-900';
 
   return (
     <div
       className={`relative overflow-hidden border ${borderColor} rounded-xl px-3 py-1 transition-all duration-200 hover:shadow-md group ${onClick ? 'cursor-pointer' : ''}`}
       style={{
-        background: darkMode
-          ? `linear-gradient(135deg, #121212 0%, ${a.darkMid} 40%, ${a.darkGrad} 100%)`
-          : `linear-gradient(135deg, #ffffff 0%, ${a.lightMid} 35%, ${a.lightGrad} 100%)`,
-        boxShadow: `inset 0 -1px 0 ${darkMode ? a.glowDark : a.glowLight}`,
-      }}
+        background:`linear-gradient(135deg, #ffffff 0%, ${a.lightMid} 35%, ${a.lightGrad} 100%)`,
+        boxShadow: `inset 0 -1px 0 ${a.glowLight}`}}
       onClick={onClick}
     >
       {/* Watermark Icon */}
       <div
         className="absolute -bottom-1 -right-1 pointer-events-none"
-        style={{ opacity: darkMode ? 0.06 : 0.14 }}
+        style={{ opacity:0.14}}
       >
         <Icon size={48} color={a.color} strokeWidth={1} />
       </div>
@@ -89,7 +85,7 @@ const StatCard = ({ title, value, subtitle, trend, trendLabel, icon: Icon, darkM
         </div>
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center backdrop-blur-sm shrink-0"
-          style={{ backgroundColor: darkMode ? a.iconDark : a.iconLight }}
+          style={{ backgroundColor:a.iconLight}}
         >
           <Icon size={14} color={a.color} />
         </div>
@@ -99,27 +95,24 @@ const StatCard = ({ title, value, subtitle, trend, trendLabel, icon: Icon, darkM
   );
 };
 
-const SmallCard = ({ title, value, subtitle, icon: Icon, darkMode, accent = 'gold', onClick, cardKey }: any) => {
+const SmallCard = ({ title, value, subtitle, icon: Icon, accent = 'gold', onClick, cardKey }: any) => {
   const a = (STAT_ACCENTS as any)[accent] || STAT_ACCENTS.gold;
-  const borderColor = darkMode ? 'border-[#2E2E2E]' : 'border-gray-300';
-  const textMuted = darkMode ? 'text-[#666666]' : 'text-gray-700';
-  const textPrimary = darkMode ? 'text-[#F2F2F2]' : 'text-gray-900';
+  const borderColor ='border-gray-300';
+  const textMuted ='text-gray-700';
+  const textPrimary ='text-gray-900';
 
   return (
     <div
       className={`relative overflow-hidden border ${borderColor} rounded-xl px-3 py-1 transition-all duration-200 hover:shadow-md group ${onClick ? 'cursor-pointer' : ''}`}
       style={{
-        background: darkMode
-          ? `linear-gradient(135deg, #121212 0%, ${a.darkMid} 40%, ${a.darkGrad} 100%)`
-          : `linear-gradient(135deg, #ffffff 0%, ${a.lightMid} 35%, ${a.lightGrad} 100%)`,
-        boxShadow: `inset 0 -1px 0 ${darkMode ? a.glowDark : a.glowLight}`,
-      }}
+        background:`linear-gradient(135deg, #ffffff 0%, ${a.lightMid} 35%, ${a.lightGrad} 100%)`,
+        boxShadow: `inset 0 -1px 0 ${a.glowLight}`}}
       onClick={onClick}
     >
       {/* Watermark Icon */}
       <div
         className="absolute -bottom-1 -right-1 pointer-events-none"
-        style={{ opacity: darkMode ? 0.05 : 0.13 }}
+        style={{ opacity:0.13}}
       >
         <Icon size={44} color={a.color} strokeWidth={1} />
       </div>
@@ -139,7 +132,7 @@ const SmallCard = ({ title, value, subtitle, icon: Icon, darkMode, accent = 'gol
         </div>
         <div
           className="w-7 h-7 rounded-lg flex items-center justify-center backdrop-blur-sm shrink-0"
-          style={{ backgroundColor: darkMode ? a.iconDark : a.iconLight }}
+          style={{ backgroundColor:a.iconLight}}
         >
           <Icon size={14} color={a.color} />
         </div>
@@ -156,17 +149,16 @@ const CARD_CONFIG = {
   totalBrands: { icon: Building2, accent: 'amber' },
   categories: { icon: Boxes, accent: 'teal' },
   pendingApprovals: { icon: ClipboardCheck, accent: 'violet' },
-  activePlans: { icon: BarChart3, accent: 'indigo' },
-};
+  activePlans: { icon: BarChart3, accent: 'indigo' }};
 
-const HomeScreen = ({ darkMode = true }) => {
+const HomeScreen = () => {
   const { user } = useAuth();
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const router = useRouter();
-  const panelBg = darkMode ? 'bg-[#121212] border-[#2E2E2E]' : 'bg-white border-gray-300';
-  const textMuted = darkMode ? 'text-[#666666]' : 'text-gray-700';
-  const textPrimary = darkMode ? 'text-[#F2F2F2]' : 'text-gray-900';
+  const panelBg ='bg-white border-gray-300';
+  const textMuted ='text-gray-700';
+  const textPrimary ='text-gray-900';
 
   // KPI expand state
   const [expandedCard, setExpandedCard] = useState<any>(null);
@@ -267,8 +259,7 @@ const HomeScreen = ({ darkMode = true }) => {
           // Raw values for summary row
           _totalAmount: totalAmt,
           _approvedAmount: Number(data.approvedAmount || 0),
-          _totalBudgets: Number(data.totalBudgets || 0),
-        } as any);
+          _totalBudgets: Number(data.totalBudgets || 0)} as any);
       }
     } catch (err) {
       console.error('Failed to fetch dashboard stats:', err);
@@ -340,11 +331,7 @@ const HomeScreen = ({ darkMode = true }) => {
             <p className={`text-sm ${textMuted}`}>{t('home.subtitle')}</p>
           </div>
         </div>
-        <span className={`inline-flex px-4 py-1 text-xs font-semibold uppercase tracking-wider font-['Montserrat'] rounded-full ${
-          darkMode
-            ? 'bg-[rgba(215,183,151,0.15)] text-[#D7B797] border border-[rgba(215,183,151,0.3)]'
-            : 'bg-[rgba(138,99,64,0.18)] text-[#5A3D22] border border-[rgba(138,99,64,0.45)]'
-        }`}>
+        <span className={`inline-flex px-4 py-1 text-xs font-semibold uppercase tracking-wider font-['Montserrat'] rounded-full ${'bg-[rgba(138,99,64,0.18)] text-[#5A3D22] border border-[rgba(138,99,64,0.45)]'}`}>
           {selectedSeason === 'SS25' ? 'Spring Summer 2025'
             : selectedSeason === 'FW25' ? 'Fall Winter 2025'
             : selectedSeason === 'SS26' ? 'Spring Summer 2026'
@@ -370,11 +357,7 @@ const HomeScreen = ({ darkMode = true }) => {
       {/* Desktop Filter Bar */}
       {!isMobile && <div className={`border ${panelBg} rounded-lg p-4`}>
         <div className="flex flex-wrap items-center gap-3">
-          <span className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs font-semibold uppercase rounded ${
-            darkMode
-              ? 'bg-[rgba(18,119,73,0.15)] text-[#2A9E6A] border border-[rgba(18,119,73,0.4)]'
-              : 'bg-[rgba(9,84,49,0.14)] text-[#065F32] border border-[rgba(9,84,49,0.4)]'
-          }`}>
+          <span className={`inline-flex items-center gap-2 px-2.5 py-1 text-xs font-semibold uppercase rounded ${'bg-[rgba(9,84,49,0.14)] text-[#065F32] border border-[rgba(9,84,49,0.4)]'}`}>
             <span className="w-2 h-2 rounded-full bg-[#127749]"></span>
             {t('common.live').toUpperCase()}
           </span>
@@ -390,22 +373,14 @@ const HomeScreen = ({ darkMode = true }) => {
                   onClick={() => setOpenFilter(openFilter === filter.key ? null : filter.key)}
                   className={`flex items-center gap-2 px-4 py-1 rounded-full border text-xs font-semibold transition-all duration-150 ${
                     openFilter === filter.key
-                      ? darkMode
-                        ? 'border-[rgba(215,183,151,0.4)] bg-[rgba(215,183,151,0.08)] text-[#D7B797]'
-                        : 'border-[rgba(184,153,112,0.5)] bg-[rgba(215,183,151,0.15)] text-[#6B4D30]'
-                      : darkMode
-                        ? 'border-[#2E2E2E] text-[#999999] hover:bg-[rgba(215,183,151,0.08)] hover:border-[rgba(215,183,151,0.25)] hover:text-[#D7B797]'
-                        : 'border-gray-300 text-gray-700 hover:bg-[rgba(215,183,151,0.15)] hover:border-[rgba(184,153,112,0.4)] hover:text-[#6B4D30]'
-                  }`}
+                      ?'border-[rgba(184,153,112,0.5)] bg-[rgba(215,183,151,0.15)] text-[#6B4D30]':'border-gray-300 text-gray-700 hover:bg-[rgba(215,183,151,0.15)] hover:border-[rgba(184,153,112,0.4)] hover:text-[#6B4D30]'}`}
                 >
                   <span className="uppercase tracking-wide text-[10px]">{filter.label}</span>
-                  <span className={`text-sm font-['JetBrains_Mono'] ${darkMode ? 'text-[#F2F2F2]' : 'text-gray-900'}`}>{filter.value}</span>
+                  <span className={`text-sm font-['JetBrains_Mono'] ${'text-gray-900'}`}>{filter.value}</span>
                   <ChevronDown size={14} className={`transition-transform duration-200 ${openFilter === filter.key ? 'rotate-180' : ''}`} />
                 </button>
                 {openFilter === filter.key && (
-                  <div className={`absolute top-full left-0 mt-2 min-w-[160px] rounded-xl shadow-xl border overflow-hidden z-50 ${
-                    darkMode ? 'bg-[#1A1A1A] border-[#2E2E2E]' : 'bg-white border-gray-300'
-                  }`}>
+                  <div className={`absolute top-full left-0 mt-2 min-w-[160px] rounded-xl shadow-xl border overflow-hidden z-50 ${'bg-white border-gray-300'}`}>
                     <div className="py-1 max-h-60 overflow-y-auto">
                       {filter.options.map((opt) => {
                         const display = filter.displayFn ? filter.displayFn(opt) : opt;
@@ -416,9 +391,7 @@ const HomeScreen = ({ darkMode = true }) => {
                             onClick={() => { filter.onSelect(opt); setOpenFilter(null); }}
                             className={`w-full flex items-center justify-between px-4 py-1 text-sm transition-colors ${
                               isSelected
-                                ? darkMode ? 'bg-[rgba(18,119,73,0.15)] text-[#2A9E6A]' : 'bg-[rgba(18,119,73,0.1)] text-[#127749]'
-                                : darkMode ? 'text-[#F2F2F2] hover:bg-[rgba(215,183,151,0.08)]' : 'text-gray-900 hover:bg-gray-50'
-                            }`}
+                                ?'bg-[rgba(18,119,73,0.1)] text-[#127749]':'text-gray-900 hover:bg-gray-50'}`}
                           >
                             <span className="font-medium font-['Montserrat']">{display}</span>
                             {isSelected && <Check size={14} className="text-[#127749]" />}
@@ -438,11 +411,7 @@ const HomeScreen = ({ darkMode = true }) => {
             </span>
             <button
               onClick={fetchStats}
-              className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150 ${
-              darkMode
-                ? 'border-[#2E2E2E] text-[#999999] hover:bg-[rgba(215,183,151,0.08)] hover:border-[rgba(215,183,151,0.25)] hover:text-[#D7B797]'
-                : 'border-gray-300 text-gray-700 hover:bg-[rgba(215,183,151,0.15)] hover:text-[#6B4D30]'
-            } ${statsLoading ? 'animate-spin' : ''}`}>
+              className={`w-9 h-9 rounded-full border flex items-center justify-center transition-all duration-150 ${'border-gray-300 text-gray-700 hover:bg-[rgba(215,183,151,0.15)] hover:text-[#6B4D30]'} ${statsLoading ? 'animate-spin' : ''}`}>
               <RefreshCcw size={16} />
             </button>
           </div>
@@ -456,7 +425,6 @@ const HomeScreen = ({ darkMode = true }) => {
           value={statsLoading ? '...' : stats.totalSales}
           subtitle={t('home.unitsVsLastSeason')}
           icon={DollarSign}
-          darkMode={darkMode}
           accent="gold"
           cardKey="totalSales"
           onClick={() => setExpandedCard({ key: 'totalSales', title: t('home.totalSales'), value: stats.totalSales, subtitle: t('home.unitsVsLastSeason') })}
@@ -476,7 +444,6 @@ const HomeScreen = ({ darkMode = true }) => {
           value={statsLoading ? '...' : stats.budgetUtilization}
           subtitle={t('home.thisMonth')}
           icon={Target}
-          darkMode={darkMode}
           accent="emerald"
           cardKey="budgetUtilization"
           onClick={() => setExpandedCard({ key: 'budgetUtilization', title: t('home.budgetUtilization'), value: stats.budgetUtilization, subtitle: t('home.thisMonth') })}
@@ -496,7 +463,6 @@ const HomeScreen = ({ darkMode = true }) => {
           value={statsLoading ? '...' : stats.avgMargin}
           subtitle={t('home.acrossCategories')}
           icon={Percent}
-          darkMode={darkMode}
           accent="blue"
           cardKey="avgMargin"
           onClick={() => setExpandedCard({ key: 'avgMargin', title: t('home.avgMargin'), value: stats.avgMargin, subtitle: t('home.acrossCategories') })}
@@ -506,7 +472,6 @@ const HomeScreen = ({ darkMode = true }) => {
           value={statsLoading ? '...' : stats.sellThrough}
           subtitle={t('home.currentSeasonPerformance')}
           icon={ShoppingCart}
-          darkMode={darkMode}
           accent="rose"
           cardKey="sellThrough"
           onClick={() => setExpandedCard({ key: 'sellThrough', title: t('home.sellThrough'), value: stats.sellThrough, subtitle: t('home.currentSeasonPerformance') })}
@@ -520,7 +485,6 @@ const HomeScreen = ({ darkMode = true }) => {
           value={stats.totalBrands}
           subtitle={t('home.activeBrands')}
           icon={Building2}
-          darkMode={darkMode}
           accent="amber"
           cardKey="totalBrands"
           onClick={() => setExpandedCard({ key: 'totalBrands', title: t('home.totalBrands'), value: stats.totalBrands, subtitle: t('home.activeBrands') })}
@@ -530,7 +494,6 @@ const HomeScreen = ({ darkMode = true }) => {
           value={stats.categories}
           subtitle={t('home.productCategories')}
           icon={Boxes}
-          darkMode={darkMode}
           accent="teal"
           cardKey="categories"
           onClick={() => setExpandedCard({ key: 'categories', title: t('home.categoriesTitle'), value: stats.categories, subtitle: t('home.productCategories') })}
@@ -540,7 +503,6 @@ const HomeScreen = ({ darkMode = true }) => {
           value={stats.pendingApprovals}
           subtitle={t('home.itemsAwaitingReview')}
           icon={ClipboardCheck}
-          darkMode={darkMode}
           accent="violet"
           cardKey="pendingApprovals"
           onClick={() => setExpandedCard({ key: 'pendingApprovals', title: t('home.pendingApprovals'), value: stats.pendingApprovals, subtitle: t('home.itemsAwaitingReview') })}
@@ -550,7 +512,6 @@ const HomeScreen = ({ darkMode = true }) => {
           value={stats.activePlans}
           subtitle={t('home.otbPlansInProgress')}
           icon={BarChart3}
-          darkMode={darkMode}
           accent="indigo"
           cardKey="activePlans"
           onClick={() => setExpandedCard({ key: 'activePlans', title: t('home.activePlans'), value: stats.activePlans, subtitle: t('home.otbPlansInProgress') })}
@@ -559,11 +520,11 @@ const HomeScreen = ({ darkMode = true }) => {
 
       {/* Getting Started Card — shown when all stats are zero */}
       {!statsLoading && (stats as any)._totalBudgets === 0 && (
-        <div className={`rounded-xl border p-5 ${darkMode ? 'bg-[#121212] border-[#2E2E2E]' : 'bg-white border-[rgba(215,183,151,0.3)]'}`}>
-          <h3 className={`text-base font-semibold font-['Montserrat'] mb-3 ${darkMode ? 'text-[#F2F2F2]' : 'text-[#333333]'}`}>
+        <div className={`rounded-xl border p-5 ${'bg-white border-[rgba(215,183,151,0.3)]'}`}>
+          <h3 className={`text-base font-semibold font-['Montserrat'] mb-3 ${'text-[#333333]'}`}>
             Getting Started
           </h3>
-          <p className={`text-sm mb-4 ${darkMode ? 'text-[#999999]' : 'text-[#666666]'}`}>
+          <p className={`text-sm mb-4 ${'text-[#666666]'}`}>
             Follow these 5 steps to set up your first OTB plan:
           </p>
           <div className="grid grid-cols-1 sm:grid-cols-5 gap-3">
@@ -577,15 +538,9 @@ const HomeScreen = ({ darkMode = true }) => {
               <button
                 key={item.step}
                 onClick={() => router.push(item.path)}
-                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${
-                  darkMode
-                    ? 'bg-[rgba(215,183,151,0.08)] hover:bg-[rgba(215,183,151,0.15)] text-[#D7B797]'
-                    : 'bg-[rgba(160,120,75,0.08)] hover:bg-[rgba(160,120,75,0.15)] text-[#6B4D30]'
-                }`}
+                className={`flex items-center gap-2 px-3 py-2.5 rounded-lg text-sm font-medium transition-colors ${'bg-[rgba(160,120,75,0.08)] hover:bg-[rgba(160,120,75,0.15)] text-[#6B4D30]'}`}
               >
-                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${
-                  darkMode ? 'bg-[#D7B797] text-[#0A0A0A]' : 'bg-[#C4A77D] text-white'
-                }`}>{item.step}</span>
+                <span className={`w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold ${'bg-[#C4A77D] text-white'}`}>{item.step}</span>
                 {item.label}
               </button>
             ))}
@@ -594,18 +549,12 @@ const HomeScreen = ({ darkMode = true }) => {
       )}
 
       {/* Sales Performance Chart - Full Width Premium */}
-      <div className={`border rounded-xl overflow-hidden transition-all duration-300 ${
-        darkMode
-          ? 'border-[#1E1E1E] bg-gradient-to-br from-[#0D0D0D] via-[#111111] to-[#0A0A0A]'
-          : 'border-gray-200 bg-gradient-to-br from-white via-gray-50/50 to-white'
-      }`} style={darkMode ? { boxShadow: '0 0 40px rgba(215,183,151,0.03), inset 0 1px 0 rgba(255,255,255,0.02)' } : { boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
+      <div className={`border rounded-xl overflow-hidden transition-all duration-300 ${'border-gray-200 bg-gradient-to-br from-white via-gray-50/50 to-white'}`} style={{ boxShadow: '0 1px 3px rgba(0,0,0,0.06)' }}>
         {/* Header */}
         <div className="flex items-center justify-between px-6 pt-5 pb-0">
           <div className="flex items-center gap-4">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-              darkMode ? 'bg-gradient-to-br from-[rgba(215,183,151,0.15)] to-[rgba(215,183,151,0.05)]' : 'bg-gradient-to-br from-[rgba(215,183,151,0.15)] to-[rgba(215,183,151,0.05)]'
-            }`}>
-              <TrendingUp size={18} className={darkMode ? 'text-[#D7B797]' : 'text-[#8B6914]'} />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${'bg-gradient-to-br from-[rgba(215,183,151,0.15)] to-[rgba(215,183,151,0.05)]'}`}>
+              <TrendingUp size={18} className={'text-[#8B6914]'} />
             </div>
             <div>
               <h3 className={`text-lg font-semibold font-['Montserrat'] tracking-tight ${textPrimary}`}>{t('home.salesPerformance')}</h3>
@@ -624,11 +573,7 @@ const HomeScreen = ({ darkMode = true }) => {
                 <span className={`text-[11px] font-medium font-['Montserrat'] ${textMuted}`}>{t('home.targetSales')}</span>
               </div>
             </div>
-            <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest font-['Montserrat'] rounded-full border ${
-              darkMode
-                ? 'bg-[rgba(42,158,106,0.1)] text-[#2A9E6A] border-[rgba(42,158,106,0.2)]'
-                : 'bg-[rgba(42,158,106,0.08)] text-[#1a7a4f] border-[rgba(42,158,106,0.2)]'
-            }`}>
+            <span className={`inline-flex items-center gap-1.5 px-3 py-1 text-[10px] font-semibold uppercase tracking-widest font-['Montserrat'] rounded-full border ${'bg-[rgba(42,158,106,0.08)] text-[#1a7a4f] border-[rgba(42,158,106,0.2)]'}`}>
               <span className="w-1.5 h-1.5 rounded-full bg-[#2A9E6A] animate-pulse"></span>
               {t('common.liveData')}
             </span>
@@ -645,15 +590,11 @@ const HomeScreen = ({ darkMode = true }) => {
           ].map((s, i) => (
             <div
               key={i}
-              className={`rounded-xl px-4 py-3 border transition-all duration-200 ${
-                darkMode
-                  ? 'border-[#1A1A1A] bg-[rgba(255,255,255,0.015)] hover:border-[#2A2A2A] hover:bg-[rgba(255,255,255,0.03)]'
-                  : 'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'
-              }`}
+              className={`rounded-xl px-4 py-3 border transition-all duration-200 ${'border-gray-200 bg-white hover:border-gray-300 hover:shadow-sm'}`}
             >
               <div className="flex items-center justify-between">
                 <p className={`text-[10px] font-semibold uppercase tracking-wider ${textMuted} font-['Montserrat']`}>{s.label}</p>
-                <span className={`text-[10px] ${darkMode ? 'text-[#333]' : 'text-gray-300'}`}>{s.icon}</span>
+                <span className={`text-[10px] ${'text-gray-300'}`}>{s.icon}</span>
               </div>
               <p className={`text-xl font-bold font-['JetBrains_Mono'] tabular-nums mt-1 ${textPrimary}`}>{s.value}</p>
               <span className={`text-[10px] font-semibold font-['JetBrains_Mono'] ${s.up ? 'text-[#2A9E6A]' : 'text-[#FF7B72]'}`}>
@@ -667,7 +608,7 @@ const HomeScreen = ({ darkMode = true }) => {
         <div className="px-2 sm:px-4 mt-4 pb-5">
           {chartData.length === 0 ? (
             statsLoading ? (
-              <div className="animate-pulse h-[200px] bg-gray-200 dark:bg-gray-700 rounded-xl" />
+              <div className="animate-pulse h-[200px] bg-gray-200 rounded-xl" />
             ) : (
               <div className={`flex items-center justify-center py-12 text-sm ${textMuted}`}>
                 {t('home.noChartData') || 'No budget data available for chart'}
@@ -742,8 +683,8 @@ const HomeScreen = ({ darkMode = true }) => {
                   {/* Y-axis labels + grid lines */}
                   {yTicks.map((tick) => (
                     <g key={tick.y}>
-                      <text x="52" y={tick.y + 4} textAnchor="end" fontSize="10" fill={darkMode ? '#3A3A3A' : '#9CA3AF'} fontFamily="JetBrains Mono" fontWeight="500">{tick.label}</text>
-                      <line x1="64" y1={tick.y} x2="920" y2={tick.y} stroke={darkMode ? 'rgba(255,255,255,0.04)' : 'rgba(0,0,0,0.05)'} strokeWidth="1" />
+                      <text x="52" y={tick.y + 4} textAnchor="end" fontSize="10" fill={'#9CA3AF'} fontFamily="JetBrains Mono" fontWeight="500">{tick.label}</text>
+                      <line x1="64" y1={tick.y} x2="920" y2={tick.y} stroke={'rgba(0,0,0,0.05)'} strokeWidth="1" />
                     </g>
                   ))}
 
@@ -758,13 +699,13 @@ const HomeScreen = ({ darkMode = true }) => {
 
                   {/* Target dots */}
                   {chartData.map((d, i) => (
-                    <circle key={`dot-t-${i}`} cx={toX(i)} cy={toY(d.target)} r="3" fill={darkMode ? '#0D0D0D' : '#ffffff'} stroke="#2A9E6A" strokeWidth="1.5" opacity="0.7" />
+                    <circle key={`dot-t-${i}`} cx={toX(i)} cy={toY(d.target)} r="3" fill={'#ffffff'} stroke="#2A9E6A" strokeWidth="1.5" opacity="0.7" />
                   ))}
 
                   {/* Actual dots */}
                   {chartData.map((d, i) => (
                     <g key={`dot-a-${i}`}>
-                      <circle cx={toX(i)} cy={toY(d.actual)} r="6" fill={darkMode ? '#0D0D0D' : '#ffffff'} stroke="#D7B797" strokeWidth="2.5" />
+                      <circle cx={toX(i)} cy={toY(d.actual)} r="6" fill={'#ffffff'} stroke="#D7B797" strokeWidth="2.5" />
                       {i === n - 1 && (
                         <circle cx={toX(i)} cy={toY(d.actual)} r="10" fill="none" stroke="#D7B797" strokeWidth="1" opacity="0.3">
                           <animate attributeName="r" values="8;14;8" dur="2s" repeatCount="indefinite" />
@@ -788,8 +729,8 @@ const HomeScreen = ({ darkMode = true }) => {
                     return (
                       <g key={`val-${i}`} filter="url(#labelShadow)">
                         <rect x={x - 22} y={y - 24} width="44" height="17" rx="5"
-                          fill={darkMode ? 'rgba(215,183,151,0.12)' : 'rgba(215,183,151,0.18)'}
-                          stroke={darkMode ? 'rgba(215,183,151,0.15)' : 'rgba(215,183,151,0.25)'}
+                          fill={'rgba(215,183,151,0.18)'}
+                          stroke={'rgba(215,183,151,0.25)'}
                           strokeWidth="0.5"
                         />
                         <text x={x} y={y - 12} textAnchor="middle" fontSize="9.5" fill="#D7B797" fontFamily="JetBrains Mono" fontWeight="700">{label}</text>
@@ -799,7 +740,7 @@ const HomeScreen = ({ darkMode = true }) => {
 
                   {/* X-axis month labels */}
                   {chartData.map((d, i) => (
-                    <text key={d.month} x={toX(i)} y={275} textAnchor="middle" fontSize="10" fill={darkMode ? '#3A3A3A' : '#9CA3AF'} fontFamily="Montserrat" fontWeight="600" letterSpacing="0.5">
+                    <text key={d.month} x={toX(i)} y={275} textAnchor="middle" fontSize="10" fill={'#9CA3AF'} fontFamily="Montserrat" fontWeight="600" letterSpacing="0.5">
                       {t(`home.${d.month}`)}
                     </text>
                   ))}
@@ -817,10 +758,8 @@ const HomeScreen = ({ darkMode = true }) => {
       <div className={`border ${panelBg} rounded-xl p-5 transition-all duration-150 hover:border-[rgba(215,183,151,0.25)]`}>
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${
-              darkMode ? 'bg-[rgba(215,183,151,0.15)]' : 'bg-[rgba(215,183,151,0.1)]'
-            }`}>
-              <Bell size={18} className={darkMode ? 'text-[#D7B797]' : 'text-[#6B4D30]'} />
+            <div className={`w-10 h-10 rounded-xl flex items-center justify-center ${'bg-[rgba(215,183,151,0.1)]'}`}>
+              <Bell size={18} className={'text-[#6B4D30]'} />
             </div>
             <div>
               <h3 className={`text-lg font-semibold font-['Montserrat'] ${textPrimary}`}>{t('home.activeAlerts')}</h3>
@@ -866,8 +805,7 @@ const HomeScreen = ({ darkMode = true }) => {
                 detailItems: [
                   { label: t('home.pending') || 'Chờ duyệt', value: String(pendingCount) },
                   { label: t('home.totalBudgets') || 'Tổng ngân sách', value: String(s._totalBudgets || 0) },
-                ],
-              });
+                ]});
             }
 
             // Alert 2: Budget utilization > 80%
@@ -890,8 +828,7 @@ const HomeScreen = ({ darkMode = true }) => {
                   { label: t('home.used') || 'Đã sử dụng', value: `${utilPct}%` },
                   { label: t('home.remaining') || 'Còn lại', value: formatVND(totalAmt - approvedAmt) },
                   { label: t('home.totalBudget') || 'Tổng ngân sách', value: formatVND(totalAmt) },
-                ],
-              });
+                ]});
             }
 
             // Alert 3: Active plans info
@@ -914,8 +851,7 @@ const HomeScreen = ({ darkMode = true }) => {
                 detailItems: [
                   { label: t('home.activePlans') || 'Kế hoạch', value: String(activePlans) },
                   { label: t('home.brands') || 'Thương hiệu', value: String(s.totalBrands || 0) },
-                ],
-              });
+                ]});
             }
 
             // If no alerts, show an empty state placeholder
@@ -934,8 +870,7 @@ const HomeScreen = ({ darkMode = true }) => {
                 time: '',
                 message: t('home.noAlertsMessage') || 'Tất cả các chỉ số đều trong giới hạn bình thường.',
                 route: '/budget-management',
-                detailItems: [],
-              });
+                detailItems: []});
             }
 
             return alerts;
@@ -957,7 +892,7 @@ const HomeScreen = ({ darkMode = true }) => {
                         <span className={`text-sm font-semibold ${textPrimary}`}>{alert.title}</span>
                         <span className={`text-xs font-['JetBrains_Mono'] ${textMuted}`}>{alert.time}</span>
                       </div>
-                      <p className={`text-xs mt-1 ${darkMode ? 'text-[#999999]' : 'text-gray-600'}`}>
+                      <p className={`text-xs mt-1 ${'text-gray-600'}`}>
                         {alert.message}
                       </p>
                       <button
@@ -975,10 +910,10 @@ const HomeScreen = ({ darkMode = true }) => {
 
                 {/* Expandable Detail Panel */}
                 <div className={`overflow-hidden transition-all duration-300 ${isExpanded ? 'max-h-60 opacity-100' : 'max-h-0 opacity-0'}`}>
-                  <div className={`px-4 pb-4 pt-0 border-t ${darkMode ? 'border-[rgba(255,255,255,0.06)]' : 'border-[rgba(0,0,0,0.06)]'}`}>
+                  <div className={`px-4 pb-4 pt-0 border-t ${'border-[rgba(0,0,0,0.06)]'}`}>
                     <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mt-3">
                       {alert.detailItems.map((item: any, idx: number) => (
-                        <div key={idx} className={`rounded-lg px-3 py-2 ${darkMode ? 'bg-[rgba(0,0,0,0.3)]' : 'bg-[rgba(255,255,255,0.6)]'}`}>
+                        <div key={idx} className={`rounded-lg px-3 py-2 ${'bg-[rgba(255,255,255,0.6)]'}`}>
                           <p className={`text-[10px] font-medium uppercase tracking-wider ${textMuted} font-['Montserrat']`}>{item.label}</p>
                           <p className={`text-sm font-bold font-['JetBrains_Mono'] tabular-nums mt-0.5 ${textPrimary}`}>{item.value}</p>
                         </div>
@@ -990,8 +925,7 @@ const HomeScreen = ({ darkMode = true }) => {
                       style={{
                         backgroundColor: `${alert.accentColor}20`,
                         color: alert.accentColor,
-                        border: `1px solid ${alert.accentColor}30`,
-                      }}
+                        border: `1px solid ${alert.accentColor}30`}}
                       onMouseEnter={(e) => { e.currentTarget.style.backgroundColor = `${alert.accentColor}35`; }}
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = `${alert.accentColor}20`; }}
                     >
@@ -1015,7 +949,6 @@ const HomeScreen = ({ darkMode = true }) => {
           title={expandedCard.title}
           icon={(CARD_CONFIG as any)[expandedCard.key]?.icon}
           accent={(CARD_CONFIG as any)[expandedCard.key]?.accent}
-          darkMode={darkMode}
           currentValue={expandedCard.value}
           trend={expandedCard.trend}
           trendLabel={expandedCard.trendLabel}
@@ -1033,22 +966,19 @@ const HomeScreen = ({ darkMode = true }) => {
             label: t('home.season'),
             icon: '📅',
             type: 'single',
-            options: SEASON_OPTIONS.map(s => ({ value: s, label: s })),
-          },
+            options: SEASON_OPTIONS.map(s => ({ value: s, label: s }))},
           {
             key: 'brand',
             label: t('home.brand'),
             icon: '🏷️',
             type: 'single',
-            options: [{ value: 'all', label: t('home.allBrands') }, ...brandOptions.map(b => ({ value: b, label: b }))],
-          },
+            options: [{ value: 'all', label: t('home.allBrands') }, ...brandOptions.map(b => ({ value: b, label: b }))]},
           {
             key: 'region',
             label: t('home.region'),
             icon: '🌍',
             type: 'single',
-            options: REGION_OPTIONS.map(r => ({ value: r, label: r })),
-          },
+            options: REGION_OPTIONS.map(r => ({ value: r, label: r }))},
         ]}
         values={mobileFilterValues}
         onChange={(key, value) => {

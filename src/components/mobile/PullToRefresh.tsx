@@ -28,7 +28,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
   const [pullDistance, setPullDistance] = useState(0);
   const [isRefreshing, setIsRefreshing] = useState(false);
   const [isPulling, setIsPulling] = useState(false);
-  
+
   const containerRef = useRef<HTMLDivElement>(null);
   const startY = useRef(0);
   const currentY = useRef(0);
@@ -49,26 +49,26 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
 
   const handleTouchStart = useCallback((e: TouchEvent) => {
     if (disabled || isRefreshing) return;
-    
+
     isAtTop.current = checkIfAtTop();
     if (!isAtTop.current) return;
-    
+
     startY.current = e.touches[0].clientY;
     setIsPulling(true);
   }, [disabled, isRefreshing, checkIfAtTop]);
 
   const handleTouchMove = useCallback((e: TouchEvent) => {
     if (disabled || isRefreshing || !isPulling || !isAtTop.current) return;
-    
+
     currentY.current = e.touches[0].clientY;
     const deltaY = currentY.current - startY.current;
-    
+
     if (deltaY > 0) {
       // Apply resistance
       const resistance = 0.5;
       const distance = Math.min(deltaY * resistance, maxPull);
       setPullDistance(distance);
-      
+
       // Prevent scroll
       if (distance > 0) {
         e.preventDefault();
@@ -78,13 +78,13 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
 
   const handleTouchEnd = useCallback(async () => {
     if (disabled || isRefreshing || !isPulling) return;
-    
+
     setIsPulling(false);
-    
+
     if (pullDistance >= threshold) {
       setIsRefreshing(true);
       setPullDistance(60); // Keep some pull distance during refresh
-      
+
       try {
         await onRefresh();
       } finally {
@@ -131,7 +131,7 @@ export const PullToRefresh: React.FC<PullToRefreshProps> = ({
           transition: isPulling ? 'none' : 'transform 0.3s ease, opacity 0.3s ease',
         }}
       >
-        <div className="w-10 h-10 rounded-full bg-white dark:bg-gray-800 shadow-lg flex items-center justify-center">
+        <div className="w-10 h-10 rounded-full bg-white shadow-lg flex items-center justify-center">
           {isRefreshing ? (
             <svg
               className="w-5 h-5 text-amber-500 animate-spin"

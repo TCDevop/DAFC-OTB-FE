@@ -9,8 +9,6 @@ interface KpiItem {
 type SaveHandler = () => Promise<void> | void;
 
 interface AppContextType {
-  darkMode: boolean;
-  setDarkMode: (value: boolean) => void;
   sharedYear: number;
   setSharedYear: React.Dispatch<React.SetStateAction<number>>;
   allocationData: any;
@@ -39,22 +37,6 @@ interface AppContextType {
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
-  // Dark mode state
-  const [darkMode, setDarkModeState] = useState(false);
-
-  const setDarkMode = useCallback((value: boolean) => {
-    setDarkModeState(value);
-    if (typeof document !== 'undefined') {
-      if (value) {
-        document.documentElement.classList.add('dark');
-        document.documentElement.classList.remove('light');
-      } else {
-        document.documentElement.classList.add('light');
-        document.documentElement.classList.remove('dark');
-      }
-    }
-  }, []);
-
   // Shared filter state between Budget Management and Planning screens
   const [sharedYear, setSharedYear] = useState(2025);
 
@@ -133,8 +115,6 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   const [headerSubtitle, setHeaderSubtitle] = useState<string | null>(null);
 
   const value = {
-    darkMode,
-    setDarkMode,
     sharedYear,
     setSharedYear,
     allocationData,

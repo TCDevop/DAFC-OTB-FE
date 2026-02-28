@@ -5,7 +5,7 @@
 // Design: DAFC Luxury Login V2 (light theme, fashion icons, glassmorphism)
 // ═══════════════════════════════════════════════════════════════════════════
 import React, { useState } from 'react';
-import { useAuth } from '../contexts/AuthContext';
+import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { Eye, EyeOff } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -77,7 +77,7 @@ const FashionIcons = () => (
 );
 
 const LoginScreen = () => {
-  const { login, loading, loginStatus: authLoginStatus } = useAuth();
+  const { login, loginWithMicrosoft, loading, loginStatus: authLoginStatus } = useAuth();
   const { t } = useLanguage();
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -112,6 +112,18 @@ const LoginScreen = () => {
         setLocalError(err.message || t('login.loginFailed'));
         toast.error(err.message || t('login.loginFailed'));
       }
+    }
+  };
+
+  const handleMicrosoftLogin = async () => {
+    setLocalError('');
+    try {
+      await loginWithMicrosoft();
+      toast.success('Đăng nhập Microsoft thành công!');
+    } catch (err: any) {
+      if (err.message?.includes('hủy')) return;
+      setLocalError(err.message || 'Microsoft login failed');
+      toast.error(err.message || 'Microsoft login failed');
     }
   };
 
@@ -287,7 +299,36 @@ const LoginScreen = () => {
           </form>
 
           {/* Divider */}
-          <div className="flex items-center gap-5 my-7">
+          <div className="flex items-center gap-5 my-6">
+            <div className="flex-1 h-px" style={{ background: 'rgba(139, 115, 85, 0.25)' }} />
+            <span className="text-[11px] font-medium text-[#8B7A6B] tracking-[0.15em]">OR</span>
+            <div className="flex-1 h-px" style={{ background: 'rgba(139, 115, 85, 0.25)' }} />
+          </div>
+
+          {/* Microsoft Login */}
+          <button
+            type="button"
+            onClick={handleMicrosoftLogin}
+            disabled={loading}
+            className="w-full py-[14px] rounded-[14px] text-[13px] font-medium tracking-[0.03em] cursor-pointer flex items-center justify-center gap-3 transition-all duration-200 hover:border-[rgba(139,115,85,0.45)] hover:bg-[rgba(255,255,255,0.95)] disabled:opacity-50 disabled:cursor-not-allowed"
+            style={{
+              background: 'rgba(255, 255, 255, 0.8)',
+              border: '1px solid rgba(139, 115, 85, 0.28)',
+              color: '#3D2E22',
+              fontFamily: 'var(--font-montserrat), sans-serif',
+            }}
+          >
+            <svg width="20" height="20" viewBox="0 0 21 21" fill="none">
+              <rect x="1" y="1" width="9" height="9" fill="#F25022"/>
+              <rect x="11" y="1" width="9" height="9" fill="#7FBA00"/>
+              <rect x="1" y="11" width="9" height="9" fill="#00A4EF"/>
+              <rect x="11" y="11" width="9" height="9" fill="#FFB900"/>
+            </svg>
+            Sign in with Microsoft
+          </button>
+
+          {/* Demo Divider */}
+          <div className="flex items-center gap-5 my-6">
             <div className="flex-1 h-px" style={{ background: 'rgba(139, 115, 85, 0.25)' }} />
             <span className="text-[11px] font-medium text-[#8B7A6B] tracking-[0.15em]">DEMO</span>
             <div className="flex-1 h-px" style={{ background: 'rgba(139, 115, 85, 0.25)' }} />

@@ -1,10 +1,8 @@
 'use client';
 import { useAuth } from '@/contexts/AuthContext';
-import { useAppContext } from '@/contexts/AppContext';
-import ProfileScreen from '@/screens/ProfileScreen';
+import { ProfileScreen } from '@/features/profile';
 
 export default function ProfilePage() {
   const { user } = useAuth();
-  const { darkMode } = useAppContext();
-  return <ProfileScreen user={user} darkMode={darkMode} />;
+  return <ProfileScreen user={user} />;
 }

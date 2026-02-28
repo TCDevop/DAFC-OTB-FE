@@ -6,7 +6,6 @@ export { default as KPIDetailModal } from './KPIDetailModal';
 export { default as BottomSheet } from './BottomSheet';
 export { default as MobileDataCard } from './MobileDataCard';
 export { default as MobileFilterSheet } from './MobileFilterSheet';
-export { default as SwipeAction } from './SwipeAction';
 export { default as ProductImage } from './ProductImage';
 export { default as ConfirmDialog } from './ConfirmDialog';
 export { default as TableSkeleton } from './TableSkeleton';

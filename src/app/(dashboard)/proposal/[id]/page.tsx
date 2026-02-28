@@ -3,12 +3,12 @@ import { useState, useEffect, useCallback } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAppContext } from '@/contexts/AppContext';
 import { proposalService } from '@/services';
-import ProposalDetailPage from '@/screens/ProposalDetailPage';
+import { ProposalDetailPage } from '@/features/otb';
 
 export default function ProposalDetailRoute() {
   const router = useRouter();
   const params = useParams();
-  const { darkMode, registerSave, unregisterSave } = useAppContext();
+  const { registerSave, unregisterSave } = useAppContext();
   const [proposal, setProposal] = useState<any>(null);
   const saveRef = { current: null as any };
 
@@ -45,7 +45,6 @@ export default function ProposalDetailRoute() {
       proposal={proposal}
       onBack={handleBack}
       onSave={handleSave}
-      darkMode={darkMode}
       entityId={params.id as string}
     />
   );

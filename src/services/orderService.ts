@@ -2,8 +2,7 @@
 // Order & Receipt Service - Confirmation + Discrepancy API
 // ═══════════════════════════════════════════════════════════════════════════
 import api from './api';
-
-const extract = (response: any) => response.data?.data ?? response.data;
+import { extract } from './serviceUtils';
 
 export const orderService = {
   // Confirm an order

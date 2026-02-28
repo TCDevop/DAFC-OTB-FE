@@ -12,7 +12,7 @@ import AppHeader from '@/components/layout/AppHeader';
 export default function DashboardLayout({ children }: any) {
   const pathname = usePathname();
   const { user, logout } = useAuth();
-  const { darkMode, setDarkMode, kpiData } = useAppContext();
+  const { kpiData } = useAppContext();
 
   const currentScreen = getScreenIdFromPathname(pathname);
 
@@ -21,18 +21,16 @@ export default function DashboardLayout({ children }: any) {
 
   return (
     <AuthGuard>
-      <div className={`h-screen overflow-hidden ${darkMode ? 'dark bg-canvas' : 'light bg-[hsl(40,25%,96%)]'} flex transition-colors duration-normal`}>
+      <div className="h-screen overflow-hidden bg-[hsl(40,25%,96%)] flex transition-colors duration-normal">
         <div className="hidden md:block">
           <Sidebar
             currentScreen={currentScreen}
-            darkMode={darkMode}
-            setDarkMode={setDarkMode}
             user={user}
             onLogout={logout}
           />
         </div>
 
-        <div className={`flex-1 flex flex-col overflow-hidden ${darkMode ? 'text-content' : 'text-content-inverse'}`}>
+        <div className="flex-1 flex flex-col overflow-hidden text-content">
           {!isOnline && (
             <div className="sticky top-0 z-50 bg-amber-500 text-amber-900 text-center text-sm font-medium py-1.5 px-4">
               You are offline — changes will sync when reconnected
@@ -40,8 +38,6 @@ export default function DashboardLayout({ children }: any) {
           )}
           <AppHeader
             currentScreen={currentScreen}
-            darkMode={darkMode}
-            setDarkMode={setDarkMode}
             kpiData={kpiData}
             isMobile={isMobile}
             user={user}
@@ -56,7 +52,6 @@ export default function DashboardLayout({ children }: any) {
         {isMobile && (
           <MobileBottomNav
             currentScreen={currentScreen}
-            darkMode={darkMode}
           />
         )}
       </div>

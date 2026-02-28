@@ -3,12 +3,12 @@ import { useEffect } from 'react';
 import { useRouter, useParams } from 'next/navigation';
 import { useAppContext } from '@/contexts/AppContext';
 import { usePlanning } from '@/hooks';
-import PlanningDetailPage from '@/screens/PlanningDetailPage';
+import { PlanningDetailPage } from '@/features/otb';
 
 export default function PlanningDetailRoute() {
   const router = useRouter();
   const params = useParams();
-  const { darkMode, registerSave, unregisterSave } = useAppContext();
+  const { registerSave, unregisterSave } = useAppContext();
   const { selectedBudgetDetail, planningDetailData, handleSavePlanning, closePlanningDetail } = usePlanning();
 
   // Register save handler for AppHeader Save button
@@ -28,7 +28,6 @@ export default function PlanningDetailRoute() {
       planningDetailData={planningDetailData}
       onBack={handleBack}
       onSave={handleSavePlanning}
-      darkMode={darkMode}
       entityId={params.id as string}
     />
   );
