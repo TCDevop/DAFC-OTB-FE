@@ -1,7 +1,6 @@
 'use client';
 import { useState, useEffect, useMemo, useCallback } from 'react';
-import { STORES, CURRENT_YEAR, CURRENT_SEASON_GROUP } from '../../../utils/constants';
-import { generateSeasonsMultiple } from '../../../utils/formatters';
+import { STORES, CURRENT_YEAR } from '../../../utils/constants';
 import toast from 'react-hot-toast';
 import { masterDataService, budgetService } from '../../../services';
 import { invalidateCache } from '../../../services/api';
@@ -10,7 +9,7 @@ import { useAuth } from '../../../contexts/AuthContext';
 export const useBudget = () => {
   const { isAuthenticated } = useAuth();
   const [selectedYear, setSelectedYear] = useState(CURRENT_YEAR);
-  const [selectedSeasonGroups, setSelectedSeasonGroups] = useState<any[]>([CURRENT_SEASON_GROUP]);
+  const [selectedSeasonGroups, setSelectedSeasonGroups] = useState<any[]>([]);
   const [budgets, setBudgets] = useState<any[]>([]);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -27,8 +26,18 @@ export const useBudget = () => {
   const [seasons, setSeasons] = useState<any[]>([]);
 
   const availableSeasons = useMemo(() => {
-    return generateSeasonsMultiple(selectedSeasonGroups, selectedYear);
-  }, [selectedSeasonGroups, selectedYear]);
+    if (seasons.length === 0 || selectedSeasonGroups.length === 0) return [];
+    // Filter API seasons by selected season groups, map to expected format
+    return seasons
+      .filter((s: any) => selectedSeasonGroups.includes(s.seasonGroupId || s.seasonGroup?.name))
+      .map((s: any) => ({
+        id: s.id || `${s.seasonGroupId}_${s.name}_${selectedYear}`,
+        name: s.name,
+        fiscalYear: selectedYear,
+        seasonGroupId: s.seasonGroupId || s.seasonGroup?.name,
+        type: (s.name || '').toLowerCase().includes('pre') ? 'pre' : 'main' as 'pre' | 'main'
+      }));
+  }, [selectedSeasonGroups, selectedYear, seasons]);
 
   // Fetch master data on mount (only when authenticated)
   useEffect(() => {
@@ -37,10 +46,11 @@ export const useBudget = () => {
     const controller = new AbortController();
     const fetchMasterData = async () => {
       try {
-        const [brandsRes, storesRes, seasonsRes] = await Promise.all([
-          masterDataService.getBrands({ limit: 3 }),
-          masterDataService.getStores({ limit: 3 }),
+        const [brandsRes, storesRes, seasonsRes, seasonGroupsRes] = await Promise.all([
+          masterDataService.getBrands(),
+          masterDataService.getStores(),
           masterDataService.getSeasons(),
+          masterDataService.getSeasonGroups(),
         ]);
         if (controller.signal.aborted) return;
         setBrands(brandsRes || []);
@@ -48,6 +58,11 @@ export const useBudget = () => {
         const allStores = storesRes || [];
         setStores(allStores.length > 0 ? allStores : STORES);
         setSeasons(seasonsRes || []);
+        // Auto-select first season group if none selected
+        const sgData = Array.isArray(seasonGroupsRes) ? seasonGroupsRes : [];
+        if (sgData.length > 0 && selectedSeasonGroups.length === 0) {
+          setSelectedSeasonGroups([sgData[0].name]);
+        }
       } catch (err: any) {
         if (err?.name === 'AbortError' || controller.signal.aborted) return;
         console.error('Failed to fetch master data:', err);

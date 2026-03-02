@@ -3,14 +3,13 @@
 import { useState, useRef, useEffect, useMemo, useCallback, Fragment, startTransition } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  DollarSign, Sparkles, Filter, Clock, ChevronDown, Check,
+  Sparkles, Filter, Clock, ChevronDown, Check,
   ChevronRight, Sun, Snowflake,
-  Star, Layers, Tag, FileText, X, Split, Pencil,
-  RefreshCw
+  Star, Layers, Tag, FileText, X, Split, Pencil
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '@/utils';
-import { SEASON_GROUPS, SEASON_CONFIG } from '@/utils/constants';
+// (Season groups & seasons loaded from API via masterDataService.getSeasonGroups)
 import { budgetService, masterDataService, planningService } from '@/services';
 import { invalidateCache } from '@/services/api';
 import { useAppContext } from '@/contexts/AppContext';
@@ -25,7 +24,6 @@ import { useBudgetAllocateSave } from '../hooks/useBudgetAllocateSave';
 import { useClipboardPaste } from '../hooks/useClipboardPaste';
 import AllocationProgressBar from './AllocationProgressBar';
 import AllocationSidePanel from './AllocationSidePanel';
-import UnsavedChangesBanner from './UnsavedChangesBanner';
 import VersionCompareModal from './VersionCompareModal';
 import { exportAllocationToExcel } from '../utils/exportExcel';
 
@@ -70,7 +68,7 @@ const BudgetAllocateScreen = ({
   useEffect(() => {
     const fetchBrands = async () => {
       try {
-        const brands = await masterDataService.getBrands({ limit: 3 });
+        const brands = await masterDataService.getBrands();
         const list = Array.isArray(brands) ? brands : (brands?.data || []);
 
         // Group brands are the top-level items; individual brands may be nested
@@ -114,7 +112,7 @@ const BudgetAllocateScreen = ({
       setCategoryData(Array.isArray(data) ? data : []);
     }).catch(() => setCategoryData([]));
     // Fetch stores
-    masterDataService.getStores({ limit: 3 }).then(res => {
+    masterDataService.getStores().then(res => {
       const data = res.data || res || [];
       const seen = new Set<string>();
       const list = (Array.isArray(data) ? data : []).reduce((acc: any[], s: any) => {
@@ -177,10 +175,15 @@ const BudgetAllocateScreen = ({
 
   // Fetch season groups filtered by selected year
   useEffect(() => {
-    masterDataService.getSeasonGroups(selectedYear ? { year: Number(selectedYear) } : undefined).then(res => {
+    const controller = new AbortController();
+    masterDataService.getSeasonGroups(selectedYear ? { year: Number(selectedYear) } : undefined, { signal: controller.signal }).then(res => {
       const data = Array.isArray(res) ? res : [];
       setSeasonGroups(data);
-    }).catch(() => setSeasonGroups([]));
+    }).catch((err: any) => {
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
+      setSeasonGroups([]);
+    });
+    return () => { controller.abort(); };
   }, [selectedYear]);
 
   // Reset sub-season when season group changes
@@ -224,7 +227,7 @@ const BudgetAllocateScreen = ({
   const [collapsedGroups, setCollapsedGroups] = useState<Record<string, any>>({});
   const [collapsedBrands, setCollapsedBrands] = useState<Record<string, any>>({});
 
-  // Allocation state hook (undo/redo, dirty tracking, validation, save)
+  // Allocation state hook (dirty tracking, validation)
   const allocation = useAllocationState(t);
   const {
     allocationValues, setAllocationValues,
@@ -232,9 +235,7 @@ const BudgetAllocateScreen = ({
     brandTotalValues, setBrandTotalValues,
     allocationComments, handleCommentChange,
     handleAllocationChange, handleSeasonTotalChange, handleBrandTotalChange,
-    canUndo, canRedo, undo, redo,
-    isDirty, discardChanges, saving: planSaving, saveDraft, submitForApproval, validate,
-    autoSaving, lastSavedAt, markClean} = allocation;
+    isDirty, discardChanges, validate, markClean} = allocation;
 
   // UX-27: Warn on browser close/refresh with unsaved changes
   useUnsavedChanges(isDirty);
@@ -273,12 +274,6 @@ const BudgetAllocateScreen = ({
   }, []);
   useClipboardPaste(handlePasteValues);
 
-  // Handle bulk update from BulkActionsMenu
-  const handleBulkUpdate = useCallback((newValues: Record<string, any>) => {
-    allocation.pushUndo({ allocationValues, seasonTotalValues, brandTotalValues, allocationComments });
-    setAllocationValues(newValues);
-  }, [allocationValues, seasonTotalValues, brandTotalValues, allocationComments, setAllocationValues, allocation]);
-
   // Dropdown states
   const [isYearDropdownOpen, setIsYearDropdownOpen] = useState(false);
   const [isGroupBrandDropdownOpen, setIsGroupBrandDropdownOpen] = useState(false);
@@ -291,12 +286,6 @@ const BudgetAllocateScreen = ({
   const [openVersionBrandId, setOpenVersionBrandId] = useState<string | null>(null);
   const [dropdownAnchorEl, setDropdownAnchorEl] = useState<HTMLElement | null>(null);
   const [allocateHeaders, setAllocateHeaders] = useState<any[]>([]);
-
-  // Sync versionId to hook for auto-save + Ctrl+S
-  useEffect(() => {
-    allocation.setVersionId(selectedVersionId);
-  }, [selectedVersionId, allocation.setVersionId]);
-
 
   // Refs
   const budgetNameDropdownRef = useRef<any>(null);
@@ -528,20 +517,18 @@ const BudgetAllocateScreen = ({
   }, []);
 
   // Calculate store percentages from budgets
-  // Season groups and config derived from DB (fall back to constants while loading)
+  // Season groups and config derived from DB
   const activeSeasonGroups = useMemo(() => {
-    if (seasonGroups.length === 0) return SEASON_GROUPS;
     return seasonGroups.map((sg: any) => sg.name);
   }, [seasonGroups]);
 
   const dynamicSeasonConfig = useMemo(() => {
-    if (seasonGroups.length === 0) return SEASON_CONFIG;
     const config: Record<string, any> = {};
     seasonGroups.forEach((sg: any) => {
       const subSeasons = (sg.seasons || []).map((s: any) => s.name);
       config[sg.name] = {
         name: sg.name,
-        subSeasons: subSeasons.length > 0 ? subSeasons : (SEASON_CONFIG[sg.name]?.subSeasons ?? []),
+        subSeasons,
         seasons: sg.seasons || []};
     });
     return config;
@@ -637,7 +624,8 @@ const BudgetAllocateScreen = ({
         budgetName: selectedBudget?.budgetName || fallbackBudgetName || null,
         fiscalYear: selectedBudget?.fiscalYear || selectedYear,
         totalBudget: selectedBudget?.totalBudget || 0,
-        status: selectedBudget?.status});
+        status: selectedBudget?.status,
+        brandId: selectedBrand || null});
     }
   };
 
@@ -915,11 +903,12 @@ const BudgetAllocateScreen = ({
         totalBudget: selectedBudget?.totalBudget || 0,
         status: selectedBudget?.status,
         seasonGroup: selectedSeasonGroup,
-        season: selectedSeason});
+        season: selectedSeason,
+        brandId: selectedBrand || null});
     }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [selectedSeasonGroup, selectedSeason, displayBrands, allocateHeaders, brandNames,
-      onOpenOtbAnalysis, selectedBudgetId, selectedBudget, fallbackBudgetName, selectedYear]);
+      onOpenOtbAnalysis, selectedBudgetId, selectedBudget, fallbackBudgetName, selectedYear, selectedBrand]);
 
   // Budget allocation save / save-as-new (needs displayBrands, allocateHeaders, brandVersionMap)
   const { save: saveAllocation, saveAsNew: saveAsNewAllocation, saving: allocSaving } = useBudgetAllocateSave({
@@ -945,7 +934,7 @@ const BudgetAllocateScreen = ({
       markClean();
     }});
 
-  const saving = allocSaving || planSaving;
+  const saving = allocSaving;
 
   // Handle export (placed after displayBrands + totalAllocated are defined)
   const handleExportExcel = useCallback(async () => {
@@ -1072,11 +1061,6 @@ const BudgetAllocateScreen = ({
     saveAsNewAllocation();
   }, [checkBrandCapAndWarn, saveAsNewAllocation]);
 
-  const handleSubmitForApproval = useCallback(() => {
-    checkBrandCapAndWarn();
-    submitForApproval(selectedVersionId);
-  }, [checkBrandCapAndWarn, submitForApproval, selectedVersionId]);
-
   // Register save handlers in AppHeader — unregister on unmount
   useEffect(() => {
     registerSave(handleSaveDraft);
@@ -1086,18 +1070,6 @@ const BudgetAllocateScreen = ({
       unregisterSaveAsNew();
     };
   }, [handleSaveDraft, handleSaveAsNew, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew]);
-
-  // Ctrl+S keyboard shortcut to save draft
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.metaKey || e.ctrlKey) && e.key === 's') {
-        e.preventDefault();
-        handleSaveDraft();
-      }
-    };
-    document.addEventListener('keydown', handleKeyDown);
-    return () => document.removeEventListener('keydown', handleKeyDown);
-  }, [handleSaveDraft]);
 
   const selectedGroupBrandObj = groupBrandList.find((g: any) => String(g.id) === String(selectedGroupBrand));
   const selectedBrandObj = brandList.find((b: any) => String(b.id) === String(selectedBrand));
@@ -1812,6 +1784,7 @@ const BudgetAllocateScreen = ({
                                                       budgetId: selectedBudgetId,
                                                       budgetName: selectedBudget?.budgetName || fallbackBudgetName || null,
                                                       fiscalYear: selectedBudget?.fiscalYear || selectedYear,
+                                                      brandId: String(brand?.id || ''),
                                                       brandName: selectedBudget?.brandName || brand?.name,
                                                       groupBrand: selectedBudget?.groupBrand || brand?.groupBrand,
                                                       totalBudget: selectedBudget?.totalBudget || 0,
@@ -1885,8 +1858,6 @@ const BudgetAllocateScreen = ({
                 totalAllocated={totalAllocated}
               />
             </div>
-            {autoSaving && <span className="text-xs text-slate-400 animate-pulse whitespace-nowrap">Auto-saving…</span>}
-            {!autoSaving && lastSavedAt && <span className="text-xs text-slate-400 whitespace-nowrap">Saved {lastSavedAt}</span>}
             <button
               onClick={handleAllocateAll}
               className={`shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] transition-all ${'bg-[rgba(18,119,73,0.12)] border border-[#127749] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]'}`}

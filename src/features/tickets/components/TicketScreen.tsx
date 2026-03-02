@@ -5,7 +5,9 @@ import { Eye, Loader2, Plus, X, LayoutList, LayoutGrid, Ticket, CircleCheckBig, 
 import TicketKanbanBoard from './TicketKanbanBoard';
 import { ExpandableStatCard, ErrorMessage } from '@/components/ui';
 import { MobileList, FilterChips, FloatingActionButton, PullToRefresh, useBottomSheet, FilterBottomSheet } from '@/components/mobile';
-import { budgetService, planningService, proposalService } from '@/services';
+import { budgetService, masterDataService, planningService, proposalService, ticketService } from '@/services';
+import { invalidateCache } from '@/services/api';
+import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatCurrency } from '@/utils';
@@ -36,20 +38,13 @@ const getEntityTypeLabel = (type: any, t: any) => {
   const labels: any = {
     'budget': t ? t('ticket.entityBudget') : 'Budget',
     'planning': t ? t('ticket.entityPlanning') : 'Planning',
-    'proposal': t ? t('ticket.entityProposal') : 'SKU Proposal'
+    'proposal': t ? t('ticket.entityProposal') : 'SKU Proposal',
+    'ticket': 'Ticket',
   };
   return labels[type] || type;
 };
 
-const SEASON_GROUPS = [
-  { id: 'SS', label: 'Spring/Summer' },
-  { id: 'FW', label: 'Fall/Winter' }
-];
-
-const SEASONS = [
-  { id: 'Pre', label: 'Pre' },
-  { id: 'Main', label: 'Main/Show' }
-];
+// (Season groups & seasons loaded from API via masterDataService.getSeasonGroups)
 
 
 const getStatusColor = (status: any) => {
@@ -78,6 +73,13 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
   });
   const setViewMode = (v: string) => { setViewModeRaw(v); try { sessionStorage.setItem('ticket_view_mode', v); } catch {} };
   const [budgetOptions, setBudgetOptions] = useState<any[]>([]);
+  const [seasonGroupOptions, setSeasonGroupOptions] = useState<{ id: string; label: string }[]>([]);
+  const [seasonOptions, setSeasonOptions] = useState<{ id: string; label: string }[]>([]);
+  const [budgetList, setBudgetList] = useState<any[]>([]);
+  const [seasonGroupsRaw, setSeasonGroupsRaw] = useState<any[]>([]);
+  const [createLoading, setCreateLoading] = useState(false);
+  const [validationResult, setValidationResult] = useState<any>(null);
+  const [validationLoading, setValidationLoading] = useState(false);
   const { isOpen: filterOpen, open: openFilter, close: closeFilter } = useBottomSheet();
   const [mobileFilters, setMobileFilters] = useState<Record<string, string | string[]>>({});
   const [searchTerm, setSearchTermRaw] = useState<string>(() => {
@@ -86,14 +88,45 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
   const setSearchTerm = (v: string) => { setSearchTermRaw(v); try { sessionStorage.setItem('ticket_search', v); } catch {} };
 
   // Fetch all tickets (budgets, plannings, proposals)
+  // Load season groups & seasons from API
+  useEffect(() => {
+    // Load season groups (with seasons) for dropdowns
+    masterDataService.getSeasonGroups().then((res: any) => {
+      const data = Array.isArray(res) ? res : [];
+      setSeasonGroupsRaw(data);
+      setSeasonGroupOptions(data.map((sg: any) => ({ id: sg.name, label: sg.name })));
+      const seen = new Set<string>();
+      const allSeasons: { id: string; label: string }[] = [];
+      data.forEach((sg: any) => {
+        (sg.seasons || []).forEach((s: any) => {
+          if (!seen.has(s.name)) {
+            seen.add(s.name);
+            allSeasons.push({ id: s.name, label: s.name });
+          }
+        });
+      });
+      setSeasonOptions(allSeasons);
+    }).catch(() => {
+      setSeasonGroupsRaw([]);
+      setSeasonGroupOptions([]);
+      setSeasonOptions([]);
+    });
+
+    // Load budgets for create ticket popup
+    budgetService.getAll().then((res: any) => {
+      setBudgetList(Array.isArray(res) ? res : []);
+    }).catch(() => setBudgetList([]));
+  }, []);
+
   const fetchTickets = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [budgetsRes, planningsRes, proposalsRes] = await Promise.all([
+      const [budgetsRes, planningsRes, proposalsRes, ticketsRes] = await Promise.all([
         budgetService.getAll().catch(() => []),
         planningService.getAll().catch(() => []),
-        proposalService.getAll().catch(() => [])
+        proposalService.getAll().catch(() => []),
+        ticketService.getAll().catch(() => []),
       ]);
 
       const allTickets: any[] = [];
@@ -143,6 +176,24 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
           status: pr.status,
           totalBudget: Number(pr.totalValue) || 0,
           data: pr
+        });
+      });
+
+      // Add actual tickets from backend
+      (Array.isArray(ticketsRes) ? ticketsRes : []).forEach((tk: any) => {
+        const brands = (tk.budget?.allocate_headers || []).map((ah: any) => ah.brand?.name).filter(Boolean);
+        allTickets.push({
+          id: tk.id,
+          entityType: 'ticket',
+          name: `Ticket #${tk.id} - ${tk.budget?.name || 'Budget'}`,
+          brand: brands.join(', ') || '-',
+          seasonGroup: tk.season_group?.name || '-',
+          season: tk.season?.name || '-',
+          createdBy: tk.creator?.name || 'System',
+          createdOn: tk.created_at ? new Date(tk.created_at).toISOString().split('T')[0] : '-',
+          status: tk.status,
+          totalBudget: Number(tk.budget?.amount) || 0,
+          data: tk
         });
       });
 
@@ -242,7 +293,8 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
     const styles: any = {
       budget:'bg-[rgba(215,183,151,0.2)] text-[#6B4D30] border border-[rgba(215,183,151,0.4)]',
       planning:'bg-blue-100 text-blue-700',
-      proposal:'bg-emerald-100 text-emerald-700'};
+      proposal:'bg-emerald-100 text-emerald-700',
+      ticket:'bg-amber-100 text-amber-700 border border-amber-300'};
     return styles[type] || styles['budget'];
   };
 
@@ -420,7 +472,7 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
                   label: t('ticket.seasonGroupLabel'),
                   icon: '📅',
                   type: 'single',
-                  options: SEASON_GROUPS.map((sg) => ({ value: sg.id, label: sg.label }))},
+                  options: seasonGroupOptions.map((sg) => ({ value: sg.id, label: sg.label }))},
                 {
                   key: 'entityType',
                   label: t('approvals.allTypes'),
@@ -517,7 +569,7 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
               boxShadow: `inset 0 -1px 0 ${'rgba(215,183,151,0.08)'}`}}>
               <h3 className={`text-lg font-bold font-['Montserrat'] ${'text-[#6B4D30]'}`}>{t('ticket.createNewTicket')}</h3>
               <button
-                onClick={() => setShowCreatePopup(false)}
+                onClick={() => { setShowCreatePopup(false); setValidationResult(null); }}
                 className={`p-2 rounded-lg transition-colors ${'hover:bg-[rgba(215,183,151,0.15)]'}`}
               >
                 <X size={20} className={'text-[#6B4D30]'} />
@@ -526,69 +578,161 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
 
             {/* Form */}
             <div className="p-6 space-y-4">
+              {/* Budget dropdown */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${'text-gray-600'}`}>{t('ticket.budgetNameLabel')}</label>
                 <select
                   value={newTicket.budgetName}
-                  onChange={(e: any) => setNewTicket((prev: any) => ({ ...prev, budgetName: e.target.value }))}
+                  onChange={(e: any) => { setNewTicket((prev: any) => ({ ...prev, budgetName: e.target.value })); setValidationResult(null); }}
                   className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 ${'bg-white border-gray-300 text-[#333333] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'}`}
                 >
                   <option value="">{t('ticket.selectBudgetPlaceholder')}</option>
-                  {tickets.filter((tk: any) => tk.entityType === 'budget').map((b: any) => (
-                    <option key={b.id} value={b.id}>{b.name}</option>
+                  {budgetList.map((b: any) => (
+                    <option key={b.id} value={String(b.id)}>
+                      {b.name} (FY{b.fiscalYear || b.fiscal_year || ''})
+                    </option>
                   ))}
                 </select>
               </div>
 
+              {/* Season Group dropdown */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${'text-gray-600'}`}>{t('ticket.seasonGroupLabel')}</label>
                 <select
                   value={newTicket.seasonGroup}
-                  onChange={(e: any) => setNewTicket((prev: any) => ({ ...prev, seasonGroup: e.target.value }))}
+                  onChange={(e: any) => { setNewTicket((prev: any) => ({ ...prev, seasonGroup: e.target.value })); setValidationResult(null); }}
                   className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 ${'bg-white border-gray-300 text-[#333333] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'}`}
                 >
                   <option value="">{t('ticket.selectSeasonGroup')}</option>
-                  {SEASON_GROUPS.map((sg: any) => (
+                  {seasonGroupOptions.map((sg: any) => (
                     <option key={sg.id} value={sg.id}>{sg.label}</option>
                   ))}
                 </select>
               </div>
 
+              {/* Season dropdown */}
               <div>
                 <label className={`block text-sm font-medium mb-2 ${'text-gray-600'}`}>{t('ticket.seasonLabel')}</label>
                 <select
                   value={newTicket.season}
-                  onChange={(e: any) => setNewTicket((prev: any) => ({ ...prev, season: e.target.value }))}
+                  onChange={(e: any) => { setNewTicket((prev: any) => ({ ...prev, season: e.target.value })); setValidationResult(null); }}
                   className={`w-full border rounded-lg px-4 py-3 text-sm focus:outline-none focus:ring-2 ${'bg-white border-gray-300 text-[#333333] focus:ring-[rgba(215,183,151,0.3)] focus:border-[#D7B797]'}`}
                 >
                   <option value="">{t('ticket.selectSeason')}</option>
-                  {SEASONS.map((s: any) => (
+                  {seasonOptions.map((s: any) => (
                     <option key={s.id} value={s.id}>{s.label}</option>
                   ))}
                 </select>
               </div>
 
+              {/* Validation Results */}
+              {validationResult && (
+                <div className="space-y-2 pt-2">
+                  <p className={`text-xs font-semibold ${validationResult.valid ? 'text-green-600' : 'text-amber-600'}`}>
+                    {validationResult.valid ? 'All checks passed' : 'Validation Issues Found'}
+                  </p>
+                  {validationResult.steps?.map((step: any) => (
+                    <div key={step.step} className={`flex items-start gap-2 p-2.5 rounded-lg text-xs ${
+                      step.status === 'pass' ? 'bg-green-50 text-green-700' :
+                      step.status === 'fail' ? 'bg-red-50 text-red-700' :
+                      'bg-gray-50 text-gray-500'
+                    }`}>
+                      <span className="mt-0.5 font-bold">
+                        {step.status === 'pass' ? '\u2713' : step.status === 'fail' ? '\u2717' : '\u25CB'}
+                      </span>
+                      <div className="flex-1">
+                        <p className="font-medium">Step {step.step}: {step.label}</p>
+                        {step.details?.length > 0 && (
+                          <ul className="mt-1 space-y-0.5 pl-2 text-[11px]">
+                            {step.details.map((d: string, i: number) => (
+                              <li key={i}>{d}</li>
+                            ))}
+                          </ul>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+
               {/* Actions */}
               <div className="flex justify-end gap-3 pt-4">
                 <button
-                  onClick={() => setShowCreatePopup(false)}
+                  onClick={() => { setShowCreatePopup(false); setValidationResult(null); }}
                   className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors ${'text-gray-600 hover:bg-gray-100'}`}
                 >
                   {t('common.cancel')}
                 </button>
                 <button
-                  onClick={() => {
-                    setShowCreatePopup(false);
-                    setNewTicket({ budgetName: '', seasonGroup: '', season: '' });
+                  onClick={async () => {
+                    if (!newTicket.budgetName || !newTicket.seasonGroup || !newTicket.season) return;
+
+                    // Step 1: Validate
+                    setValidationLoading(true);
+                    setValidationResult(null);
+                    try {
+                      const validation = await ticketService.validate({ budgetId: newTicket.budgetName });
+                      setValidationResult(validation);
+                      if (!validation.valid) {
+                        setValidationLoading(false);
+                        return;
+                      }
+                    } catch (err: any) {
+                      const errData = err?.response?.data;
+                      if (errData?.validation) {
+                        setValidationResult(errData.validation);
+                      } else {
+                        toast.error(errData?.message || 'Validation failed');
+                      }
+                      setValidationLoading(false);
+                      return;
+                    }
+                    setValidationLoading(false);
+
+                    // Step 2: Resolve season group / season IDs
+                    const sgObj = seasonGroupsRaw.find((sg: any) => sg.name === newTicket.seasonGroup);
+                    const sObj = sgObj?.seasons?.find((s: any) => s.name === newTicket.season);
+                    if (!sgObj || !sObj) {
+                      toast.error('Could not resolve Season Group / Season');
+                      return;
+                    }
+
+                    // Step 3: Create ticket
+                    setCreateLoading(true);
+                    try {
+                      await ticketService.create({
+                        budgetId: newTicket.budgetName,
+                        seasonGroupId: String(sgObj.id),
+                        seasonId: String(sObj.id),
+                      });
+                      toast.success('Ticket created successfully!');
+                      invalidateCache('/tickets');
+                      setShowCreatePopup(false);
+                      setNewTicket({ budgetName: '', seasonGroup: '', season: '' });
+                      setValidationResult(null);
+                      fetchTickets();
+                    } catch (err: any) {
+                      const errData = err?.response?.data;
+                      if (errData?.validation) {
+                        setValidationResult(errData.validation);
+                      } else {
+                        toast.error(errData?.message || 'Failed to create ticket');
+                      }
+                    } finally {
+                      setCreateLoading(false);
+                    }
                   }}
-                  disabled={!newTicket.budgetName || !newTicket.seasonGroup || !newTicket.season}
-                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors shadow-sm ${
-                    !newTicket.budgetName || !newTicket.seasonGroup || !newTicket.season
+                  disabled={!newTicket.budgetName || !newTicket.seasonGroup || !newTicket.season || createLoading || validationLoading}
+                  className={`px-4 py-2 text-sm font-medium rounded-lg transition-colors shadow-sm flex items-center gap-2 ${
+                    !newTicket.budgetName || !newTicket.seasonGroup || !newTicket.season || createLoading || validationLoading
                       ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
                       : 'bg-[#D7B797] text-[#0A0A0A] hover:bg-[#C4A584]'
                   }`}
                 >
-                  {t('ticket.createTicket')}
+                  {(createLoading || validationLoading) && <Loader2 size={14} className="animate-spin" />}
+                  {validationLoading ? 'Validating...' :
+                   createLoading ? 'Creating...' :
+                   t('ticket.createTicket')}
                 </button>
               </div>
             </div>

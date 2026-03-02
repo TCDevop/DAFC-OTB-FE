@@ -8,7 +8,7 @@ import {
   ClipboardList, ClipboardCheck, Ticket, Home, LogOut,
   Settings, Crown, PanelLeftClose,
   Database, Building2, FolderTree, Tag,
-  Upload
+  Upload, Store, Users, Calendar
 } from 'lucide-react';
 import { ROUTE_MAP } from '@/utils/routeMap';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -215,7 +215,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
           </div>
         ) : (
           /* Expanded View */
-          <div className="px-2.5 space-y-1">
+          <div className="px-2.5 space-y-3">
             {/* Home */}
             <button
               onClick={() => navigateTo('home')}
@@ -231,14 +231,14 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
                 className={`transition-colors duration-150 ${getIconClass('home')}`}
                 style={currentScreen === 'home' ? { filter: 'drop-shadow(0 0 4px rgba(215,183,151,0.4))' } : undefined}
               />
-              <span className={`text-[13px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass('home')}`}>
+              <span className={`text-[12px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass('home')}`}>
                 {t('nav.homeDashboard')}
               </span>
             </button>
 
             {/* Menu Groups */}
             {menuGroups.map((group: any) => (
-              <div key={group.id} className="pt-px">
+              <div key={group.id} className="pt-0">
                 {/* Group Header */}
                 <button
                   onClick={() => toggleGroup(group.id)}
@@ -246,7 +246,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
                 >
                   <div className="flex items-center gap-1.5">
                     <group.icon
-                      size={13}
+                      size={14}
                       strokeWidth={2.5}
                       className="transition-colors duration-150"
                       style={{
@@ -254,7 +254,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
                       }}
                     />
                     <span
-                      className="font-bold text-[10px] uppercase tracking-wider font-['Montserrat']"
+                      className="font-extrabold text-[12px] uppercase tracking-wider font-['Montserrat']"
                       style={{ color: '#8A6340' }}
                     >
                       {group.label}
@@ -271,7 +271,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
 
                 {/* Group Items */}
                 {openGroups[group.id] && (
-                  <div className="space-y-0.5 ml-1.5 pl-2.5 mt-0.5" style={{
+                  <div className="space-y-1 ml-1.5 pl-2.5 mt-1" style={{
                     borderLeft: '1.5px solid rgba(215,183,151,0.45)',
                   }}>
                     {group.items.map((item: any) => {
@@ -292,7 +292,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
                             className={`transition-colors duration-150 ${getIconClass(item.id)}`}
                             style={isActive ? { filter: 'drop-shadow(0 0 4px rgba(215,183,151,0.4))' } : undefined}
                           />
-                          <span className={`text-[13px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass(item.id)}`}>
+                          <span className={`text-[12px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass(item.id)}`}>
                             {item.label}
                           </span>
                         </button>
@@ -318,13 +318,13 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
               >
                 <div className="flex items-center gap-1.5">
                   <Database
-                    size={13}
+                    size={14}
                     strokeWidth={2.5}
                     className="transition-colors duration-150"
                     style={{ color: '#8A6340' }}
                   />
                   <span
-                    className="font-bold text-[10px] uppercase tracking-wider font-['Montserrat']"
+                    className="font-extrabold text-[12px] uppercase tracking-wider font-['Montserrat']"
                     style={{ color: '#8A6340' }}
                   >
                     {t('nav.masterData')}
@@ -340,7 +340,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
               </button>
 
               {isMasterDataOpen && (
-                <div className="space-y-0.5 ml-1.5 pl-2.5 mt-0.5" style={{
+                <div className="space-y-1 ml-1.5 pl-2.5 mt-1" style={{
                   borderLeft: '1.5px solid rgba(215,183,151,0.45)',
                 }}>
                   {[
@@ -348,6 +348,9 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
                     { id: 'master-skus', label: t('nav.skuCatalog'), icon: Package },
                     { id: 'master-categories', label: t('nav.categories'), icon: FolderTree },
                     { id: 'master-subcategories', label: t('nav.subCategories'), icon: Tag },
+                    { id: 'master-stores', label: t('nav.stores'), icon: Store },
+                    { id: 'master-genders', label: t('nav.genders'), icon: Users },
+                    { id: 'master-season-groups', label: t('nav.seasonGroups'), icon: Calendar },
                   ].map((item: any) => {
                     const isActive = currentScreen === item.id;
                     return (
@@ -366,7 +369,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
                           className={`transition-colors duration-150 ${getIconClass(item.id)}`}
                           style={isActive ? { filter: 'drop-shadow(0 0 4px rgba(215,183,151,0.4))' } : undefined}
                         />
-                        <span className={`text-[13px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass(item.id)}`}>
+                        <span className={`text-[12px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass(item.id)}`}>
                           {item.label}
                         </span>
                       </button>
@@ -391,7 +394,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
                 className={`transition-colors duration-150 ${getIconClass('import-data')}`}
                 style={currentScreen === 'import-data' ? { filter: 'drop-shadow(0 0 4px rgba(215,183,151,0.4))' } : undefined}
               />
-              <span className={`text-[13px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass('import-data')}`}>
+              <span className={`text-[12px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass('import-data')}`}>
                 {t('nav.importData') || 'Import Data'}
               </span>
             </button>

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import {
   ChevronDown, Package, Pencil, X, Plus, Trash2, Ruler,
   Layers, Check, LayoutGrid, List, SlidersHorizontal, Download, Send, Tag, Star, Sparkles,
-  AlertTriangle, ArrowRight, Save, FilePlus
+  AlertTriangle, ArrowRight, Save, FilePlus, FileText
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -105,7 +105,7 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
       storeQty,
       ttlValue: Number(prod.totalValue) || 0,
       customerTarget: sp.customer_target || sp.customerTarget || prod.customerTarget || 'New',
-      proposal_sizing_headers: sp.proposal_sizing_headers || sp.proposalSizingHeaders || []});
+    });
   });
   return blocks;
 };
@@ -114,7 +114,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const router = useRouter();
-  const { setAllocationData, setOtbAnalysisContext, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew } = useAppContext();
+  const { setAllocationData, setOtbAnalysisContext, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, registerExport, unregisterExport } = useAppContext();
   const { dialogProps, confirm } = useConfirmDialog();
   const { isOpen: filterOpen, open: openFilter, close: closeFilter } = useBottomSheet();
   const [mobileFilterValues, setMobileFilterValues] = useState<Record<string, string | string[]>>({});
@@ -137,7 +137,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           masterDataService.getGenders().catch(() => []),
           masterDataService.getCategories().catch(() => []),
           masterDataService.getStores().catch(() => []),
-          masterDataService.getBrands({ limit: 3 }).catch(() => []),
+          masterDataService.getBrands().catch(() => []),
         ]);
         const genders = Array.isArray(gendersRes) ? gendersRes : (gendersRes?.data || []);
         setMasterGenders(genders.map((g: any) => (g.name || g.code || '').toLowerCase()));
@@ -154,7 +154,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           setMasterCategories(rawCategories);
         }
         const storeList = Array.isArray(storesRes) ? storesRes : (storesRes?.data || []);
-        // Deduplicate by code and limit to first 3 stores
+        // Deduplicate by code
         const rawStores = storeList.length > 0 ? storeList : [{ code: 'REX', name: 'REX' }, { code: 'TTP', name: 'TTP' }];
         const seen = new Set<string>();
         const uniqueStores = rawStores.filter((s: any) => {
@@ -162,7 +162,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           if (!code || seen.has(code)) return false;
           seen.add(code);
           return true;
-        }).slice(0, 3);
+        });
         setStores(uniqueStores);
         // Brands — deduplicate by name (same brand name = same visual section)
         const brandsData = Array.isArray(brandsRes) ? brandsRes : (brandsRes?.data || []);
@@ -181,17 +181,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     fetchMasterData();
   }, []);
 
-  // Fetch SKU catalog and proposals from API
+  // Fetch SKU catalog only (at mount)
   useEffect(() => {
-    const fetchSkuData = async () => {
+    const fetchCatalog = async () => {
       setSkuDataLoading(true);
       try {
-        const [catalogRes, proposalsListRes] = await Promise.all([
-          masterDataService.getSkuCatalog().catch(() => []),
-          proposalService.getAll().catch(() => [])
-        ]);
-
-        // Transform SKU catalog
+        const catalogRes = await masterDataService.getSkuCatalog().catch(() => []);
         const rawCatalog = Array.isArray(catalogRes) ? catalogRes : [];
         const catalog = rawCatalog.map((s: any) => ({
           productId: String(s.id || ''),
@@ -215,147 +210,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           theme: s.theme || '',
           size: s.size || ''
         }));
-
-        // Set catalog initially (will be enriched after proposals are processed)
         setSkuCatalog(catalog);
-
-        // Build per-brand proposal headers (versions) from list response
-        const proposalsList = Array.isArray(proposalsListRes) ? proposalsListRes : [];
-        const headersByBrand: Record<string, any[]> = {};
-        proposalsList.forEach((h: any) => {
-          const bId = extractBrandId(h);
-          if (!headersByBrand[bId]) headersByBrand[bId] = [];
-          headersByBrand[bId].push({
-            id: h.id,
-            version: h.version,
-            status: h.status,
-            isFinal: h.is_final_version ?? h.isFinalVersion ?? false});
-        });
-        // Sort each brand's versions descending
-        for (const bId of Object.keys(headersByBrand)) {
-          headersByBrand[bId].sort((a: any, b: any) => b.version - a.version);
-        }
-        setBrandProposalHeaders(headersByBrand);
-        // Auto-select final or latest version per brand
-        const autoSelected: Record<string, string> = {};
-        for (const [bId, headers] of Object.entries(headersByBrand)) {
-          const finalH = headers.find((h: any) => h.isFinal);
-          autoSelected[bId] = String(finalH ? finalH.id : headers[0]?.id || '');
-        }
-        setBrandSkuVersion(prev => ({ ...autoSelected, ...prev }));
-
-        // Fetch each selected version's detail to build SKU blocks using the helper
-        const detailResults = await Promise.all(
-          proposalsList.map((p: any) =>
-            proposalService.getOne(p.id).catch(() => null)
-          )
-        );
-        const proposals = detailResults
-          .map((r: any) => r?.data || r)
-          .filter(Boolean);
-        const allBlocks: any[] = [];
-        proposals.forEach((p: any) => {
-          const proposalBrandId = extractBrandId(p);
-          const brandBlocks = buildBlocksFromProposal(p, proposalBrandId);
-          allBlocks.push(...brandBlocks);
-        });
-        if (allBlocks.length > 0) {
-          setSkuBlocks(allBlocks);
-          // Hydrate sizing data from loaded proposal blocks
-          hydrateSizingData(allBlocks);
-        }
-
-        // Build per-brand sizing headers (choices) from proposal details
-        const sizingByBrand: Record<string, any[]> = {};
-        const seenSizingVersions: Record<string, Set<number>> = {};
-        proposals.forEach((p: any) => {
-          const bId = extractBrandId(p);
-          if (!sizingByBrand[bId]) { sizingByBrand[bId] = []; seenSizingVersions[bId] = new Set(); }
-          // Sizing headers are nested inside each sku_proposal / product
-          const skuProposals = p.sku_proposals || p.skuProposals || [];
-          skuProposals.forEach((sp: any) => {
-            const sizingHeaders = sp.proposal_sizing_headers || sp.proposalSizingHeaders || [];
-            sizingHeaders.forEach((sh: any) => {
-              const ver = sh.version ?? 0;
-              if (!seenSizingVersions[bId].has(ver)) {
-                seenSizingVersions[bId].add(ver);
-                sizingByBrand[bId].push({
-                  id: sh.id,
-                  version: ver,
-                  isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false});
-              }
-            });
-          });
-          // Also check products array (transformed response)
-          (p.products || []).forEach((prod: any) => {
-            const sizingHeaders = prod.proposal_sizing_headers || prod.proposalSizingHeaders || prod.sizingHeaders || [];
-            sizingHeaders.forEach((sh: any) => {
-              const ver = sh.version ?? 0;
-              if (!seenSizingVersions[bId].has(ver)) {
-                seenSizingVersions[bId].add(ver);
-                sizingByBrand[bId].push({
-                  id: sh.id,
-                  version: ver,
-                  isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false});
-              }
-            });
-          });
-        });
-        for (const bId of Object.keys(sizingByBrand)) {
-          sizingByBrand[bId].sort((a: any, b: any) => b.version - a.version);
-        }
-        setBrandSizingHeaders(sizingByBrand);
-        // Auto-select final or latest sizing choice per brand
-        const autoSizing: Record<string, string> = {};
-        for (const [bId, headers] of Object.entries(sizingByBrand)) {
-          const finalH = headers.find((h: any) => h.isFinal);
-          autoSizing[bId] = String(finalH ? finalH.id : headers[0]?.id || '');
-        }
-        setBrandSizingChoice(prev => ({ ...autoSizing, ...prev }));
-
-        // Enrich catalog with unique SKUs extracted from proposal products
-        // This ensures AddSKU modal has items even if the catalog API is empty
-        const seenSkus = new Set(catalog.map((c: any) => c.sku));
-        const supplementarySkus: any[] = [];
-        proposals.forEach((p: any) => {
-          (p.products || []).forEach((prod: any) => {
-            const sku = prod.skuCode || prod.sku;
-            if (sku && !seenSkus.has(sku)) {
-              seenSkus.add(sku);
-              supplementarySkus.push({
-                sku,
-                name: prod.productName || prod.name || '',
-                collectionName: prod.collectionName || prod.collection || '',
-                color: prod.color || '',
-                colorCode: prod.colorCode || '',
-                division: prod.division || prod.category || '',
-                productType: prod.productType || prod.subCategory || '',
-                departmentGroup: prod.departmentGroup || prod.department || '',
-                fsr: prod.fsr || '',
-                carryForward: prod.carryForward || 'NEW',
-                composition: prod.composition || '',
-                unitCost: Number(prod.unitCost) || 0,
-                importTaxPct: Number(prod.importTaxPct || prod.importTax) || 0,
-                srp: Number(prod.srp) || 0,
-                wholesale: Number(prod.wholesale) || 0,
-                rrp: Number(prod.rrp) || 0,
-                regionalRrp: Number(prod.regionalRrp) || 0,
-                theme: prod.theme || '',
-                size: prod.size || ''
-              });
-            }
-          });
-        });
-        if (supplementarySkus.length > 0) {
-          setSkuCatalog((prev) => [...prev, ...supplementarySkus]);
-        }
       } catch (err: any) {
-        console.error('Failed to fetch SKU data:', err);
+        console.error('Failed to fetch SKU catalog:', err);
       } finally {
         setSkuDataLoading(false);
       }
     };
-    fetchSkuData();
+    fetchCatalog();
   }, []);
 
   // API state for fetching budgets
@@ -403,46 +265,41 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     fetchBudgets();
   }, [fetchBudgets]);
 
-  // Auto-select budget from sessionStorage when budgets are loaded
-  useEffect(() => {
-    if (apiBudgets.length === 0 || budgetFilter !== 'all') return;
-    if (storedBudgetFilters?.selectedYear) {
-      const match = apiBudgets.find((b: any) => b.fiscalYear === storedBudgetFilters.selectedYear);
-      if (match) setBudgetFilter(match.id);
-    }
-  }, [apiBudgets]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Auto-fill filters from sessionStorage (shared with BudgetAllocateScreen)
-  const storedBudgetFilters = (() => {
-    try {
-      const stored = sessionStorage.getItem('otb_budget_filters');
-      return stored ? JSON.parse(stored) : null;
-    } catch { return null; }
-  })();
+  // sessionStorage auto-fill removed — all filters default to 'all'
+  const [fyFilter, setFyFilter] = useState('all');
   const [budgetFilter, setBudgetFilter] = useState('all');
+  const [isBudgetDropdownOpen, setIsBudgetDropdownOpen] = useState(false);
+  const budgetDropdownRef = useRef<HTMLDivElement>(null);
   const [brandFilter, setBrandFilter] = useState('all');
-  const [seasonGroupFilter, setSeasonGroupFilter] = useState(storedBudgetFilters?.selectedSeasonGroup || 'all');
+  const [seasonGroupFilter, setSeasonGroupFilter] = useState('all');
   const [seasonFilter, setSeasonFilter] = useState('all');
 
   const [genderFilter, setGenderFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [subCategoryFilter, setSubCategoryFilter] = useState('all');
+  const hasActiveSkuFilter = genderFilter !== 'all' || categoryFilter !== 'all' || subCategoryFilter !== 'all';
 
   // Fetch season groups filtered by selected budget's fiscal year
   useEffect(() => {
+    const controller = new AbortController();
     const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
     const year = budget?.fiscalYear ? Number(budget.fiscalYear) : undefined;
-    masterDataService.getSeasonGroups(year ? { year } : undefined).then(res => {
+    masterDataService.getSeasonGroups(year ? { year } : undefined, { signal: controller.signal }).then(res => {
       const sgData = Array.isArray(res) ? res : [];
       setApiSeasonGroups(sgData);
-    }).catch(() => setApiSeasonGroups([]));
+    }).catch((err: any) => {
+      // Don't clear data on abort/cancel — keep previous season groups
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
+      setApiSeasonGroups([]);
+    });
+    return () => { controller.abort(); };
   }, [budgetFilter, apiBudgets]);
 
-  // Allocation/Planning validation — checks if brand has final AllocateHeader + final PlanningHeader
-  const filtersComplete = seasonGroupFilter !== 'all' && seasonFilter !== 'all';
+  // Allocation/Planning validation — checks if budget + season filters are selected
+  const filtersComplete = budgetFilter !== 'all' && seasonGroupFilter !== 'all' && seasonFilter !== 'all';
 
   const matchedAllocateHeaders = useMemo(() => {
-    if (!filtersComplete || budgetFilter === 'all') return [];
+    if (!filtersComplete) return [];
     const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
     if (!budget) return [];
     return (budget.allocateHeaders || []).filter((ah: any) =>
@@ -451,6 +308,185 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       )
     );
   }, [filtersComplete, budgetFilter, apiBudgets, seasonGroupFilter, seasonFilter]);
+
+  // Gated proposal loading — only when budget + season filters are complete
+  // Uses AbortController to cancel in-flight requests when filters change,
+  // preventing connection pool exhaustion and "Network Error" on other requests.
+  const loadProposalsRef = useRef(0);
+  const loadAbortRef = useRef<AbortController | null>(null);
+  useEffect(() => {
+    // Cancel any in-flight requests from previous run
+    if (loadAbortRef.current) {
+      loadAbortRef.current.abort();
+      loadAbortRef.current = null;
+    }
+
+    if (!filtersComplete) {
+      setBrandProposalHeaders({});
+      setBrandSizingHeaders({});
+      setSkuBlocks([]);
+      return;
+    }
+    if (matchedAllocateHeaders.length === 0) return;
+
+    const controller = new AbortController();
+    loadAbortRef.current = controller;
+    const signal = controller.signal;
+    const loadId = ++loadProposalsRef.current;
+
+    const loadFilteredProposals = async () => {
+      setSkuDataLoading(true);
+      try {
+        const newHeadersByBrand: Record<string, any[]> = {};
+        const newSizingByBrand: Record<string, any[]> = {};
+        const allBlocks: any[] = [];
+        const seenSizingVersions: Record<string, Set<number>> = {};
+
+        for (const ah of matchedAllocateHeaders) {
+          if (signal.aborted || loadId !== loadProposalsRef.current) return; // stale
+          const brandId = String(ah.brandId);
+          const proposalsList = await proposalService.getAll({ allocateHeaderId: ah.id }, { signal }).catch((e: any) => {
+            if (e?.code === 'ERR_CANCELED') throw e;
+            return [];
+          });
+          const list = Array.isArray(proposalsList) ? proposalsList : [];
+
+          if (list.length > 0) {
+            // Build per-brand proposal headers
+            newHeadersByBrand[brandId] = list.map((h: any) => ({
+              id: h.id,
+              version: h.version,
+              status: h.status,
+              isFinal: h.is_final_version ?? h.isFinalVersion ?? false,
+            })).sort((a: any, b: any) => b.version - a.version);
+
+            if (signal.aborted) return;
+
+            // Fetch details for each proposal
+            const detailResults = await Promise.all(
+              list.map((p: any) => proposalService.getOne(p.id, { signal }).catch((e: any) => {
+                if (e?.code === 'ERR_CANCELED') throw e;
+                return null;
+              }))
+            );
+            const proposals = detailResults.map((r: any) => r?.data || r).filter(Boolean);
+
+            // Build blocks
+            proposals.forEach((p: any) => {
+              const brandBlocks = buildBlocksFromProposal(p, brandId);
+              allBlocks.push(...brandBlocks);
+            });
+
+            // Build sizing headers (now at proposal header level, not per-SKU)
+            seenSizingVersions[brandId] = new Set();
+            newSizingByBrand[brandId] = [];
+            proposals.forEach((p: any) => {
+              const headerSizings = p.proposal_sizing_headers || p.proposalSizingHeaders || [];
+              headerSizings.forEach((sh: any) => {
+                const ver = sh.version ?? 0;
+                if (!seenSizingVersions[brandId].has(ver)) {
+                  seenSizingVersions[brandId].add(ver);
+                  newSizingByBrand[brandId].push({
+                    id: sh.id,
+                    version: ver,
+                    isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false,
+                    proposalSizings: sh.proposal_sizings || sh.proposalSizings || [],
+                  });
+                }
+              });
+            });
+            newSizingByBrand[brandId]?.sort((a: any, b: any) => a.version - b.version);
+
+            // Enrich catalog with unique SKUs from proposal products
+            const seenSkus = new Set(skuCatalog.map((c: any) => c.sku));
+            const supplementarySkus: any[] = [];
+            proposals.forEach((p: any) => {
+              (p.products || []).forEach((prod: any) => {
+                const sku = prod.skuCode || prod.sku;
+                if (sku && !seenSkus.has(sku)) {
+                  seenSkus.add(sku);
+                  supplementarySkus.push({
+                    sku, name: prod.productName || prod.name || '',
+                    collectionName: prod.collectionName || prod.collection || '',
+                    color: prod.color || '', colorCode: prod.colorCode || '',
+                    division: prod.division || prod.category || '',
+                    productType: prod.productType || prod.subCategory || '',
+                    departmentGroup: prod.departmentGroup || prod.department || '',
+                    fsr: prod.fsr || '', carryForward: prod.carryForward || 'NEW',
+                    composition: prod.composition || '',
+                    unitCost: Number(prod.unitCost) || 0,
+                    importTaxPct: Number(prod.importTaxPct || prod.importTax) || 0,
+                    srp: Number(prod.srp) || 0, wholesale: Number(prod.wholesale) || 0,
+                    rrp: Number(prod.rrp) || 0, regionalRrp: Number(prod.regionalRrp) || 0,
+                    theme: prod.theme || '', size: prod.size || '',
+                  });
+                }
+              });
+            });
+            if (supplementarySkus.length > 0) {
+              setSkuCatalog(prev => [...prev, ...supplementarySkus]);
+            }
+          } else {
+            // No proposals found — try loading previous year template
+            if (signal.aborted) return;
+            const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
+            const currentFY = budget?.fiscalYear;
+            if (currentFY) {
+              const historical = await proposalService.getHistorical({
+                fiscalYear: currentFY - 1,
+                seasonGroupName: seasonGroupFilter,
+                seasonName: seasonFilter,
+                brandId,
+              });
+              if (historical) {
+                const histBlocks = buildBlocksFromProposal(historical, brandId);
+                histBlocks.forEach((b: any) => { b.isHistorical = true; });
+                allBlocks.push(...histBlocks);
+              }
+            }
+          }
+        }
+
+        if (signal.aborted || loadId !== loadProposalsRef.current) return; // stale
+
+        setBrandProposalHeaders(newHeadersByBrand);
+        setBrandSizingHeaders(newSizingByBrand);
+        setSkuBlocks(allBlocks);
+        // Hydrate sizing per brand from header-level sizing headers
+        for (const [bId, sizHeaders] of Object.entries(newSizingByBrand)) {
+          const brandBlocks = allBlocks.filter((b: any) => String(b.brandId) === bId);
+          if (brandBlocks.length > 0 && sizHeaders.length > 0) {
+            hydrateSizingData(brandBlocks, sizHeaders);
+          }
+        }
+
+        // Auto-select final or latest version per brand
+        const autoSelected: Record<string, string> = {};
+        for (const [bId, headers] of Object.entries(newHeadersByBrand)) {
+          const finalH = headers.find((h: any) => h.isFinal);
+          autoSelected[bId] = String(finalH ? finalH.id : headers[0]?.id || '');
+        }
+        setBrandSkuVersion(prev => ({ ...autoSelected, ...prev }));
+
+        // Auto-select final or latest sizing choice per brand
+        const autoSizing: Record<string, string> = {};
+        for (const [bId, headers] of Object.entries(newSizingByBrand)) {
+          const finalH = headers.find((h: any) => h.isFinal);
+          autoSizing[bId] = String(finalH ? finalH.id : headers[0]?.id || '');
+        }
+        setBrandSizingChoice(prev => ({ ...autoSizing, ...prev }));
+      } catch (err: any) {
+        // Silently ignore cancelled requests
+        if (err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
+        console.error('Failed to load proposals:', err);
+      } finally {
+        if (loadId === loadProposalsRef.current) setSkuDataLoading(false);
+      }
+    };
+    loadFilteredProposals();
+
+    return () => { controller.abort(); };
+  }, [filtersComplete, matchedAllocateHeaders, budgetFilter, seasonGroupFilter, seasonFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const [brandPlanningHeaders, setBrandPlanningHeaders] = useState<Record<string, any[]>>({});
   const [brandLoadingPlanning, setBrandLoadingPlanning] = useState<Record<string, boolean>>({});
@@ -485,6 +521,18 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     document.addEventListener('mousedown', handleClick);
     return () => document.removeEventListener('mousedown', handleClick);
   }, [openDropdown, dropdownAnchorEl]);
+
+  // Close budget dropdown on outside click
+  useEffect(() => {
+    if (!isBudgetDropdownOpen) return;
+    const handleClick = (e: any) => {
+      if (budgetDropdownRef.current && !budgetDropdownRef.current.contains(e.target)) {
+        setIsBudgetDropdownOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClick);
+    return () => document.removeEventListener('mousedown', handleClick);
+  }, [isBudgetDropdownOpen]);
 
   // Smart Filter Bar — direct DOM toggle, zero re-render
   const { barRef, handleBarClick } = useSmartScrollState();
@@ -541,35 +589,48 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const getBrandSkuVersion = (brandId: string) => getBrandSelection(brandId, brandSkuVersion, brandProposalHeaders);
   const getBrandSizingChoice = (brandId: string) => getBrandSelection(brandId, brandSizingChoice, brandSizingHeaders);
 
-  // Hydrate sizingData state from loaded blocks (extracts sizing rows from proposal_sizing_headers)
-  const hydrateSizingData = useCallback((blocks: any[]) => {
+  // Hydrate sizingData state from loaded blocks + header-level sizing headers
+  // Sizing headers are per proposal header; sizing rows link to specific SKU proposals via sku_proposal_id
+  const hydrateSizingData = useCallback((blocks: any[], sizingHeadersForBrand?: any[]) => {
     const loaded: Record<string, any> = {};
+
+    // Build a map: skuProposalId → { blockKey, itemIdx } for fast lookup
+    const skuMap = new Map<string, { key: string }>();
     blocks.forEach((block: any) => {
       const blockKey = buildBlockKey(block);
       (block.items || []).forEach((item: any, idx: number) => {
-        const key = `${blockKey}_${idx}`;
-        const headers = item.proposal_sizing_headers || [];
-        if (headers.length > 0) {
-          const itemSizing: Record<string, any> = {};
-          headers.forEach((sh: any) => {
-            const choiceKey = String(sh.id);
-            const sizeData: Record<string, number> = {};
-            const rows = sh.proposal_sizings || sh.proposalSizings || [];
-            rows.forEach((ps: any) => {
-              const sizeName = ps.subcategory_size?.name || ps.subcategorySize?.name || '';
-              if (sizeName) {
-                const sizeKey = sizeName.startsWith('s') ? sizeName : `s${sizeName}`;
-                sizeData[sizeKey] = Number(ps.proposal_quantity ?? ps.proposalQuantity) || 0;
-              }
-            });
-            // Ensure default size keys exist
-            DEFAULT_SIZE_KEYS.forEach(k => { if (!sizeData[k]) sizeData[k] = 0; });
-            itemSizing[choiceKey] = sizeData;
-          });
-          loaded[key] = itemSizing;
+        if (item.skuProposalId) {
+          skuMap.set(String(item.skuProposalId), { key: `${blockKey}_${idx}` });
         }
       });
     });
+
+    // Use provided sizing headers or collect from brandSizingHeaders
+    const allSizingHeaders = sizingHeadersForBrand || [];
+    if (allSizingHeaders.length > 0) {
+      allSizingHeaders.forEach((sh: any) => {
+        const choiceKey = String(sh.id);
+        const rows = sh.proposalSizings || sh.proposal_sizings || [];
+        rows.forEach((ps: any) => {
+          const skuPropId = String(ps.sku_proposal_id || ps.skuProposalId || '');
+          const mapping = skuMap.get(skuPropId);
+          if (!mapping) return;
+
+          const sizeName = ps.subcategory_size?.name || ps.subcategorySize?.name || '';
+          if (!sizeName) return;
+          const sizeKey = sizeName.startsWith('s') ? sizeName : `s${sizeName}`;
+
+          if (!loaded[mapping.key]) loaded[mapping.key] = {};
+          if (!loaded[mapping.key][choiceKey]) {
+            const empty: Record<string, number> = {};
+            DEFAULT_SIZE_KEYS.forEach(k => { empty[k] = 0; });
+            loaded[mapping.key][choiceKey] = empty;
+          }
+          loaded[mapping.key][choiceKey][sizeKey] = Number(ps.proposal_quantity ?? ps.proposalQuantity) || 0;
+        });
+      });
+    }
+
     if (Object.keys(loaded).length > 0) {
       setSizingData(prev => ({ ...prev, ...loaded }));
     }
@@ -586,8 +647,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         const other = prev.filter((b: any) => String(b.brandId) !== brandId);
         return [...other, ...newBrandBlocks];
       });
-      // Hydrate sizing data from the loaded version
-      hydrateSizingData(newBrandBlocks);
+      // Hydrate sizing data from header-level sizing headers
+      const headerSizings = (p.proposal_sizing_headers || p.proposalSizingHeaders || []).map((sh: any) => ({
+        id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? false,
+        proposalSizings: sh.proposal_sizings || sh.proposalSizings || [],
+      }));
+      hydrateSizingData(newBrandBlocks, headerSizings);
     } catch (err: any) {
       console.error('Failed to load proposal version:', err);
       toast.error('Failed to load version');
@@ -766,11 +831,24 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     setLightbox(null);
   };
 
-  const budgetOptions = useMemo(() => {
-    const options = [{ id: 'all', label: 'All Budgets' }];
-    apiBudgets.forEach((b: any) => options.push({ id: b.id, label: b.budgetName }));
+  // FY options derived from budgets
+  const fyOptions = useMemo(() => {
+    const years = new Set(apiBudgets.map((b: any) => b.fiscalYear).filter(Boolean));
+    const options = [{ value: 'all', label: 'All FY' }];
+    Array.from(years).sort((a: any, b: any) => Number(b) - Number(a)).forEach((y: any) => {
+      options.push({ value: String(y), label: `FY${y}` });
+    });
     return options;
   }, [apiBudgets]);
+
+  const filteredBudgets = useMemo(() => {
+    return fyFilter === 'all' ? apiBudgets : apiBudgets.filter((b: any) => String(b.fiscalYear) === fyFilter);
+  }, [apiBudgets, fyFilter]);
+
+  const selectedBudget = useMemo(() => {
+    if (budgetFilter === 'all') return null;
+    return apiBudgets.find((b: any) => b.id === budgetFilter) || null;
+  }, [apiBudgets, budgetFilter]);
 
   // Brand options from API
   const brandOptions = useMemo(() => {
@@ -962,31 +1040,59 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const buildProductsPayload = useCallback((brandId: string) => {
     const blocks = (brandSubcategoryBlocks[brandId] || []).filter((b: any) => b.items?.length > 0);
     return blocks.flatMap((block: any) =>
-      block.items.map((item: any) => {
-        const product: any = {
-          productId: item.productId || '',
-          customerTarget: item.customerTarget || 'New',
-          unitCost: item.unitCost || 0,
-          srp: item.srp || 0,
-          allocations: stores.map((store: any) => ({
-            storeId: String(store.id),
-            quantity: item.storeQty?.[(store.code || '').toUpperCase()] || 0})).filter((a: any) => a.quantity > 0)};
-        // Include existing sizing data to be preserved on save
-        const sizingHeaders = item.proposal_sizing_headers || item.proposalSizingHeaders || [];
-        if (sizingHeaders.length > 0) {
-          product.sizings = sizingHeaders.map((sh: any) => ({
-            version: sh.version ?? 1,
-            isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false,
-            rows: (sh.proposal_sizings || sh.proposalSizings || []).map((ps: any) => ({
-              subcategorySizeId: String(ps.subcategory_size_id || ps.subcategorySizeId || ps.subcategorySize?.id || ''),
-              actualSalesmixPct: Number(ps.actual_salesmix_pct || ps.actualSalesmixPct || 0),
-              actualStPct: Number(ps.actual_st_pct || ps.actualStPct || 0),
-              proposalQuantity: Number(ps.proposal_quantity || ps.proposalQuantity || 0)}))}));
-        }
-        return product;
-      })
+      block.items.map((item: any) => ({
+        productId: item.productId || '',
+        customerTarget: item.customerTarget || 'New',
+        unitCost: item.unitCost || 0,
+        srp: item.srp || 0,
+        allocations: stores.map((store: any) => ({
+          storeId: String(store.id),
+          quantity: item.storeQty?.[(store.code || '').toUpperCase()] || 0,
+        })).filter((a: any) => a.quantity > 0),
+      }))
     ).filter((p: any) => p.productId);
   }, [brandSubcategoryBlocks, stores]);
+
+  // Build header-level sizing payload from brandSizingHeaders + sizingData state
+  const buildSizingsPayload = useCallback((brandId: string) => {
+    const headers = brandSizingHeaders[brandId] || [];
+    if (headers.length === 0) return undefined;
+
+    // Build productId → skuProposalId map from blocks
+    const blocks = (brandSubcategoryBlocks[brandId] || []).filter((b: any) => b.items?.length > 0);
+
+    return headers.map((sh: any) => {
+      const choiceKey = String(sh.id);
+      const rows: any[] = [];
+
+      blocks.forEach((block: any) => {
+        const blockKey = buildBlockKey(block);
+        (block.items || []).forEach((item: any, idx: number) => {
+          const key = `${blockKey}_${idx}`;
+          const itemSizing = sizingData[key]?.[choiceKey];
+          if (!itemSizing) return;
+
+          // For each size that has a quantity, create a sizing row
+          DEFAULT_SIZE_KEYS.forEach(sizeKey => {
+            const qty = Number(itemSizing[sizeKey]) || 0;
+            if (qty > 0) {
+              rows.push({
+                skuProposalProductId: item.productId,
+                subcategorySizeId: sizeKey,
+                proposalQuantity: qty,
+              });
+            }
+          });
+        });
+      });
+
+      return {
+        version: sh.version ?? 1,
+        isFinal: sh.isFinal ?? false,
+        rows,
+      };
+    });
+  }, [brandSubcategoryBlocks, brandSizingHeaders, sizingData]);
 
   // Save a single brand's proposal data
   const handleSaveBrand = useCallback(async (brandId: string, isNewVersion: boolean) => {
@@ -994,6 +1100,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     setBrandSaving(prev => ({ ...prev, [brandId]: true }));
     try {
       const products = buildProductsPayload(brandId);
+      const sizings = buildSizingsPayload(brandId);
 
       // No existing version → create header then save full data (products + allocations + sizing)
       if (!headerId) {
@@ -1009,8 +1116,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         const newHeader = created?.data || created;
         if (newHeader) {
           const newId = String(newHeader.id);
-          // Save full data with allocations (sizing auto-generated by backend)
-          await proposalService.saveFullProposal(newId, { products });
+          // Save full data with allocations + sizing at header level
+          await proposalService.saveFullProposal(newId, { products, sizings });
           setBrandProposalHeaders(prev => ({
             ...prev,
             [brandId]: [
@@ -1018,24 +1125,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               ...(prev[brandId] || []),
             ]}));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
-          // Update sizing headers from the response
+          // Update sizing headers from the response (now at header level)
           const detail = await proposalService.getOne(newId);
           const fullDetail = detail?.data || detail;
           if (fullDetail) {
-            const sizingHeaders: any[] = [];
-            const seenVer = new Set<number>();
-            (fullDetail.sku_proposals || []).forEach((sp: any) => {
-              (sp.proposal_sizing_headers || []).forEach((sh: any) => {
-                if (!seenVer.has(sh.version)) {
-                  seenVer.add(sh.version);
-                  sizingHeaders.push({ id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? false });
-                }
-              });
-            });
-            if (sizingHeaders.length > 0) {
-              sizingHeaders.sort((a: any, b: any) => b.version - a.version);
-              setBrandSizingHeaders(prev => ({ ...prev, [brandId]: sizingHeaders }));
-            }
+            const sizingHeaders = (fullDetail.proposal_sizing_headers || []).map((sh: any) => ({
+              id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? false,
+              proposalSizings: sh.proposal_sizings || [],
+            }));
+            sizingHeaders.sort((a: any, b: any) => a.version - b.version);
+            setBrandSizingHeaders(prev => ({ ...prev, [brandId]: sizingHeaders }));
           }
           headerId = newId;
         }
@@ -1043,9 +1142,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         return;
       }
 
-      // Existing version → save products
+      // Existing version → save products + sizing at header level
       if (products.length > 0) {
-        await proposalService.saveFullProposal(headerId, { products });
+        await proposalService.saveFullProposal(headerId, { products, sizings });
       }
       if (isNewVersion) {
         const result = await proposalService.copyProposal(headerId);
@@ -1172,6 +1271,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
     toast.success(t('skuProposal.exportSuccess') || `Exported ${rows.length} SKUs to ${filename}`);
   }, [filteredSkuBlocks, t]);
+
+  // Register export handler with AppContext (for header Export button)
+  useEffect(() => {
+    registerExport(handleExportCSV);
+    return () => { unregisterExport(); };
+  }, [handleExportCSV, registerExport, unregisterExport]);
 
   const handleStartEdit = (cellKey: any, currentValue: any) => {
     setEditingCell(cellKey);
@@ -1439,117 +1544,217 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         <div>
         <div>
         <div className="p-2 md:p-3">
-        <div className="flex flex-wrap items-center justify-between mb-2 gap-2">
-
-          {/* Mobile Filter Button */}
-          {isMobile && (
+        {/* Mobile Filter Button */}
+        {isMobile && (
+          <div className="mb-2">
             <button
               onClick={openFilter}
-              className={`flex items-center gap-2 px-3 py-1 rounded-lg text-sm font-medium border ${'bg-[rgba(160,120,75,0.12)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'}`}
+              className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border ${'bg-[rgba(160,120,75,0.12)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'}`}
             >
               <SlidersHorizontal size={16} />
               {t('common.filters')}
             </button>
-          )}
+          </div>
+        )}
 
-        </div>
-
-        {!isMobile && <div className="flex flex-wrap items-center gap-2">
+        {!isMobile && <>
+          {/* ── Group 1: Global Context Filters ── */}
+          <div className="-mx-2 md:-mx-3 px-3 md:px-6 py-1.5">
+            <div className="flex items-center gap-1.5">
               <FilterSelect
-                label={t('skuProposal.budget') || 'Budget'}
-                value={budgetFilter}
-                options={budgetOptions.map((opt: any) => ({ value: opt.id, label: opt.label }))}
-                onChange={setBudgetFilter}
-                placeholder="All Budgets"
+                value={fyFilter}
+                options={fyOptions}
+                onChange={(v: string) => { setFyFilter(v); setBudgetFilter('all'); }}
+                placeholder="All FY"
               />
+              {/* Budget Dropdown — matches BudgetAllocate design */}
+              <div className="relative min-w-0" ref={budgetDropdownRef}>
+                <button
+                  type="button"
+                  onClick={() => setIsBudgetDropdownOpen(!isBudgetDropdownOpen)}
+                  className={`w-full px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center justify-between text-xs transition-all ${selectedBudget
+                    ? 'bg-[rgba(18,119,73,0.1)] border-[#127749] text-[#127749] hover:border-[#2A9E6A]'
+                    : 'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:border-[rgba(215,183,151,0.4)] hover:bg-[rgba(160,120,75,0.18)]'}`}
+                >
+                  <div className="flex items-center gap-1.5 truncate">
+                    <FileText size={12} className={selectedBudget ? 'text-[#127749]' : 'text-[#666666]'} />
+                    <span className="truncate">{selectedBudget?.budgetName || t('planning.selectBudget')}</span>
+                  </div>
+                  <ChevronDown size={12} className={`flex-shrink-0 transition-transform duration-200 ${isBudgetDropdownOpen ? 'rotate-180' : ''}`} />
+                </button>
+                {isBudgetDropdownOpen && (
+                  <div className="absolute top-full left-0 mt-1 border rounded-xl shadow-xl z-[9999] overflow-hidden whitespace-nowrap w-max min-w-full bg-white border-[#C4B5A5]">
+                    <div className="p-2 border-b border-[#D4C8BB] bg-[rgba(160,120,75,0.08)]">
+                      <span className="text-xs font-semibold uppercase tracking-wide font-['Montserrat'] text-[#666666]">{t('budget.title')}</span>
+                    </div>
+                    <div className="max-h-72 overflow-y-auto py-0.5">
+                      {loadingBudgets && (
+                        <div className="px-4 py-6 flex items-center justify-center">
+                          <div className="w-5 h-5 border-2 border-[#D7B797]/30 border-t-[#D7B797] rounded-full animate-spin" />
+                          <span className="ml-2 text-sm text-[#666666]">{t('common.loading')}...</span>
+                        </div>
+                      )}
+                      {!loadingBudgets && filteredBudgets.length === 0 && (
+                        <div className="px-4 py-6 text-center text-sm text-[#666666]">
+                          {t('budget.noMatchingBudgets')}
+                        </div>
+                      )}
+                      {!loadingBudgets && filteredBudgets.length > 0 && (
+                        <div
+                          onClick={() => { setBudgetFilter('all'); setIsBudgetDropdownOpen(false); }}
+                          className={`px-4 py-0.5 flex items-center justify-between cursor-pointer text-sm transition-colors ${budgetFilter === 'all'
+                            ? 'bg-[rgba(18,119,73,0.1)] text-[#127749]' : 'hover:bg-[rgba(160,120,75,0.18)] text-[#666666]'}`}
+                        >
+                          <span className="font-medium">{t('planning.selectBudget')}</span>
+                          {budgetFilter === 'all' && <Check size={14} className="text-[#127749]" />}
+                        </div>
+                      )}
+                      {!loadingBudgets && filteredBudgets.map((budget: any) => (
+                        <div
+                          key={budget.id}
+                          onClick={() => {
+                            setBudgetFilter(budget.id);
+                            if (budget.fiscalYear) setFyFilter(String(budget.fiscalYear));
+                            setIsBudgetDropdownOpen(false);
+                          }}
+                          className={`px-4 py-0.5 cursor-pointer transition-colors border-t border-[#D4C8BB] ${budgetFilter === budget.id
+                            ? 'bg-[rgba(18,119,73,0.1)]' : 'hover:bg-[rgba(160,120,75,0.18)]'}`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div className="min-w-0 flex-1">
+                              <div className={`font-semibold text-sm font-['Montserrat'] ${budgetFilter === budget.id ? 'text-[#127749]' : 'text-[#0A0A0A]'}`}>
+                                {budget.budgetName}
+                              </div>
+                              <div className="flex items-center gap-2 mt-1">
+                                <span className="text-xs font-['JetBrains_Mono'] text-[#666666]">FY{budget.fiscalYear}</span>
+                                <span className="text-[#2E2E2E]/30">&bull;</span>
+                                <span className="text-xs font-medium font-['JetBrains_Mono'] text-[#127749]">{formatCurrency(budget.totalBudget)}</span>
+                              </div>
+                            </div>
+                            {budgetFilter === budget.id && (
+                              <div className="w-5 h-5 rounded-full bg-[#127749] flex items-center justify-center flex-shrink-0 ml-2">
+                                <Check size={12} className="text-white" strokeWidth={3} />
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
               <FilterSelect
-                label="Brand"
                 value={brandFilter}
                 options={brandOptions}
                 onChange={setBrandFilter}
-                placeholder="All Brands"
+                placeholder={t('budget.allBrands') || 'All Brands'}
               />
               <FilterSelect
-                label={t('skuProposal.seasonGroup') || 'Season Group'}
                 value={seasonGroupFilter}
                 options={seasonGroupOptions}
                 onChange={(v: string) => { setSeasonGroupFilter(v); setSeasonFilter('all'); }}
-                placeholder="All"
+                placeholder={t('budget.allSeasonGroups') || 'All Season Groups'}
               />
               <FilterSelect
-                label={t('skuProposal.season') || 'Season'}
                 value={seasonFilter}
                 options={seasonOptions}
                 onChange={setSeasonFilter}
-                placeholder="All"
+                placeholder={t('budget.allSeasons') || 'All Seasons'}
               />
 
-            {/* Spacer */}
+            </div>
+          </div>
+
+          {/* ── Group 2: SKU Data Filters ── */}
+          <div className={`-mx-2 md:-mx-3 px-3 md:px-6 py-1.5 border-t border-[rgba(215,183,151,0.2)] ${hasActiveSkuFilter ? 'bg-[rgba(160,120,75,0.04)]' : ''}`}>
+            <div className="flex items-center gap-1.5">
+              <FilterSelect
+                value={genderFilter}
+                options={genderOptions}
+                onChange={(v: string) => { setGenderFilter(v); setCategoryFilter('all'); setSubCategoryFilter('all'); }}
+                placeholder={t('common.allGenders') || 'All Genders'}
+              />
+              <FilterSelect
+                value={categoryFilter}
+                options={categoryOptions}
+                onChange={(v: string) => { setCategoryFilter(v); setSubCategoryFilter('all'); }}
+                placeholder={t('common.allCategories') || 'All Categories'}
+              />
+              <FilterSelect
+                value={subCategoryFilter}
+                options={subCategoryOptions}
+                onChange={setSubCategoryFilter}
+                placeholder={t('common.allSubCategories') || 'All SubCategories'}
+              />
+
+              {hasActiveSkuFilter && (
+                <button
+                  type="button"
+                  onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); }}
+                  className="shrink-0 p-1 rounded transition-colors text-[#666] hover:text-[#F85149] hover:bg-red-50"
+                  title="Clear all SKU filters"
+                >
+                  <X size={14} />
+                </button>
+              )}
+            </div>
+          </div>
+        </>}
+
+        {/* ── Rail Controls + Summary ── */}
+        {displayBrands.length > 0 && (
+          <div className="border-t border-[rgba(215,183,151,0.25)] -mx-2 md:-mx-3 -mb-2 md:-mb-3 px-3 md:px-6 py-1.5 flex items-center gap-1.5">
+            {/* Collapse/Expand */}
+            <button
+              type="button"
+              onClick={() => {
+                const allCollapsedNow = displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true);
+                const next: Record<string, boolean> = {};
+                displayBrands.forEach((b: any) => { next[String(b.id)] = !allCollapsedNow; });
+                setCollapsedBrands(next);
+              }}
+              className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-[#C4B5A5] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] transition-colors shrink-0"
+            >
+              <ChevronDown size={12} className={`transition-transform ${displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? '-rotate-90' : ''}`} />
+              {displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? 'Expand All' : 'Collapse All'}
+            </button>
+
+            {/* View Mode Toggle */}
+            <div className="flex items-center gap-0.5 rounded-md p-0.5 bg-[rgba(160,120,75,0.10)]">
+              <button
+                type="button"
+                onClick={() => setViewMode('table')}
+                title="Table view"
+                className={`p-1 rounded transition-colors ${
+                  viewMode === 'table'
+                    ? 'bg-white text-[#6B4D30] shadow-sm' : 'text-[#888] hover:text-[#6B4D30]'}`}
+              >
+                <List size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => canShowCardView && setViewMode('card')}
+                disabled={!canShowCardView}
+                title={!canShowCardView ? 'Add SKUs to enable card view' : 'Card view'}
+                className={`p-1 rounded transition-colors ${
+                  viewMode === 'card'
+                    ? 'bg-white text-[#6B4D30] shadow-sm' : 'text-[#888] hover:text-[#6B4D30]'} ${!canShowCardView ? 'opacity-40 cursor-not-allowed' : ''}`}
+              >
+                <LayoutGrid size={13} />
+              </button>
+            </div>
+
             <div className="flex-1" />
 
-            {/* Export + View Mode Toggle — icon only */}
-            <div className="flex items-center gap-1.5">
-              <button
-                type="button"
-                onClick={handleExportCSV}
-                title={t('skuProposal.exportCSV') || 'Export CSV'}
-                className={`p-[7px] rounded-lg transition-colors border ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
-              >
-                <Download size={14} />
-              </button>
-              <div className={`flex items-center gap-0.5 rounded-lg p-0.5 ${'bg-[rgba(160,120,75,0.12)]'}`}>
-                <button
-                  type="button"
-                  onClick={() => setViewMode('table')}
-                  title="Table view"
-                  className={`p-[5px] rounded-md transition-colors ${
-                    viewMode === 'table'
-                      ?'bg-white text-[#6B4D30] shadow-sm':'text-[#666666] hover:text-[#6B4D30]'}`}
-                >
-                  <List size={14} />
-                </button>
-                <button
-                  type="button"
-                  onClick={() => canShowCardView && setViewMode('card')}
-                  disabled={!canShowCardView}
-                  title={!canShowCardView ? 'Add SKUs to enable card view' : 'Card view'}
-                  className={`p-[5px] rounded-md transition-colors ${
-                    viewMode === 'card'
-                      ?'bg-white text-[#6B4D30] shadow-sm':'text-[#666666] hover:text-[#6B4D30]'} ${!canShowCardView ? 'opacity-50 cursor-not-allowed' : ''}`}
-                >
-                  <LayoutGrid size={14} />
-                </button>
-              </div>
+            {/* Summary */}
+            <span className="text-xs text-[#666]">{displayBrands.length} Brands &middot; {grandTotals.skuCount} SKUs</span>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[rgba(215,183,151,0.08)] border border-[rgba(215,183,151,0.15)]">
+              <span className="text-[10px] uppercase font-bold text-[#999] tracking-wide">Order</span>
+              <span className="text-xs font-bold text-[#6B4D30]">{grandTotals.order}</span>
             </div>
-        </div>}
-
-        {/* Rail Controls — sticky inside filter bar (visible in EXPANDED only) */}
-        {viewMode === 'table' && displayBrands.length > 0 && (
-          <div className={`border-t -mx-2 md:-mx-3 -mb-2 md:-mb-3 px-2 md:px-3 mt-2 py-2 md:py-3 flex flex-wrap items-center justify-between gap-y-2 ${'border-[rgba(215,183,151,0.3)]'}`}>
-            <div className="flex items-center gap-3">
-              <button
-                type="button"
-                onClick={() => {
-                  const allCollapsedNow = displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true);
-                  const next: Record<string, boolean> = {};
-                  displayBrands.forEach((b: any) => { next[String(b.id)] = !allCollapsedNow; });
-                  setCollapsedBrands(next);
-                }}
-                className={`flex items-center gap-1.5 px-3 py-1 text-xs font-medium rounded-lg border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
-              >
-                <ChevronDown size={12} className={`transition-transform ${displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? '-rotate-90' : ''}`} />
-                {displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? 'Expand All' : 'Collapse All'}
-              </button>
-              <span className={`text-xs ${'text-[#666666]'}`}>
-                {displayBrands.length} Brands • {grandTotals.skuCount} SKUs
-              </span>
-            </div>
-            <div className={`flex items-center gap-4 text-xs font-['JetBrains_Mono'] ${'text-[#666666]'}`}>
-              <span>Order: <span className={`font-semibold ${'text-[#6B4D30]'}`}>{grandTotals.order}</span></span>
-              {stores.map((s: any) => (
-                <span key={s.code}>{s.code}: <span className={`font-semibold ${'text-[#6B4D30]'}`}>{grandTotals.storeQty[s.code] || 0}</span></span>
-              ))}
-              <span>Value: <span className={`font-semibold ${'text-[#127749]'}`}>{formatCurrency(grandTotals.ttlValue)}</span></span>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[rgba(18,119,73,0.06)] border border-[rgba(18,119,73,0.12)]">
+              <span className="text-[10px] uppercase font-bold text-[#127749]/60 tracking-wide">Value</span>
+              <span className="text-xs font-bold text-[#127749]">{formatCurrency(grandTotals.ttlValue)}</span>
             </div>
           </div>
         )}
@@ -1697,19 +1902,19 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   <span className={`p-1 rounded-lg transition-colors ${'bg-[rgba(138,99,64,0.1)] hover:bg-[rgba(138,99,64,0.2)]'}`}>
                     <ChevronDown size={15} className={`transition-transform duration-200 ${isBrandCollapsed ? '-rotate-90' : ''} ${'text-[#6B4D30]'}`} />
                   </span>
-                  <Tag size={15} className={'text-[#6B4D30]'} />
+                  <Tag size={16} className={'text-[#6B4D30]'} />
                   <div className="flex flex-col min-w-0">
                     {brand.group_brand?.name || brand.groupBrand?.name ? (
                       <span className={`text-[10px] font-medium font-['Montserrat'] uppercase tracking-widest ${'text-[#6B4D30]/60'}`}>
                         {brand.group_brand?.name || brand.groupBrand?.name}
                       </span>
                     ) : null}
-                    <span className={`font-bold text-sm font-['Montserrat'] uppercase tracking-wide ${'text-[#1A1A1A]'}`}>
+                    <span className={`font-semibold text-base font-['Montserrat'] uppercase tracking-wide ${'text-[#1A1A1A]'}`}>
                       {brand.name || brand.code || `Brand ${brand.id}`}
                     </span>
                   </div>
-                  <span className={`text-xs px-2 py-0.5 rounded-full ml-2 ${'bg-[rgba(160,120,75,0.12)] text-[#6B5B4D]'}`}>
-                    {brandBlocks.length} Rails • {brandSkuCount} SKUs
+                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ml-1 ${'text-[#888]'}`}>
+                    {brandBlocks.length} Rails &middot; {brandSkuCount} SKUs
                   </span>
                   {/* Per-brand Version & Choice dropdown buttons — only when allocation+planning validated */}
                   {brandReady && <div className="flex items-center gap-2 ml-auto" onClick={(e) => e.stopPropagation()}>
@@ -1802,11 +2007,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   // Case 2: No final AllocateHeader — "not allocated" warning
                   if (!hasFinalAH) {
                     return (
-                      <div className={`flex flex-col items-center gap-2 px-4 py-3 border-t ${'border-[#C4B5A5] bg-[rgba(227,179,65,0.08)]'}`}>
+                      <div className="flex items-center justify-between gap-3 px-4 py-2.5 border-t border-[#E8E0D8] bg-[#FEFCF9]">
                         <div className="flex items-center gap-2">
-                          <AlertTriangle size={14} className={'text-[#B8860B]'} />
-                          <span className={`text-xs font-['Montserrat'] font-medium ${'text-[#8B6914]'}`}>
-                            This brand has not been allocated yet. Please complete Budget Allocation first.
+                          <AlertTriangle size={13} className="text-[#C9A036] shrink-0" />
+                          <span className="text-[12px] font-['Montserrat'] font-medium text-[#8B7A5E]">
+                            This brand has not been allocated yet.
                           </span>
                         </div>
                         <button
@@ -1825,7 +2030,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                               seasonId: seasonFilter !== 'all' ? seasonFilter : null});
                             router.push('/planning');
                           }}
-                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all ${'bg-[#6B4D30] border-[#6B4D30] text-white hover:bg-[#5C4028] hover:border-[#5C4028]'}`}
+                          className="flex items-center gap-1 px-2.5 py-1 rounded-md text-[11px] font-semibold font-['Montserrat'] border border-[#D7B797]/50 text-[#6B4D30] hover:bg-[rgba(160,120,75,0.08)] transition-colors shrink-0"
                         >
                           Go to Budget Allocation
                           <ArrowRight size={13} />
@@ -1880,8 +2085,35 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   }
 
                   // Case 5: All conditions met — show full content
+                  const hasHistorical = brandBlocks.some((b: any) => b.isHistorical);
                   return (
                   <div className="space-y-3 p-3">
+                    {/* Previous Year Template Banner */}
+                    {hasHistorical && (
+                      <div className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border ${'bg-[rgba(107,77,48,0.06)] border-[rgba(215,183,151,0.4)]'}`}>
+                        <div className="flex items-center gap-2">
+                          <FileText size={14} className={'text-[#6B4D30]'} />
+                          <span className={`text-xs font-semibold font-['Montserrat'] ${'text-[#6B4D30]'}`}>
+                            Previous Year Template
+                          </span>
+                          <span className={`text-[10px] px-1.5 py-0.5 rounded ${'bg-[rgba(215,183,151,0.3)] text-[#6B4D30]'}`}>
+                            Read-only
+                          </span>
+                        </div>
+                        <button
+                          onClick={() => {
+                            // Copy historical blocks as new draft (remove isHistorical flag)
+                            setSkuBlocks(prev => prev.map((b: any) =>
+                              b.brandId === brandId && b.isHistorical ? { ...b, isHistorical: false } : b
+                            ));
+                          }}
+                          className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] transition-all ${'bg-[#6B4D30] text-white hover:bg-[#5C4028]'}`}
+                        >
+                          <FilePlus size={12} />
+                          Use as Template
+                        </button>
+                      </div>
+                    )}
                     {brandBlocks.length === 0 ? (
                       <div className={`p-6 text-center ${'text-[#999999]'}`}>
                         <p className="text-sm">No subcategories available for this brand</p>
@@ -2552,12 +2784,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         <td className={`px-4 py-2 text-center font-['JetBrains_Mono'] ${'text-[#999999] bg-[rgba(160,120,75,0.12)]'}`}>-</td>
                       </tr>
                       {(() => {
-                        // Use per-item sizing headers (each SKU has its own A/B/C)
-                        const itemHeaders = (lightbox.item.proposal_sizing_headers || []).map((sh: any) => ({
+                        // Sizing headers are now at the proposal header level (A/B/C shared across all SKUs)
+                        const lbBrandId = lightbox.blockKey.split('_')[0] || 'all';
+                        const headerChoices = (brandSizingHeaders[lbBrandId] || []).map((sh: any) => ({
                           id: String(sh.id),
                           version: sh.version ?? 1,
-                          isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false})).sort((a: any, b: any) => a.version - b.version);
-                        return itemHeaders.length >= 3 ? itemHeaders.slice(0, 3) : [
+                          isFinal: sh.isFinal ?? false,
+                        })).sort((a: any, b: any) => a.version - b.version);
+                        return headerChoices.length >= 3 ? headerChoices.slice(0, 3) : [
                           { id: 'choiceA', version: 1, isFinal: false },
                           { id: 'choiceB', version: 2, isFinal: false },
                           { id: 'choiceC', version: 3, isFinal: false },
@@ -2627,6 +2861,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         onClose={closeFilter}
         filters={[
           {
+            key: 'fy',
+            label: 'FY',
+            type: 'single',
+            options: fyOptions.filter((o: any) => o.value !== 'all').map((o: any) => ({ label: o.label, value: o.value }))},
+          {
+            key: 'budget',
+            label: t('skuProposal.budget') || 'Budget',
+            type: 'single',
+            options: filteredBudgets.map((b: any) => ({ label: b.budgetName, value: b.id }))},
+          {
             key: 'brand',
             label: 'Brand',
             type: 'single',
@@ -2645,12 +2889,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         values={mobileFilterValues}
         onChange={(key, value) => setMobileFilterValues(prev => ({ ...prev, [key]: value }))}
         onApply={() => {
+          setFyFilter((mobileFilterValues.fy as string) || 'all');
+          setBudgetFilter((mobileFilterValues.budget as string) || 'all');
           setBrandFilter((mobileFilterValues.brand as string) || 'all');
           setSeasonGroupFilter((mobileFilterValues.seasonGroup as string) || 'all');
           setSeasonFilter((mobileFilterValues.season as string) || 'all');
         }}
         onReset={() => {
           setMobileFilterValues({});
+          setFyFilter('all');
+          setBudgetFilter('all');
           setBrandFilter('all');
           setSeasonGroupFilter('all');
           setSeasonFilter('all');

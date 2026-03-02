@@ -3,7 +3,7 @@
   "version": "1.0.0",
   "private": true,
   "scripts": {
-    "dev": "next dev --turbopack -H 0.0.0.0",
+    "dev": "next dev --turbopack -H 192.168.219.46",
     "build": "next build",
     "postbuild": "node scripts/copy-assets.js",
     "start": "node server.js",

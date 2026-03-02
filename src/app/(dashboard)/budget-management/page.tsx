@@ -1,16 +1,11 @@
 'use client';
 import { useRouter } from 'next/navigation';
 import { useAppContext } from '@/contexts/AppContext';
-import { useBudget } from '@/hooks';
 import { BudgetManagementScreen } from '@/features/otb';
 
 export default function BudgetManagementPage() {
   const router = useRouter();
-  const {
-    sharedYear, setSharedYear,
-    setAllocationData,
-  } = useAppContext();
-  const { budgets } = useBudget();
+  const { sharedYear, setSharedYear, setAllocationData } = useAppContext();
 
   const handleAllocate = (budgetData: any) => {
     setAllocationData(budgetData);
@@ -19,7 +14,6 @@ export default function BudgetManagementPage() {
 
   return (
     <BudgetManagementScreen
-      budgets={budgets}
       selectedYear={sharedYear}
       setSelectedYear={setSharedYear}
       onAllocate={handleAllocate}

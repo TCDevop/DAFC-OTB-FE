@@ -4,7 +4,8 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search, ChevronLeft, ChevronRight,
   Building2, Package, FolderTree, Tag,
-  RefreshCw, Filter, X
+  RefreshCw, Filter, X,
+  Store, Users, Calendar
 } from 'lucide-react';
 import { masterDataService } from '@/services';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -21,46 +22,99 @@ const getTypeConfig = (t: any) => ({
     columns: [
       { key: 'code', label: t('masterData.colCode'), width: '120px', mono: true },
       { key: 'name', label: t('masterData.colBrandName') },
-      { key: 'groupBrand', label: t('masterData.colGroup'), render: (v: any) => v?.name || v || '-' },
-      { key: 'isActive', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
+      { key: 'group_brand', label: t('masterData.colGroup'), render: (v: any) => v?.name || '-' },
+      { key: 'is_active', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
     ],
-    searchFields: ['code', 'name']},
+    searchFields: ['code', 'name'],
+  },
   skus: {
     title: t('masterData.titleSkuCatalog'),
     icon: Package,
-    fetchFn: () => masterDataService.getSkuCatalog(),
+    fetchFn: async () => {
+      const result = await masterDataService.getSkuCatalog();
+      return Array.isArray(result) ? result : (result?.data || []);
+    },
     columns: [
-      { key: 'skuCode', label: t('masterData.colSkuCode'), width: '140px', mono: true },
-      { key: 'productName', label: t('masterData.colProductName') },
-      { key: 'productType', label: t('masterData.colCategory'), width: '150px' },
+      { key: 'sku_code', label: t('masterData.colSkuCode'), width: '140px', mono: true },
+      { key: 'product_name', label: t('masterData.colProductName') },
+      { key: 'sub_category', label: t('masterData.colCategory'), width: '150px', render: (_v: any, item: any) => item?.sub_category?.category?.name || '-' },
+      { key: 'brand', label: t('masterData.colBrand'), width: '120px', render: (v: any) => v?.name || '-' },
       { key: 'color', label: t('masterData.colColor'), width: '120px' },
-      { key: 'theme', label: t('masterData.colTheme'), width: '120px' },
       { key: 'srp', label: t('masterData.colSRP'), width: '120px', render: (v: any) => v ? formatCurrency(v) : '-', mono: true },
     ],
-    searchFields: ['skuCode', 'productName', 'color']},
+    searchFields: ['sku_code', 'product_name', 'color'],
+  },
   categories: {
     title: t('masterData.titleCategories'),
     icon: FolderTree,
-    fetchFn: () => masterDataService.getCategories(),
+    fetchFn: async () => {
+      // API returns Gender[] with nested categories — flatten to Category[]
+      const genders: any[] = await masterDataService.getCategories();
+      const list = Array.isArray(genders) ? genders : [];
+      const cats: any[] = [];
+      list.forEach((gender: any) => {
+        (gender.categories || []).forEach((cat: any) => {
+          cats.push({ ...cat, _gender: gender });
+        });
+      });
+      return cats;
+    },
     columns: [
-      { key: 'code', label: t('masterData.colCode'), width: '120px', mono: true },
       { key: 'name', label: t('masterData.colCategoryName') },
-      { key: 'gender', label: t('masterData.colGender'), render: (v: any) => v?.name || v || '-' },
-      { key: 'subCategories', label: t('masterData.colSubCategories'), render: (v: any) => Array.isArray(v) ? t('masterData.items', { count: v.length }) : '-' },
-      { key: 'isActive', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
+      { key: '_gender', label: t('masterData.colGender'), render: (v: any) => v?.name || '-' },
+      { key: 'sub_categories', label: t('masterData.colSubCategories'), render: (v: any) => Array.isArray(v) ? t('masterData.items', { count: v.length }) : '-' },
+      { key: 'is_active', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
     ],
-    searchFields: ['code', 'name']},
+    searchFields: ['name'],
+  },
   subcategories: {
     title: t('masterData.titleSubCategories'),
     icon: Tag,
-    fetchFn: () => masterDataService.getSubCategories(),
+    fetchFn: () => masterDataService.getSubCategoriesDirect(),
+    columns: [
+      { key: 'name', label: t('masterData.colSubCategoryName') },
+      { key: 'category', label: t('masterData.colParentCategory'), render: (v: any) => v?.name || '-' },
+      { key: '_gender', label: t('masterData.colGender'), render: (_v: any, item: any) => item?.category?.gender?.name || '-' },
+      { key: 'is_active', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
+    ],
+    searchFields: ['name'],
+  },
+  stores: {
+    title: t('masterData.titleStores'),
+    icon: Store,
+    fetchFn: () => masterDataService.getStores(),
     columns: [
       { key: 'code', label: t('masterData.colCode'), width: '120px', mono: true },
-      { key: 'name', label: t('masterData.colSubCategoryName') },
-      { key: 'parent', label: t('masterData.colParentCategory'), render: (v: any) => v?.name || '-' },
-      { key: 'isActive', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
+      { key: 'name', label: t('masterData.colStoreName') },
+      { key: 'region', label: t('masterData.colRegion'), width: '150px' },
+      { key: 'location', label: t('masterData.colLocation') },
+      { key: 'is_active', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
     ],
-    searchFields: ['code', 'name']}});
+    searchFields: ['code', 'name', 'region'],
+  },
+  genders: {
+    title: t('masterData.titleGenders'),
+    icon: Users,
+    fetchFn: () => masterDataService.getGenders(),
+    columns: [
+      { key: 'name', label: t('masterData.colGenderName') },
+      { key: 'is_active', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
+    ],
+    searchFields: ['name'],
+  },
+  'season-groups': {
+    title: t('masterData.titleSeasonGroups'),
+    icon: Calendar,
+    fetchFn: () => masterDataService.getSeasonGroups(),
+    columns: [
+      { key: 'name', label: t('masterData.colSeasonGroupName') },
+      { key: 'year', label: t('masterData.colYear'), width: '100px', mono: true },
+      { key: 'seasons', label: t('masterData.colSeasons'), render: (v: any) => Array.isArray(v) ? v.map((s: any) => s.name).join(', ') || '-' : '-' },
+      { key: 'is_active', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
+    ],
+    searchFields: ['name'],
+  },
+});
 
 const MasterDataScreen = ({ type = 'brands' }: any) => {
   const { t } = useLanguage();
@@ -117,12 +171,13 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
     return filteredData.slice(start, start + pageSize);
   }, [filteredData, currentPage, pageSize]);
 
+  const activeLabel = t('common.active');
   const renderBadge = (value: any) => {
-    const isActive = value === 'Active';
+    const isActive = value === activeLabel || value === 'Active';
     return (
       <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-xs font-medium ${
         isActive
-          ?'bg-[rgba(18,119,73,0.1)] text-[#127749]':'bg-red-50 text-red-600'}`}>
+          ? 'bg-[rgba(18,119,73,0.1)] text-[#127749]' : 'bg-red-50 text-red-600'}`}>
         <div className={`w-1.5 h-1.5 rounded-full mr-1.5 ${isActive ? 'bg-[#2A9E6A]' : 'bg-red-400'}`} />
         {value}
       </span>

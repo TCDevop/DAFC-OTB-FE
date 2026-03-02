@@ -4,6 +4,7 @@ import { AuthProvider } from '@/contexts/AuthContext';
 import { LanguageProvider } from '@/contexts/LanguageContext';
 import { AppProvider } from '@/contexts/AppContext';
 import { ErrorBoundary } from '@/components/ui';
+import GlobalLoadingOverlay from '@/components/ui/GlobalLoadingOverlay';
 
 export function Providers({ children }: any) {
   return (
@@ -12,6 +13,7 @@ export function Providers({ children }: any) {
         <LanguageProvider>
           <AppProvider>
             {children}
+            <GlobalLoadingOverlay />
             <Toaster
               position="top-right"
               toastOptions={{

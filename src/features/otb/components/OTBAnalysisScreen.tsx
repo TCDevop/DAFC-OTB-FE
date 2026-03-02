@@ -21,16 +21,7 @@ import { useAppContext } from '@/contexts/AppContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useSmartScrollState } from '@/hooks/useSmartScrollState';
 
-// Constants
-const SEASON_GROUPS = [
-  { id: 'SS', label: 'Spring Summer' },
-  { id: 'FW', label: 'Fall Winter' }
-];
-
-const SEASONS = [
-  { id: 'Pre', label: 'Pre' },
-  { id: 'Main/Show', label: 'Main/Show' }
-];
+// (Season groups & seasons loaded from API via masterDataService.getSeasonGroups)
 
 // Reusable editable cell component (memoized to prevent unnecessary re-renders)
 const EditableCell = React.memo(({ cellKey, value, isEditing, editValue, onStartEdit, onSaveEdit, onChangeValue, onKeyDown, readOnly = false }: any) => {
@@ -191,23 +182,20 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   // Dropdown states
   const [openDropdown, setOpenDropdown] = useState<any>(null);
 
-  // New filters: Year, Type (Same/Different Season), Budget Season (multi-select)
+  // New filters: Year, Type (Same/Different Season), Season Count
   const [selectedYear, setSelectedYear] = useState<number | 'all'>('all');
   const [comparisonType, setComparisonType] = useState<'same' | 'different'>('same');
-  const [selectedBudgetIds, setSelectedBudgetIds] = useState<string[]>([]);
   const [seasonCount, setSeasonCount] = useState<number>(1);
   const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
   const [brandActiveTabs, setBrandActiveTabs] = useState<Record<string, 'category' | 'seasonType' | 'gender'>>({});
   const [collapsedBrands, setCollapsedBrands] = useState<Record<string, boolean>>({});
 
-  // Season group and season options built from API data (fall back to hardcoded constants while loading)
+  // Season group and season options built from API data
   const seasonGroupOptions = useMemo(() => {
-    if (apiSeasonGroups.length === 0) return SEASON_GROUPS;
     return apiSeasonGroups.map((sg: any) => ({ id: sg.name, label: sg.name }));
   }, [apiSeasonGroups]);
 
   const availableSeasons = useMemo(() => {
-    if (apiSeasonGroups.length === 0) return SEASONS;
     if (selectedSeasonGroup === 'all') {
       const all: { id: string; label: string }[] = [];
       const seen = new Set<string>();
@@ -219,12 +207,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           }
         });
       });
-      return all.length > 0 ? all : SEASONS;
+      return all;
     }
     const group = apiSeasonGroups.find((sg: any) => sg.name === selectedSeasonGroup);
-    if (!group) return SEASONS;
-    const seasons = (group.seasons || []).map((s: any) => ({ id: s.name, label: s.name }));
-    return seasons.length > 0 ? seasons : SEASONS;
+    if (!group) return [];
+    return (group.seasons || []).map((s: any) => ({ id: s.name, label: s.name }));
   }, [apiSeasonGroups, selectedSeasonGroup]);
 
   // Stores from API (fallback to hardcoded constants while loading)
@@ -235,49 +222,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   // Smart Filter Bar — direct DOM toggle, zero re-render
   const { barRef, handleBarClick } = useSmartScrollState();
 
-  // Auto-fill from sessionStorage (shared with BudgetAllocateScreen), fallback to first budget
-  // Skip when otbContext already specifies the budget (context reading effect handles that case)
-  useEffect(() => {
-    if (apiBudgets.length === 0 || selectedBudgetIds.length > 0) return;
-    // If coming from BudgetAllocateScreen with a specific budget, let the context effect handle it
-    if (otbContext?.budgetId && apiBudgets.some((b: any) => String(b.id) === String(otbContext.budgetId))) return;
-    // Also skip if otbContext has season info (navigation from Budget Allocation)
-    if (otbContext?.seasonGroup && otbContext?.season) return;
-    try {
-      const stored = sessionStorage.getItem('otb_budget_filters');
-      if (stored) {
-        const filters = JSON.parse(stored);
-        if (filters.selectedYear) setSelectedYear(filters.selectedYear);
-        if (filters.selectedSeasonGroup) setSelectedSeasonGroup(filters.selectedSeasonGroup);
-        // Try to find matching budget by year
-        const matchingBudgets = apiBudgets.filter((b: any) => b.fiscalYear === filters.selectedYear);
-        if (matchingBudgets.length > 0) {
-          setSelectedBudgetIds([matchingBudgets[0].id]);
-          setSelectedBudgetId(matchingBudgets[0].id);
-          return;
-        }
-      }
-    } catch { /* ignore */ }
-    // Fallback: select first budget
-    const first = apiBudgets[0];
-    setSelectedBudgetIds([first.id]);
-    setSelectedBudgetId(first.id);
-    if (first.fiscalYear) setSelectedYear(first.fiscalYear);
-  }, [apiBudgets, otbContext]); // eslint-disable-line react-hooks/exhaustive-deps
-
-  // Sync single-budget mode when exactly 1 budget selected in multi-select
-  useEffect(() => {
-    if (selectedBudgetIds.length === 1) {
-      setSelectedBudgetId(selectedBudgetIds[0]);
-      const budget = apiBudgets.find((b: any) => b.id === selectedBudgetIds[0]);
-      if (budget) {
-        if (budget.seasonGroup) setSelectedSeasonGroup(budget.seasonGroup);
-        if (budget.seasonType) setSelectedSeason(budget.seasonType);
-      }
-    } else if (selectedBudgetIds.length === 0) {
-      setSelectedBudgetId('all');
-    }
-  }, [selectedBudgetIds, apiBudgets]);
+  // sessionStorage auto-fill removed — all filters default to 'all'
 
   // Fetch planning versions when budget is selected
   useEffect(() => {
@@ -318,24 +263,22 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   // Check if all required filters are selected (seasonGroup + season must be chosen)
   const filtersComplete = selectedSeasonGroup !== 'all' && selectedSeason !== 'all';
 
-  // Compute matched AllocateHeaders from selected budgets, filtered by seasonGroup + season
+  // Compute matched AllocateHeaders from selected budget, filtered by seasonGroup + season
   const matchedAllocateHeaders = useMemo(() => {
-    if (!filtersComplete || selectedBudgetIds.length === 0) return [];
+    if (!filtersComplete || selectedBudgetId === 'all') return [];
+    const budget = apiBudgets.find((b: any) => b.id === selectedBudgetId);
+    if (!budget) return [];
     const result: any[] = [];
-    selectedBudgetIds.forEach(bid => {
-      const budget = apiBudgets.find((b: any) => b.id === bid);
-      if (!budget) return;
-      (budget.allocateHeaders || []).forEach((ah: any) => {
-        const matchesSeason = (ah.budgetAllocates || []).some((ba: any) =>
-          ba.seasonGroupName === selectedSeasonGroup && ba.seasonName === selectedSeason
-        );
-        if (matchesSeason) {
-          result.push({ ...ah, budgetId: budget.id });
-        }
-      });
+    (budget.allocateHeaders || []).forEach((ah: any) => {
+      const matchesSeason = (ah.budgetAllocates || []).some((ba: any) =>
+        ba.seasonGroupName === selectedSeasonGroup && ba.seasonName === selectedSeason
+      );
+      if (matchesSeason) {
+        result.push({ ...ah, budgetId: budget.id });
+      }
     });
     return result;
-  }, [filtersComplete, selectedBudgetIds, apiBudgets, selectedSeasonGroup, selectedSeason]);
+  }, [filtersComplete, selectedBudgetId, apiBudgets, selectedSeasonGroup, selectedSeason]);
 
   // Fetch full planning data for each brand when their selected version changes
   useEffect(() => {
@@ -354,7 +297,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   }, [brandSelectedVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // ─── Historical comparison logic ─────────────────────────────────────────
-  const canEditComparison = filtersComplete && selectedYear !== 'all' && selectedBudgetIds.length > 0;
+  const canEditComparison = filtersComplete && selectedYear !== 'all' && selectedBudgetId !== 'all';
 
   const historicalPeriods = useMemo(() => {
     if (!canEditComparison) return [];
@@ -424,13 +367,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       setApiDataLoading(true);
       try {
         const [categoriesRes, seasonTypesRes, brandsRes, storesRes] = await Promise.all([
-          masterDataService.getCategories({ subCategoryLimit: 3 }).catch(() => []),
+          masterDataService.getCategories().catch(() => []),
           masterDataService.getSeasonTypes().catch(() => []),
-          masterDataService.getBrands({ limit: 3 }).catch(() => []),
-          masterDataService.getStores({ limit: 3 }).catch(() => [])
+          masterDataService.getBrands().catch(() => []),
+          masterDataService.getStores().catch(() => [])
         ]);
-        const seasonGroupsRes: any[] = [];
-
         // Transform categories into hierarchy
         const categories = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes?.data || []);
         if (categories.length > 0) {
@@ -444,7 +385,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                 id: cat.id,
                 name: cat.name,
                 // API returns snake_case sub_categories; fall back to camelCase for compatibility
-                subCategories: (cat.sub_categories || cat.subCategories || []).slice(0, 3).map((sub: any) => ({
+                subCategories: (cat.sub_categories || cat.subCategories || []).map((sub: any) => ({
                   id: sub.id || sub.subCategoryId,
                   name: sub.name || sub.subCategoryName}))}))}));
             setCategoryStructure(structure);
@@ -487,10 +428,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           ]);
         }
 
-        // Store season groups from API
-        const sgData = Array.isArray(seasonGroupsRes) ? seasonGroupsRes : [];
-        setApiSeasonGroups(sgData);
-
         // Store brands from API
         const brandsData = Array.isArray(brandsRes) ? brandsRes : (brandsRes?.data || []);
         setApiBrands(brandsData);
@@ -522,11 +459,16 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
   // Fetch season groups filtered by selected year
   useEffect(() => {
+    const controller = new AbortController();
     const year = selectedYear !== 'all' ? Number(selectedYear) : undefined;
-    masterDataService.getSeasonGroups(year ? { year } : undefined).then(res => {
+    masterDataService.getSeasonGroups(year ? { year } : undefined, { signal: controller.signal }).then(res => {
       const sgData = Array.isArray(res) ? res : [];
       setApiSeasonGroups(sgData);
-    }).catch(() => setApiSeasonGroups([]));
+    }).catch((err: any) => {
+      if (err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
+      setApiSeasonGroups([]);
+    });
+    return () => { controller.abort(); };
   }, [selectedYear]);
 
   // Initialize local data for editable cells (zeros instead of random — will be populated by API)
@@ -617,16 +559,13 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     if (budgetId) {
       matchedBudget = apiBudgets.find((b: any) => String(b.id) === String(budgetId));
       if (matchedBudget) {
-        // Set both selectedBudgetId and selectedBudgetIds to prevent the sync effect from overriding
         setSelectedBudgetId(matchedBudget.id);
-        setSelectedBudgetIds([matchedBudget.id]);
       }
     }
     if (!matchedBudget && budgetName) {
       matchedBudget = apiBudgets.find((b: any) => b.budgetName === budgetName);
       if (matchedBudget) {
         setSelectedBudgetId(matchedBudget.id);
-        setSelectedBudgetIds([matchedBudget.id]);
       }
     }
 
@@ -943,20 +882,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     }
   }, [selectedSeason]);
 
-  // Toggle budget selection for multi-compare (max = seasonCount)
-  const toggleBudgetSelection = (budgetId: string) => {
-    setSelectedBudgetIds(prev => {
-      if (prev.includes(budgetId)) {
-        return prev.filter(id => id !== budgetId);
-      }
-      if (prev.length >= seasonCount) {
-        toast.error(t('otbAnalysis.maxBudgets') || `Maximum ${seasonCount} budgets can be compared`);
-        return prev;
-      }
-      return [...prev, budgetId];
-    });
-  };
-
   // Clear all filters
   const clearFilters = () => {
     setSelectedBudgetId('all');
@@ -967,25 +892,16 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     setBudgetContext(null);
     setSelectedYear('all');
     setComparisonType('same');
-    setSelectedBudgetIds([]);
     setSeasonCount(1);
   };
 
-  const hasActiveFilters = selectedBudgetId !== 'all' || selectedSeasonGroup !== 'all' || selectedSeason !== 'all' || selectedVersionId || selectedYear !== 'all' || selectedBudgetIds.length > 0;
+  const hasActiveFilters = selectedBudgetId !== 'all' || selectedSeasonGroup !== 'all' || selectedSeason !== 'all' || selectedVersionId || selectedYear !== 'all';
 
-  // Filter budgets by year, type, and season
+  // Filter budgets by year and season
   const filteredBudgets = useMemo(() => {
     let list = apiBudgets;
-    // Filter by year
     if (selectedYear !== 'all') {
       list = list.filter((b: any) => b.fiscalYear === selectedYear);
-    }
-    // For "same" type, if a budget is already selected, only show same seasonType
-    if (comparisonType === 'same' && selectedBudgetIds.length > 0) {
-      const firstBudget = apiBudgets.find((b: any) => b.id === selectedBudgetIds[0]);
-      if (firstBudget?.seasonType) {
-        list = list.filter((b: any) => b.seasonType === firstBudget.seasonType);
-      }
     }
     if (selectedSeasonGroup !== 'all') {
       const seasonFiltered = list.filter((b: any) => b.seasonGroup === selectedSeasonGroup);
@@ -996,7 +912,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       if (seasonFiltered.length > 0) list = seasonFiltered;
     }
     return list;
-  }, [apiBudgets, selectedYear, comparisonType, selectedBudgetIds, selectedSeasonGroup, selectedSeason]);
+  }, [apiBudgets, selectedYear, selectedSeasonGroup, selectedSeason]);
 
   const selectedBudget = selectedBudgetId === 'all'
     ? null
@@ -1033,10 +949,10 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     setAllCollapsed(!newExpanded);
     const newCats: Record<string, boolean> = {};
     const newSubCats: Record<string, boolean> = {};
-    categoryFirstStructure.forEach((catEntry: any) => {
-      newCats[catEntry.id] = newExpanded;
-      Object.values(catEntry.subCategories).forEach((subCatEntry: any) => {
-        newSubCats[`${catEntry.id}_${subCatEntry.subCategory.id}`] = newExpanded;
+    genderFirstStructure.forEach((genderEntry: any) => {
+      newCats[genderEntry.gender.id] = newExpanded;
+      genderEntry.categories.forEach((catEntry: any) => {
+        newSubCats[`${genderEntry.gender.id}_${catEntry.category.id}`] = newExpanded;
       });
     });
     setExpandedCategories(newCats);
@@ -1270,10 +1186,23 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       });
     });
 
-    // LIMIT: slice(0, 3) on categories and subcategories (see LIMITS.md to remove later)
-    return Object.values(catMap).slice(0, 3).map(entry => ({
+    return Object.values(catMap).map(entry => ({
       ...entry.category,
-      subCategories: Object.values(entry.subCategories).slice(0, 3)}));
+      subCategories: Object.values(entry.subCategories)}));
+  }, [categoryStructure]);
+
+  // Transform categoryStructure (Gender->Cat->SubCat) into genderFirstStructure (Gender->Cat->SubCat with dataKeys)
+  const genderFirstStructure = useMemo(() => {
+    return categoryStructure.map((genderGroup: any) => ({
+      gender: genderGroup.gender,
+      categories: (genderGroup.categories || []).map((cat: any) => ({
+        category: { id: cat.id, name: cat.name },
+        subCategories: (cat.subCategories || []).map((sub: any) => ({
+          subCategory: { id: sub.id, name: sub.name },
+          dataKey: `${genderGroup.gender.id}_${cat.id}_${sub.id}`,
+        })),
+      })),
+    }));
   }, [categoryStructure]);
 
   // Build historical data lookups per period, keyed the same way as table data
@@ -1331,13 +1260,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     return { bySub, bySeasonType, byGender };
   }, [baselineData]);
 
-  // Render Category Tab - Hierarchical Collapsible (Category -> SubCategory -> Gender)
+  // Render Category Tab - Hierarchical Collapsible (Gender -> Category -> SubCategory)
   const renderCategoryTab = (brand?: any) => {
     const brandId = brand ? String(brand.id) : null;
     const isLoadingPlanningData = brandId ? (brandLoadingPlanningData[brandId] || false) : false;
 
     // Build planning data lookup by subcategory_id from the selected planning version
-    // The table structure always comes from master data (categoryFirstStructure)
     const planningDataBySubcatId: Record<string, any> = {};
     if (brandId && brandPlanningData[brandId]) {
       const planCats = (brandPlanningData[brandId].planning_categories || []) as any[];
@@ -1376,13 +1304,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       return base;
     };
 
-    // Calculate category-level totals (across all sub-cats and genders)
-    const calculateCategoryTotals = (catEntry: any) => {
+    // Calculate gender-level totals (across all categories and subcategories for this gender)
+    const calculateGenderTotals = (genderEntry: any) => {
       let totals = { buyPct: 0, salesPct: 0, stPct: 0, buyProposed: 0, otbProposed: 0, varPct: 0, otbSubmitted: 0, buyActual: 0 };
-      catEntry.subCategories.forEach((subCatEntry: any) => {
-        const subCatId = String(subCatEntry.subCategory.id);
-        subCatEntry.genders.forEach((g: any) => {
-          const data = getRowData(g.dataKey, subCatId);
+      genderEntry.categories.forEach((catEntry: any) => {
+        catEntry.subCategories.forEach((subEntry: any) => {
+          const data = getRowData(subEntry.dataKey, String(subEntry.subCategory.id));
           totals.buyPct += data.buyPct || 0;
           totals.salesPct += data.salesPct || 0;
           totals.buyProposed += data.buyProposed || 0;
@@ -1396,12 +1323,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       return totals;
     };
 
-    // Calculate subcategory-level totals (across all genders)
-    const calculateSubCategoryTotals = (subCatEntry: any) => {
+    // Calculate category-level totals (across all subcategories for this gender+category)
+    const calculateCategoryTotals = (catEntry: any) => {
       let totals = { buyPct: 0, salesPct: 0, stPct: 0, buyProposed: 0, otbProposed: 0, varPct: 0, otbSubmitted: 0, buyActual: 0 };
-      const subCatId = String(subCatEntry.subCategory.id);
-      subCatEntry.genders.forEach((g: any) => {
-        const data = getRowData(g.dataKey, subCatId);
+      catEntry.subCategories.forEach((subEntry: any) => {
+        const data = getRowData(subEntry.dataKey, String(subEntry.subCategory.id));
         totals.buyPct += data.buyPct || 0;
         totals.salesPct += data.salesPct || 0;
         totals.buyProposed += data.buyProposed || 0;
@@ -1414,18 +1340,18 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       return totals;
     };
 
-    // Filter: L1=category, L2=subCategory, L3=gender (always built from master data)
-    const filteredData = categoryFirstStructure
-      .filter((catEntry: any) => categoryFilter === 'all' || catEntry.id === categoryFilter)
-      .map((catEntry: any) => ({
-        ...catEntry,
-        subCategories: catEntry.subCategories
-          .filter((subCatEntry: any) => subCategoryFilter === 'all' || subCatEntry.subCategory.id === subCategoryFilter)
-          .map((subCatEntry: any) => ({
-            ...subCatEntry,
-            genders: subCatEntry.genders.filter((g: any) => genderFilter === 'all' || g.gender.id === genderFilter)}))
-          .filter((subCatEntry: any) => subCatEntry.genders.length > 0)}))
-      .filter((catEntry: any) => catEntry.subCategories.length > 0);
+    // Filter: L1=gender, L2=category, L3=subCategory
+    const filteredData = genderFirstStructure
+      .filter((gEntry: any) => genderFilter === 'all' || gEntry.gender.id === genderFilter)
+      .map((gEntry: any) => ({
+        ...gEntry,
+        categories: gEntry.categories
+          .filter((catEntry: any) => categoryFilter === 'all' || catEntry.category.id === categoryFilter)
+          .map((catEntry: any) => ({
+            ...catEntry,
+            subCategories: catEntry.subCategories.filter((sub: any) => subCategoryFilter === 'all' || sub.subCategory.id === subCategoryFilter)}))
+          .filter((catEntry: any) => catEntry.subCategories.length > 0)}))
+      .filter((gEntry: any) => gEntry.categories.length > 0);
 
     if (isLoadingPlanningData) {
       return (
@@ -1442,67 +1368,88 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             <div className="text-xs font-['Montserrat']">No categories found in master data.</div>
           </div>
         )}
-        {/* Hierarchical Content: Category (L1) -> SubCategory (L2) -> Gender rows (L3) */}
-        {filteredData.map((catEntry: any) => {
-          const catTotals = calculateCategoryTotals(catEntry);
-          const isCatExpanded = expandedCategories[catEntry.id] !== false;
+        {/* Hierarchical Content: Gender (L1) -> Category (L2) -> SubCategory rows (L3) */}
+        {filteredData.map((genderEntry: any) => {
+          const genderTotals = calculateGenderTotals(genderEntry);
+          const isGenderExpanded = expandedCategories[genderEntry.gender.id] !== false;
 
           return (
-            <div key={catEntry.id} className={`rounded-xl border overflow-hidden ${'border-[#C4B5A5]'}`}>
-              {/* Category Header - Level 1 */}
+            <div key={genderEntry.gender.id} className={`rounded-xl border overflow-hidden ${'border-[#C4B5A5]'}`}>
+              {/* Gender Header - Level 1 */}
               <div
-                onClick={() => toggleCategoryExpanded(catEntry.id)}
+                onClick={() => toggleCategoryExpanded(genderEntry.gender.id)}
                 className={`flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-0.5 cursor-pointer transition-all ${'bg-gradient-to-r from-[rgba(215,183,151,0.15)] to-[rgba(215,183,151,0.08)] hover:from-[rgba(215,183,151,0.25)] hover:to-[rgba(215,183,151,0.15)] border-b border-[rgba(215,183,151,0.2)]'}`}
               >
                 <button className={`p-1 rounded-lg transition-colors ${'bg-[rgba(138,99,64,0.1)] hover:bg-[rgba(138,99,64,0.2)]'}`}>
                   <ChevronDown
                     size={18}
-                    className={`transition-transform duration-200 ${isCatExpanded ? '' : '-rotate-90'} ${'text-[#6B4D30]'}`}
+                    className={`transition-transform duration-200 ${isGenderExpanded ? '' : '-rotate-90'} ${'text-[#6B4D30]'}`}
                   />
                 </button>
-                <Tag size={18} className={'text-[#6B4D30]'} />
-                <span className={`font-semibold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#5C4A3A]'}`}>{catEntry.name}</span>
+                <Users size={18} className={'text-[#6B4D30]'} />
+                <span className={`font-semibold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#5C4A3A]'}`}>{genderEntry.gender.name}</span>
                 <span className={`ml-auto text-xs md:text-sm ${'text-[#6B4D30]'}`}>
-                  {catEntry.subCategories.length} sub-categories
+                  {genderEntry.categories.length} categories
                 </span>
                 <div className={`hidden md:flex items-center gap-4 ml-4 text-sm font-['JetBrains_Mono'] ${'text-[#5C4A3A]'}`}>
-                  <span>Buy: <strong>{catTotals.buyPct}%</strong></span>
-                  <span>Sales: <strong>{catTotals.salesPct}%</strong></span>
-                  <span>OTB: <strong>{catTotals.otbProposed.toLocaleString()}</strong></span>
+                  <span>Buy: <strong>{genderTotals.buyPct}%</strong></span>
+                  <span>Sales: <strong>{genderTotals.salesPct}%</strong></span>
+                  <span>OTB: <strong>{genderTotals.otbProposed.toLocaleString()}</strong></span>
                 </div>
               </div>
 
-              {/* Category Content */}
-              {isCatExpanded && (
+              {/* Gender Content */}
+              {isGenderExpanded && (
                 <div className={`p-3 space-y-2 ${'bg-[#F2F2F2]'}`}>
-                  {catEntry.subCategories.map((subCatEntry: any) => {
-                    const subCatKey = `${catEntry.id}_${subCatEntry.subCategory.id}`;
-                    const isSubCatExpanded = expandedSubCategories[subCatKey] !== false;
-                    const subCatTotals = calculateSubCategoryTotals(subCatEntry);
+                  {genderEntry.categories.map((catEntry: any) => {
+                    const catKey = `${genderEntry.gender.id}_${catEntry.category.id}`;
+                    const isCatExpanded = expandedSubCategories[catKey] !== false;
+                    const catTotals = calculateCategoryTotals(catEntry);
 
                     return (
-                      <div key={subCatEntry.subCategory.id} className={`rounded-xl border overflow-hidden ${'border-[#C4B5A5] bg-white'}`}>
-                        {/* SubCategory Header - Level 2 */}
+                      <div key={catEntry.category.id} className={`rounded-xl border overflow-hidden ${'border-[#C4B5A5] bg-white'}`}>
+                        {/* Category Header - Level 2 */}
                         <div
-                          onClick={() => toggleSubCategoryExpanded(catEntry.id, subCatEntry.subCategory.id)}
+                          onClick={() => toggleSubCategoryExpanded(genderEntry.gender.id, catEntry.category.id)}
                           className={`flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-0.5 cursor-pointer transition-all ${'bg-[rgba(160,120,75,0.12)] hover:bg-[rgba(215,183,151,0.2)]'}`}
                         >
                           <button className={`p-1 rounded-lg transition-colors ${'bg-[rgba(215,183,151,0.2)] hover:bg-[rgba(215,183,151,0.3)]'}`}>
                             <ChevronDown
                               size={16}
-                              className={`transition-transform duration-200 ${'text-[#6B4D30]'} ${isSubCatExpanded ? '' : '-rotate-90'}`}
+                              className={`transition-transform duration-200 ${'text-[#6B4D30]'} ${isCatExpanded ? '' : '-rotate-90'}`}
                             />
                           </button>
-                          <Layers size={16} className={'text-[#6B4D30]'} />
+                          <Tag size={16} className={'text-[#6B4D30]'} />
                           <span className={`font-semibold text-xs uppercase tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
-                            {subCatEntry.subCategory.name}
+                            {catEntry.category.name}
                           </span>
                         </div>
 
-                        {/* Gender Table - Level 3 */}
-                        {isSubCatExpanded && (
+                        {/* SubCategory Table - Level 3 */}
+                        {isCatExpanded && (
                           <div className="overflow-x-auto">
-                            <table className="w-full text-sm">
+                            <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+                              <colgroup>
+                                <col style={{ width: '160px' }} />{/* Sub-Category name */}
+                                <col style={{ width: '70px' }} />{/* %Buy */}
+                                <col style={{ width: '70px' }} />{/* %Sales */}
+                                <col style={{ width: '70px' }} />{/* %ST */}
+                                {historicalPeriods
+                                  .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
+                                  .map((period) => (
+                                  <React.Fragment key={`col_hist_${period.label}`}>
+                                    <col style={{ width: '60px' }} />
+                                    <col style={{ width: '60px' }} />
+                                    <col style={{ width: '60px' }} />
+                                  </React.Fragment>
+                                ))}
+                                <col style={{ width: '90px' }} />{/* %Proposed */}
+                                <col style={{ width: '100px' }} />{/* $OTB */}
+                                <col style={{ width: '80px' }} />{/* Variance */}
+                                <col style={{ width: '80px' }} />{/* Submit */}
+                                <col style={{ width: '70px' }} />{/* %Actual */}
+                                <col style={{ width: '50px' }} />{/* Actions */}
+                              </colgroup>
                               <thead>
                                 {baselinePeriod && (
                                   <tr>
@@ -1521,7 +1468,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                   </tr>
                                 )}
                                 <tr>
-                                  <th className={`px-4 py-2 text-left text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.gender') || 'Gender'}</th>
+                                  <th className={`px-4 py-2 text-left text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>Sub-Category</th>
                                   <th className={`px-3 py-1 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.pctBuy')}</th>
                                   <th className={`px-3 py-1 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.pctSales')}</th>
                                   <th className={`px-3 py-1 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.pctST')}</th>
@@ -1543,20 +1490,21 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                 </tr>
                               </thead>
                               <tbody>
-                                {subCatEntry.genders.map((gEntry: any, gIdx: number) => {
-                                  const cellKey = gEntry.dataKey;
-                                  const rowData = getRowData(cellKey, String(subCatEntry.subCategory.id));
+                                {catEntry.subCategories.map((subEntry: any, sIdx: number) => {
+                                  const cellKey = subEntry.dataKey;
+                                  const subCatId = String(subEntry.subCategory.id);
+                                  const rowData = getRowData(cellKey, subCatId);
                                   const isEditing = editingCell === cellKey;
 
                                   return (
                                     <tr
                                       key={cellKey}
-                                      className={`border-b transition-colors ${`border-[#D4C8BB] hover:bg-[rgba(160,120,75,0.08)] ${gIdx % 2 === 0 ? 'bg-white' : 'bg-[#F2F2F2]/50'}`}`}
+                                      className={`border-b transition-colors ${`border-[#D4C8BB] hover:bg-[rgba(160,120,75,0.08)] ${sIdx % 2 === 0 ? 'bg-white' : 'bg-[#F2F2F2]/50'}`}`}
                                     >
                                       <td className="px-4 py-0.5">
                                         <div className="flex items-center gap-2">
-                                          <Users size={12} className={'text-[#999999]'} />
-                                          <span className={'text-[#1A1A1A]'}>{gEntry.gender.name}</span>
+                                          <Layers size={12} className={'text-[#999999]'} />
+                                          <span className={'text-[#1A1A1A]'}>{subEntry.subCategory.name}</span>
                                         </div>
                                       </td>
                                       <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{rowData.buyPct || 0}%</td>
@@ -1566,7 +1514,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                         .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
                                         .map((period) => {
                                         const hLookup = buildHistoricalLookup(brandId || '', period.label);
-                                        const hData = hLookup.bySub[String(subCatEntry.subCategory.id)] || {};
+                                        const hData = hLookup.bySub[subCatId] || {};
                                         return (
                                           <React.Fragment key={`cat_data_${period.label}_${cellKey}`}>
                                             <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.buyPct || 0}%</td>
@@ -1608,11 +1556,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                                 budgetName: selectedBudget?.budgetName || budgetContext?.budgetName,
                                                 fiscalYear: selectedBudget?.fiscalYear || budgetContext?.fiscalYear,
                                                 brandName: selectedBudget?.brandName || budgetContext?.brandName,
+                                                brandIds: brandId ? [brandId] : undefined,
                                                 seasonGroup: selectedSeasonGroup !== 'all' ? selectedSeasonGroup : budgetContext?.seasonGroup,
                                                 season: selectedSeason !== 'all' ? selectedSeason : budgetContext?.season,
-                                                gender: gEntry.gender,
-                                                category: { id: catEntry.id, name: catEntry.name },
-                                                subCategory: subCatEntry.subCategory,
+                                                gender: genderEntry.gender,
+                                                category: catEntry.category,
+                                                subCategory: subEntry.subCategory,
                                                 otbData: rowData
                                               });
                                             }
@@ -1626,33 +1575,29 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                     </tr>
                                   );
                                 })}
-                                {/* SubCategory Subtotal Row */}
+                                {/* Category Subtotal Row */}
                                 <tr className={'bg-gradient-to-r from-[rgba(215,183,151,0.25)] to-[rgba(215,183,151,0.2)] font-medium'}>
                                   <td className={`px-4 py-0.5 font-semibold font-['Montserrat'] ${'text-[#5C4A32]'}`}>{t('otbAnalysis.subTotal')}</td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{subCatTotals.buyPct}%</td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{subCatTotals.salesPct}%</td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{subCatTotals.stPct}%</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.buyPct}%</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.salesPct}%</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.stPct}%</td>
                                   {historicalPeriods
                                     .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
-                                    .map((period) => {
-                                    const hLookup = buildHistoricalLookup(brandId || '', period.label);
-                                    const hData = hLookup.bySub[String(subCatEntry.subCategory.id)] || {};
-                                    return (
-                                      <React.Fragment key={`cat_sub_${period.label}`}>
-                                        <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hData.buyPct || 0}%</td>
-                                        <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hData.salesPct || 0}%</td>
-                                        <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hData.stPct || 0}%</td>
-                                      </React.Fragment>
-                                    );
-                                  })}
-                                  <td className={`px-3 py-0.5 text-center bg-[rgba(160,120,75,0.18)] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{subCatTotals.buyProposed}%</td>
-                                  <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{subCatTotals.otbProposed.toLocaleString()}</td>
+                                    .map((period) => (
+                                    <React.Fragment key={`cat_sub_${period.label}`}>
+                                      <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>-</td>
+                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>-</td>
+                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>-</td>
+                                    </React.Fragment>
+                                  ))}
+                                  <td className={`px-3 py-0.5 text-center bg-[rgba(160,120,75,0.18)] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{catTotals.buyProposed}%</td>
+                                  <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.otbProposed.toLocaleString()}</td>
                                   <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${
-                                    subCatTotals.varPct < 0 ? 'text-[#FF7B72]' :'text-[#5C4A32]'}`}>
-                                    {subCatTotals.varPct > 0 ? '+' : ''}{subCatTotals.varPct}%
+                                    catTotals.varPct < 0 ? 'text-[#FF7B72]' :'text-[#5C4A32]'}`}>
+                                    {catTotals.varPct > 0 ? '+' : ''}{catTotals.varPct}%
                                   </td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{subCatTotals.otbSubmitted.toLocaleString()}</td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{subCatTotals.buyActual}%</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.otbSubmitted.toLocaleString()}</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.buyActual}%</td>
                                   <td className="px-3 py-0.5"></td>
                                 </tr>
                               </tbody>
@@ -1663,20 +1608,20 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     );
                   })}
 
-                  {/* Category Total */}
+                  {/* Gender Total */}
                   <div className={`rounded-xl p-3 border ${'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)]'}`}>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-2">
                       <span className={`font-semibold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#6B4D30]'}`}>
-                        TOTAL {catEntry.name.toUpperCase()}
+                        TOTAL {genderEntry.gender.name.toUpperCase()}
                       </span>
                       <div className={`flex flex-wrap items-center gap-2 md:gap-6 text-xs md:text-sm font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>
-                        <span>% Buy: <strong>{catTotals.buyPct}%</strong></span>
-                        <span>% Sales: <strong>{catTotals.salesPct}%</strong></span>
-                        <span>% ST: <strong>{catTotals.stPct}%</strong></span>
-                        <span>% Proposed: <strong>{catTotals.buyProposed}%</strong></span>
-                        <span>$ OTB: <strong>{catTotals.otbProposed.toLocaleString()}</strong></span>
-                        <span className={catTotals.varPct < 0 ? 'text-[#F85149]' : ''}>
-                          Var: <strong>{catTotals.varPct > 0 ? '+' : ''}{catTotals.varPct}%</strong>
+                        <span>% Buy: <strong>{genderTotals.buyPct}%</strong></span>
+                        <span>% Sales: <strong>{genderTotals.salesPct}%</strong></span>
+                        <span>% ST: <strong>{genderTotals.stPct}%</strong></span>
+                        <span>% Proposed: <strong>{genderTotals.buyProposed}%</strong></span>
+                        <span>$ OTB: <strong>{genderTotals.otbProposed.toLocaleString()}</strong></span>
+                        <span className={genderTotals.varPct < 0 ? 'text-[#F85149]' : ''}>
+                          Var: <strong>{genderTotals.varPct > 0 ? '+' : ''}{genderTotals.varPct}%</strong>
                         </span>
                       </div>
                     </div>
@@ -2078,127 +2023,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     );
   };
 
-  // Render Budget Comparison Table (when 2-3 budgets selected)
-  const renderComparisonTable = () => {
-    const comparedBudgets = selectedBudgetIds
-      .map(id => apiBudgets.find((b: any) => b.id === id))
-      .filter(Boolean);
-    if (comparedBudgets.length < 2) return null;
-
-    // Flatten categories for rows
-    const categoryRows: { gender: string; category: string; subCategory: string; key: string }[] = [];
-    categoryStructure.forEach((genderGroup: any) => {
-      genderGroup.categories.forEach((cat: any) => {
-        cat.subCategories.forEach((subCat: any) => {
-          categoryRows.push({
-            gender: genderGroup.gender.name,
-            category: cat.name,
-            subCategory: subCat.name,
-            key: `${genderGroup.gender.id}_${cat.id}_${subCat.id}`
-          });
-        });
-      });
-    });
-
-    // Group by category for cleaner display
-    const groupedRows: Record<string, typeof categoryRows> = {};
-    categoryRows.forEach(row => {
-      const groupKey = `${row.gender} - ${row.category}`;
-      if (!groupedRows[groupKey]) groupedRows[groupKey] = [];
-      groupedRows[groupKey].push(row);
-    });
-
-    return (
-      <div className="overflow-x-auto">
-        <table className="w-full text-sm">
-          <thead>
-            <tr>
-              <th className={`${headerCellClass} ${headerDarkCell} text-left min-w-[200px]`} rowSpan={2}>
-                {t('otbAnalysis.category') || 'Category'}
-              </th>
-              {comparedBudgets.map((budget: any) => (
-                <th key={budget.id} className={`${headerCellClass} ${headerGoldCell}`} colSpan={3}>
-                  <div className="flex flex-col items-center py-1">
-                    <span className="font-bold text-xs">{budget.budgetName}</span>
-                    <span className="text-[10px] opacity-70">FY{budget.fiscalYear} &middot; {budget.seasonGroup} {budget.seasonType}</span>
-                  </div>
-                </th>
-              ))}
-            </tr>
-            <tr>
-              {comparedBudgets.map((budget: any) => (
-                <React.Fragment key={`h2-${budget.id}`}>
-                  <th className={`${headerCellClass} ${headerBrownCell}`}>{t('otbAnalysis.pctBuy')}</th>
-                  <th className={`${headerCellClass} ${headerBrownCell}`}>{t('otbAnalysis.pctSales')}</th>
-                  <th className={`${headerCellClass} ${headerDarkBrownCell}`}>{t('otbAnalysis.pctST')}</th>
-                </React.Fragment>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            {Object.entries(groupedRows).map(([groupName, rows]) => (
-              <React.Fragment key={groupName}>
-                {/* Category Group Header */}
-                <tr className={groupRowClass}>
-                  <td className="px-3 py-1" colSpan={1 + comparedBudgets.length * 3}>
-                    <div className="flex items-center gap-2">
-                      <Tag size={12} className={'text-[#6B4D30]'} />
-                      <span className={`font-semibold text-xs uppercase tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>{groupName}</span>
-                    </div>
-                  </td>
-                </tr>
-                {rows.map((row, idx) => {
-                  const data = localData[row.key] || {};
-                  return (
-                    <tr
-                      key={row.key}
-                      className={`border-b transition-colors ${`border-[#D4C8BB] hover:bg-[rgba(160,120,75,0.08)] ${idx % 2 === 0 ? 'bg-white' : 'bg-[#F2F2F2]/50'}`}`}
-                    >
-                      <td className="px-4 py-1">
-                        <div className="flex items-center gap-2">
-                          <div className={`w-1.5 h-1.5 rounded-full ${'bg-[#999999]'}`} />
-                          <span className={'text-[#1A1A1A]'}>{row.subCategory}</span>
-                        </div>
-                      </td>
-                      {comparedBudgets.map((budget: any, bIdx: number) => {
-                        // Vary data slightly per budget for demo visualization
-                        const offset = bIdx * 3;
-                        return (
-                          <React.Fragment key={`${row.key}-${budget.id}`}>
-                            <td className={`px-3 py-1 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>
-                              {Math.max(0, (data.buyPct || 0) - offset)}%
-                            </td>
-                            <td className={`px-3 py-1 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>
-                              {Math.max(0, (data.salesPct || 0) - offset)}%
-                            </td>
-                            <td className={`px-3 py-1 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>
-                              {Math.max(0, (data.stPct || 0) - offset)}%
-                            </td>
-                          </React.Fragment>
-                        );
-                      })}
-                    </tr>
-                  );
-                })}
-              </React.Fragment>
-            ))}
-            {/* Grand Total row */}
-            <tr className={sumRowClass}>
-              <td className="px-4 py-1 font-semibold text-xs uppercase tracking-wide font-['Montserrat']">{t('otbAnalysis.total')}</td>
-              {comparedBudgets.map((budget: any) => (
-                <React.Fragment key={`total-${budget.id}`}>
-                  <td className="px-3 py-1 text-center font-['JetBrains_Mono'] font-bold">100%</td>
-                  <td className="px-3 py-1 text-center font-['JetBrains_Mono'] font-bold">100%</td>
-                  <td className="px-3 py-1 text-center font-['JetBrains_Mono']">-</td>
-                </React.Fragment>
-              ))}
-            </tr>
-          </tbody>
-        </table>
-      </div>
-    );
-  };
-
   // Empty state: no budgets available
   if (!loadingBudgets && apiBudgets.length === 0) {
     return (
@@ -2353,9 +2177,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     <ChevronDown size={12} className={`transition-transform ${allCollapsed ? '-rotate-90' : ''}`} />
                     {allCollapsed ? 'Expand All' : 'Collapse All'}
                   </button>
-                  <FilterSelect label={t('common.category') || 'Category'} value={categoryFilter} options={[{ value: 'all', label: t('common.all') || 'All' }, ...filterOptions.categories.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleCategoryFilterChange} />
-                  <FilterSelect label={t('common.subCategories') || 'SubCat'} value={subCategoryFilter} options={[{ value: 'all', label: t('common.all') || 'All' }, ...filteredSubCategoryOptions.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleSubCategoryFilterChange} />
-                  <FilterSelect label={t('common.gender') || 'Gender'} value={genderFilter} options={[{ value: 'all', label: t('common.all') || 'All' }, ...filterOptions.genders.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleGenderFilterChange} />
+                  <FilterSelect value={categoryFilter} options={[{ value: 'all', label: t('common.allCategories') || 'All Categories' }, ...filterOptions.categories.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleCategoryFilterChange} placeholder={t('common.allCategories') || 'All Categories'} />
+                  <FilterSelect value={subCategoryFilter} options={[{ value: 'all', label: t('common.allSubCategories') || 'All SubCategories' }, ...filteredSubCategoryOptions.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleSubCategoryFilterChange} placeholder={t('common.allSubCategories') || 'All SubCategories'} />
+                  <FilterSelect value={genderFilter} options={[{ value: 'all', label: t('common.allGenders') || 'All Genders' }, ...filterOptions.genders.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleGenderFilterChange} placeholder={t('common.allGenders') || 'All Genders'} />
                   {(genderFilter !== 'all' || categoryFilter !== 'all' || subCategoryFilter !== 'all') && (
                     <button onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); }} className={`shrink-0 p-1 rounded transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-red-50'}`} title={t('common.clearAll')}><X size={14} /></button>
                   )}
@@ -2391,7 +2215,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       onClick={(e) => {
                         e.stopPropagation();
                         setAllocationData({
-                          id: brandBudget?.id || selectedBudgetIds[0] || null,
+                          id: brandBudget?.id || (selectedBudgetId !== 'all' ? selectedBudgetId : null),
                           budgetName: brandBudget?.budgetName || '',
                           year: selectedYear !== 'all' ? selectedYear : null,
                           groupBrandId: groupBrandId,
@@ -2486,7 +2310,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       <div className="h-[1.5px]" style={{ background:'linear-gradient(90deg, transparent 5%, rgba(184,153,112,0.4) 50%, transparent 95%)'}} />
                       <div className="py-1">
                       <div
-                        onClick={() => { setSelectedYear('all'); setOpenDropdown(null); setSelectedBudgetIds([]); }}
+                        onClick={() => { setSelectedYear('all'); setOpenDropdown(null); }}
                         className={`relative px-3 py-1.5 flex items-center justify-between cursor-pointer text-sm transition-all duration-150 ${
                           selectedYear === 'all'
                             ?'bg-[rgba(215,183,151,0.1)] text-[#6B4D30]':'hover:bg-[rgba(215,183,151,0.06)] text-[#444444] hover:text-[#1A1A1A]'}`}
@@ -2498,7 +2322,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       {availableYears.map((year: number) => (
                         <div
                           key={year}
-                          onClick={() => { setSelectedYear(year); setOpenDropdown(null); setSelectedBudgetIds([]); }}
+                          onClick={() => { setSelectedYear(year); setOpenDropdown(null); }}
                           className={`relative px-3 py-1.5 flex items-center justify-between cursor-pointer text-sm transition-all duration-150 ${
                             selectedYear === year
                               ?'bg-[rgba(215,183,151,0.1)] text-[#6B4D30]':'hover:bg-[rgba(215,183,151,0.06)] text-[#444444] hover:text-[#1A1A1A]'}`}
@@ -2515,7 +2339,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
                 <div className={`h-5 w-px hidden sm:block rounded-full ${'bg-gradient-to-b from-transparent via-[#C4B5A5]/40 to-transparent'}`} />
 
-                {/* Budget Season Multi-Select */}
+                {/* Budget Select — matches BudgetAllocate design */}
                 <div className="relative flex-1 min-w-0" ref={setDropdownRef('budgetSeason')}>
                   <button
                     type="button"
@@ -2523,99 +2347,78 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       setOpenDropdown((prev: any) => (prev === 'budgetSeason' ? null : 'budgetSeason'));
                       setOpenCategoryDropdown(null);
                     }}
-                    className={`w-full px-3 py-[7px] border rounded-lg font-medium cursor-pointer flex items-center justify-between text-xs transition-all duration-200 ${
-                      openDropdown === 'budgetSeason'
-                        ?'bg-[rgba(215,183,151,0.06)] border-[#D7B797]/60 shadow-[0_0_0_1px_rgba(215,183,151,0.15)]': selectedBudgetIds.length > 0
-                          ?'bg-[rgba(215,183,151,0.04)] border-[rgba(215,183,151,0.3)] text-[#6B4D30] hover:border-[rgba(215,183,151,0.5)]':'bg-white border-[#D4CCC2] text-[#1A1A1A] hover:border-[#B8A998] hover:bg-[#FDFCFB]'}`}
+                    className={`w-full px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center justify-between text-xs transition-all ${selectedBudgetId !== 'all'
+                      ? 'bg-[rgba(18,119,73,0.1)] border-[#127749] text-[#127749] hover:border-[#2A9E6A]'
+                      : 'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:border-[rgba(215,183,151,0.4)] hover:bg-[rgba(160,120,75,0.18)]'}`}
                   >
-                    <div className="flex items-center gap-2 truncate">
-                      <FileText size={12} className={`shrink-0 ${selectedBudgetIds.length > 0 ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')}`} />
+                    <div className="flex items-center gap-1.5 truncate">
+                      <FileText size={12} className={selectedBudgetId !== 'all' ? 'text-[#127749]' : 'text-[#666666]'} />
                       <span className="truncate">
-                        {selectedBudgetIds.length === 0
-                          ? (t('otbAnalysis.selectBudgets') || 'Select')
-                          : selectedBudgetIds.length === 1
-                            ? (apiBudgets.find((b: any) => b.id === selectedBudgetIds[0])?.budgetName || 'Budget')
-                            : `${selectedBudgetIds.length} ${t('otbAnalysis.budgetsSelected') || 'selected'}`}
+                        {selectedBudgetId === 'all'
+                          ? (t('planning.selectBudget') || 'Select Budget')
+                          : (selectedBudget?.budgetName || 'Budget')}
                       </span>
-                      {selectedBudgetIds.length > 1 && (
-                        <span className={`px-1.5 text-[10px] leading-[16px] font-bold rounded-md ${'bg-[#6B4D30] text-white'}`} style={{ letterSpacing: '0.02em' }}>{selectedBudgetIds.length}</span>
-                      )}
                     </div>
-                    <ChevronDown size={12} strokeWidth={2} className={`flex-shrink-0 transition-transform duration-200 ease-out ${openDropdown === 'budgetSeason' ? 'rotate-180' : ''} ${openDropdown === 'budgetSeason' ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')}`} />
+                    <ChevronDown size={12} className={`flex-shrink-0 transition-transform duration-200 ${openDropdown === 'budgetSeason' ? 'rotate-180' : ''}`} />
                   </button>
                   {openDropdown === 'budgetSeason' && (
-                    <div
-                      className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-[320px] border rounded-lg z-[9999] overflow-hidden ${'bg-white border-[#D4CCC2]'}`}
-                      style={{
-                        boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06), inset 0 1px 0 rgba(215,183,151,0.15)'}}
-                    >
-                      {/* Golden top accent */}
-                      <div className="h-[1.5px]" style={{ background:'linear-gradient(90deg, transparent 5%, rgba(184,153,112,0.4) 50%, transparent 95%)'}} />
-                      <div className={`px-3 py-2 border-b flex items-center justify-between ${'bg-[#FDFCFB] border-[#E8E0D8]'}`}>
-                        <span className={`text-[10px] font-semibold uppercase tracking-[0.12em] font-['Montserrat'] ${'text-[#999999]'}`}>
-                          {t('otbAnalysis.budgetSeason') || 'Budget Season'}
-                        </span>
-                        {selectedBudgetIds.length > 0 && (
-                          <button
-                            onClick={() => setSelectedBudgetIds([])}
-                            className={`text-[10px] px-2 py-0.5 rounded-md font-medium transition-colors ${'text-[#F85149] hover:bg-[rgba(248,81,73,0.08)]'}`}
-                          >
-                            {t('common.clearAll') || 'Clear'}
-                          </button>
-                        )}
+                    <div className="absolute top-full left-0 mt-1 border rounded-xl shadow-xl z-[9999] overflow-hidden whitespace-nowrap w-max min-w-full bg-white border-[#C4B5A5]">
+                      <div className="p-2 border-b border-[#D4C8BB] bg-[rgba(160,120,75,0.08)]">
+                        <span className="text-xs font-semibold uppercase tracking-wide font-['Montserrat'] text-[#666666]">{t('budget.title')}</span>
                       </div>
-                      <div className="filter-select-scroll max-h-72 overflow-y-auto py-1">
+                      <div className="max-h-72 overflow-y-auto py-0.5">
                         {loadingBudgets && (
                           <div className="px-4 py-6 flex items-center justify-center">
                             <div className="w-5 h-5 border-2 border-[#D7B797]/30 border-t-[#D7B797] rounded-full animate-spin" />
-                            <span className={`ml-2 text-sm ${'text-[#666666]'}`}>{t('common.loading')}...</span>
+                            <span className="ml-2 text-sm text-[#666666]">{t('common.loading')}...</span>
                           </div>
                         )}
                         {!loadingBudgets && filteredBudgets.length === 0 && (
-                          <div className={`px-4 py-6 text-center ${'text-[#666666]'}`}>
-                            <p className="text-sm mb-2">{t('budget.noMatchingBudgets') || 'No budgets found'}</p>
-                            {apiBudgets.length === 0 && (
-                              <p className="text-xs">
-                                {t('otbAnalysis.noApprovedBudgetsDescription') || 'Please submit and approve a budget in Budget Management first.'}
-                              </p>
-                            )}
+                          <div className="px-4 py-6 text-center text-sm text-[#666666]">
+                            {t('budget.noMatchingBudgets') || 'No budgets found'}
+                          </div>
+                        )}
+                        {!loadingBudgets && filteredBudgets.length > 0 && (
+                          <div
+                            onClick={() => { setSelectedBudgetId('all'); setOpenDropdown(null); }}
+                            className={`px-4 py-0.5 flex items-center justify-between cursor-pointer text-sm transition-colors ${selectedBudgetId === 'all'
+                              ? 'bg-[rgba(18,119,73,0.1)] text-[#127749]' : 'hover:bg-[rgba(160,120,75,0.18)] text-[#666666]'}`}
+                          >
+                            <span className="font-medium">{t('planning.selectBudget')}</span>
+                            {selectedBudgetId === 'all' && <Check size={14} className="text-[#127749]" />}
                           </div>
                         )}
                         {!loadingBudgets && filteredBudgets.map((budget: any) => {
-                          const isSelected = selectedBudgetIds.includes(budget.id);
-                          const isDisabled = !isSelected && selectedBudgetIds.length >= seasonCount;
+                          const isSelected = selectedBudgetId === budget.id;
                           return (
                             <div
                               key={budget.id}
-                              onClick={() => !isDisabled && toggleBudgetSelection(budget.id)}
-                              className={`relative px-3 py-2 cursor-pointer transition-all duration-150 ${
-                                isDisabled
-                                  ? 'opacity-40 cursor-not-allowed'
-                                  : isSelected
-                                    ?'bg-[rgba(215,183,151,0.1)]':'hover:bg-[rgba(215,183,151,0.06)]'}`}
+                              onClick={() => {
+                                setSelectedBudgetId(budget.id);
+                                if (budget.fiscalYear) setSelectedYear(budget.fiscalYear);
+                                if (budget.seasonGroup) setSelectedSeasonGroup(budget.seasonGroup);
+                                if (budget.seasonType) setSelectedSeason(budget.seasonType);
+                                setOpenDropdown(null);
+                              }}
+                              className={`px-4 py-0.5 cursor-pointer transition-colors border-t border-[#D4C8BB] ${isSelected
+                                ? 'bg-[rgba(18,119,73,0.1)]' : 'hover:bg-[rgba(160,120,75,0.18)]'}`}
                             >
-                              {/* Left accent bar */}
-                              {isSelected && <div className="absolute left-0 top-1/2 -translate-y-1/2 w-[2px] h-5 rounded-full" style={{ background:'#8B6E4E'}} />}
-                              <div className="flex items-center gap-3">
-                                {/* Checkbox */}
-                                <div className={`w-4 h-4 rounded border-2 flex items-center justify-center flex-shrink-0 transition-all ${
-                                  isSelected
-                                    ? 'bg-[#D7B797] border-[#D7B797]'
-                                    :'border-[#C4B5A5]'}`}>
-                                  {isSelected && <Check size={10} className="text-[#1A1A1A]" strokeWidth={3} />}
-                                </div>
+                              <div className="flex items-start justify-between">
                                 <div className="min-w-0 flex-1">
-                                  <div className={`font-semibold text-sm ${isSelected ? ('text-[#6B4D30]') : ('text-[#1A1A1A]')}`}>
+                                  <div className={`font-semibold text-sm font-['Montserrat'] ${isSelected ? 'text-[#127749]' : 'text-[#0A0A0A]'}`}>
                                     {budget.budgetName}
                                   </div>
-                                  <div className="flex items-center gap-2 mt-0.5">
-                                    <span className={`text-xs ${'text-[#999999]'}`}>FY{budget.fiscalYear}</span>
-                                    <span className={'text-[#D4CCC2]'}>|</span>
-                                    <span className={`text-xs ${'text-[#999999]'}`}>{budget.seasonGroup} {budget.seasonType}</span>
-                                    <span className={'text-[#D4CCC2]'}>|</span>
-                                    <span className={`text-xs font-medium font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{formatCurrency(budget.totalBudget)}</span>
+                                  <div className="flex items-center gap-2 mt-1">
+                                    <span className="text-xs font-['JetBrains_Mono'] text-[#666666]">FY{budget.fiscalYear}</span>
+                                    <span className="text-[#2E2E2E]/30">&bull;</span>
+                                    <span className="text-xs font-medium font-['JetBrains_Mono'] text-[#127749]">{formatCurrency(budget.totalBudget)}</span>
                                   </div>
                                 </div>
+                                {isSelected && (
+                                  <div className="w-5 h-5 rounded-full bg-[#127749] flex items-center justify-center flex-shrink-0 ml-2">
+                                    <Check size={12} className="text-white" strokeWidth={3} />
+                                  </div>
+                                )}
                               </div>
                             </div>
                           );
@@ -2632,7 +2435,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     { value: 'same', label: t('otbAnalysis.same') || 'Same' },
                     { value: 'different', label: t('otbAnalysis.different') || 'Different' },
                   ]}
-                  onChange={(val: any) => { setComparisonType(val); setSelectedBudgetIds([]); }}
+                  onChange={(val: any) => { setComparisonType(val); }}
                   disabled={!canEditComparison}
                 />
 
@@ -2662,9 +2465,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                           key={n}
                           onClick={() => {
                             setSeasonCount(n);
-                            if (selectedBudgetIds.length > n) {
-                              setSelectedBudgetIds(prev => prev.slice(0, n));
-                            }
                             setOpenDropdown(null);
                           }}
                           className={`relative px-3 py-1.5 flex items-center justify-between cursor-pointer text-sm transition-all duration-150 ${
@@ -2910,52 +2710,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       </div>
 
 
-      {/* Comparison Mode (2-3 budgets selected) */}
-      {selectedBudgetIds.length >= 2 && (
-      <div className={`rounded-xl shadow-lg border overflow-hidden ${'bg-white border-[#C4B5A5]'}`}>
-        {/* Comparison Header */}
-        <div className={`flex items-center justify-between px-4 py-2 border-b ${'border-[#D4C8BB] bg-[#F2F2F2]'}`}>
-          <div className="flex items-center gap-2">
-            <BarChart3 size={16} className={'text-[#6B4D30]'} />
-            <span className={`text-sm font-semibold font-['Montserrat'] ${'text-[#1A1A1A]'}`}>
-              {t('otbAnalysis.budgetComparison') || 'Budget Comparison'} ({selectedBudgetIds.length} {t('otbAnalysis.budgets') || 'budgets'})
-            </span>
-          </div>
-          <div className="flex items-center gap-2">
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-semibold ${'bg-[rgba(215,183,151,0.3)] text-[#6B4D30]'}`}>
-              {comparisonType === 'same' ? 'Same Season' : 'Different Season'}
-            </span>
-          </div>
-        </div>
-
-        {/* Selected Budgets Summary */}
-        <div className={`px-4 py-2 border-b flex flex-wrap gap-2 ${'bg-[rgba(215,183,151,0.08)] border-[#D4C8BB]'}`}>
-          {selectedBudgetIds.map((id, idx) => {
-            const budget = apiBudgets.find((b: any) => b.id === id);
-            if (!budget) return null;
-            return (
-              <div key={id} className={`flex items-center gap-2 px-3 py-1 rounded-lg border ${'border-[rgba(215,183,151,0.4)] bg-white'}`}>
-                <span className={`w-2 h-2 rounded-full ${idx === 0 ? 'bg-[#D7B797]' : idx === 1 ? 'bg-[#2A9E6A]' : 'bg-[#7C3AED]'}`} />
-                <span className={`text-xs font-medium ${'text-[#6B4D30]'}`}>{budget.budgetName}</span>
-                <span className={`text-[10px] font-['JetBrains_Mono'] ${'text-[#999999]'}`}>{formatCurrency(budget.totalBudget)}</span>
-                <button
-                  onClick={() => toggleBudgetSelection(id)}
-                  className={`p-0.5 rounded transition-colors ${'hover:bg-[#F2F2F2]'}`}
-                >
-                  <X size={10} className={'text-[#999999]'} />
-                </button>
-              </div>
-            );
-          })}
-        </div>
-
-        {/* Comparison Table */}
-        <div className="overflow-y-auto">
-          {renderComparisonTable()}
-        </div>
-      </div>
-      )}
-
       {/* Per-Brand Sections — each brand is a collapsible section with Category/Season Type/Gender tabs */}
       {selectedBudget && displayBrands.length > 0 && (
         <div className="space-y-3">
@@ -3053,7 +2807,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             setSeasonCount(Number(mobileFilterValues.seasonCount) || 1);
           }
           if (mobileFilterValues.budget) {
-            setSelectedBudgetIds([mobileFilterValues.budget as string]);
+            const mobileBudget = apiBudgets.find((b: any) => b.id === mobileFilterValues.budget);
+            setSelectedBudgetId(mobileFilterValues.budget as string);
+            if (mobileBudget?.fiscalYear) setSelectedYear(mobileBudget.fiscalYear);
+            if (mobileBudget?.seasonGroup) setSelectedSeasonGroup(mobileBudget.seasonGroup);
+            if (mobileBudget?.seasonType) setSelectedSeason(mobileBudget.seasonType);
           }
           setSelectedSeasonGroup((mobileFilterValues.seasonGroup as string) || 'all');
           setSelectedSeason((mobileFilterValues.season as string) || 'all');

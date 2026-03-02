@@ -1,7 +1,5 @@
 // Master Data Constants
 
-export const SEASON_GROUPS = ['SS', 'FW'];
-
 export const GROUP_BRANDS = [
   { id: '1', code: 'FER', name: 'Ferragamo', color: 'from-rose-400 to-rose-600' },
   { id: '2', code: 'BUR', name: 'Burberry', color: 'from-amber-400 to-amber-600' },
@@ -16,11 +14,6 @@ export const STORES = [
   { id: 'ttp-hp', code: 'TTP-HP', name: 'TTP-HP' },
   { id: 'online-vn', code: 'ONLINE-VN', name: 'ONLINE-VN' }
 ];
-
-export const SEASON_CONFIG: Record<string, any> = {
-  SS: { name: 'Spring Summer', subSeasons: ['Pre', 'Main/Show'] },
-  FW: { name: 'Fall Winter', subSeasons: ['Pre', 'Main/Show'] }
-};
 
 export const COLLECTIONS = [
   { id: 'col1', name: 'Carry Over' },
@@ -51,4 +44,3 @@ export const SUB_CATEGORIES = [
 ];
 
 export const CURRENT_YEAR = new Date().getFullYear();
-export const CURRENT_SEASON_GROUP = 'SS';

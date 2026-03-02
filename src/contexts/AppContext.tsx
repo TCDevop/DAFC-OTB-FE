@@ -6,11 +6,16 @@ interface KpiItem {
   status: string;
 }
 
+interface LoadingState {
+  visible: boolean;
+  message?: string;
+}
+
 type SaveHandler = () => Promise<void> | void;
 
 interface AppContextType {
-  sharedYear: number;
-  setSharedYear: React.Dispatch<React.SetStateAction<number>>;
+  sharedYear: number | null;
+  setSharedYear: React.Dispatch<React.SetStateAction<number | null>>;
   allocationData: any;
   setAllocationData: React.Dispatch<React.SetStateAction<any>>;
   otbAnalysisContext: any;
@@ -30,15 +35,24 @@ interface AppContextType {
   registerCreateBudget: (handler: () => void) => void;
   unregisterCreateBudget: () => void;
   triggerCreateBudget: () => void;
+  registerExport: (handler: () => void) => void;
+  unregisterExport: () => void;
+  triggerExport: () => void;
+  hasExportHandler: boolean;
   headerSubtitle: string | null;
   setHeaderSubtitle: (subtitle: string | null) => void;
+  // Global loading overlay
+  loading: LoadingState;
+  showLoading: (message?: string) => void;
+  hideLoading: () => void;
+  withLoading: <T>(fn: () => Promise<T>, message?: string) => Promise<T>;
 }
 
 const AppContext = createContext<AppContextType | null>(null);
 
 export const AppProvider = ({ children }: { children: React.ReactNode }) => {
   // Shared filter state between Budget Management and Planning screens
-  const [sharedYear, setSharedYear] = useState(2025);
+  const [sharedYear, setSharedYear] = useState<number | null>(null);
 
   // Cross-screen data passing
   const [allocationData, setAllocationData] = useState(null);
@@ -70,7 +84,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const triggerSave = useCallback(async () => {
     if (saveHandlerRef.current) {
-      await saveHandlerRef.current();
+      setLoading({ visible: true, message: undefined });
+      try {
+        await saveHandlerRef.current();
+      } finally {
+        setLoading({ visible: false, message: undefined });
+      }
     }
   }, []);
 
@@ -90,7 +109,12 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const triggerSaveAsNew = useCallback(async () => {
     if (saveAsNewHandlerRef.current) {
-      await saveAsNewHandlerRef.current();
+      setLoading({ visible: true, message: undefined });
+      try {
+        await saveAsNewHandlerRef.current();
+      } finally {
+        setLoading({ visible: false, message: undefined });
+      }
     }
   }, []);
 
@@ -111,8 +135,53 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
+  // Export handler: screens register their export callback, AppHeader triggers it
+  const exportHandlerRef = useRef<(() => void) | null>(null);
+  const [hasExportHandler, setHasExportHandler] = useState(false);
+
+  const registerExport = useCallback((handler: () => void) => {
+    exportHandlerRef.current = handler;
+    setHasExportHandler(true);
+  }, []);
+
+  const unregisterExport = useCallback(() => {
+    exportHandlerRef.current = null;
+    setHasExportHandler(false);
+  }, []);
+
+  const triggerExport = useCallback(async () => {
+    if (exportHandlerRef.current) {
+      setLoading({ visible: true, message: undefined });
+      try {
+        await exportHandlerRef.current();
+      } finally {
+        setLoading({ visible: false, message: undefined });
+      }
+    }
+  }, []);
+
   // Header subtitle — screens can set to show e.g. "Ferragamo - Brand X" in breadcrumb
   const [headerSubtitle, setHeaderSubtitle] = useState<string | null>(null);
+
+  // Global loading overlay state
+  const [loading, setLoading] = useState<LoadingState>({ visible: false });
+
+  const showLoading = useCallback((message?: string) => {
+    setLoading({ visible: true, message });
+  }, []);
+
+  const hideLoading = useCallback(() => {
+    setLoading({ visible: false, message: undefined });
+  }, []);
+
+  const withLoading = useCallback(async <T,>(fn: () => Promise<T>, message?: string): Promise<T> => {
+    setLoading({ visible: true, message });
+    try {
+      return await fn();
+    } finally {
+      setLoading({ visible: false, message: undefined });
+    }
+  }, []);
 
   const value = {
     sharedYear,
@@ -136,8 +205,16 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     registerCreateBudget,
     unregisterCreateBudget,
     triggerCreateBudget,
+    registerExport,
+    unregisterExport,
+    triggerExport,
+    hasExportHandler,
     headerSubtitle,
     setHeaderSubtitle,
+    loading,
+    showLoading,
+    hideLoading,
+    withLoading,
   };
 
   return (

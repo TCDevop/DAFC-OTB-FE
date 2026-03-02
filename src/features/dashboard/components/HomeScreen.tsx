@@ -182,9 +182,9 @@ const HomeScreen = () => {
   const [chartData, setChartData] = useState<{ month: string; actual: number; target: number }[]>([]);
 
   // Dashboard filter state
-  const SEASON_OPTIONS = ['SS25', 'FW25', 'SS26', 'FW26'];
   const REGION_OPTIONS = ['Vietnam', 'Global'];
-  const [selectedSeason, setSelectedSeason] = useState('SS25');
+  const [seasonOptions, setSeasonOptions] = useState<string[]>([]);
+  const [selectedSeason, setSelectedSeason] = useState('');
   const [selectedBrand, setSelectedBrand] = useState('all');
   const [selectedRegion, setSelectedRegion] = useState('Vietnam');
   const [brandOptions, setBrandOptions] = useState<any[]>([]);
@@ -204,7 +204,7 @@ const HomeScreen = () => {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Fetch brands for filter
+  // Fetch brands and season groups for filters
   useEffect(() => {
     const fetchBrands = async () => {
       try {
@@ -213,7 +213,29 @@ const HomeScreen = () => {
         setBrandOptions(list.map((b: any) => b.name || b.code || 'Unknown'));
       } catch { setBrandOptions([]); }
     };
+    const fetchSeasonOptions = async () => {
+      try {
+        const res = await masterDataService.getSeasonGroups();
+        const data = Array.isArray(res) ? res : [];
+        // Build combined labels like 'SS25', 'FW25' from season groups + fiscal years in budgets
+        // Use current year and next year as a reasonable range
+        const currentYear = new Date().getFullYear();
+        const years = [currentYear, currentYear + 1];
+        const options: string[] = [];
+        years.forEach(year => {
+          const shortYear = String(year).slice(-2);
+          data.forEach((sg: any) => {
+            options.push(`${sg.name}${shortYear}`);
+          });
+        });
+        setSeasonOptions(options);
+        if (options.length > 0 && !selectedSeason) setSelectedSeason(options[0]);
+      } catch {
+        setSeasonOptions([]);
+      }
+    };
     fetchBrands();
+    fetchSeasonOptions();
   }, []);
 
   // Format VND amount for display (e.g. 12500000000 → "12,5 T đ")
@@ -332,11 +354,7 @@ const HomeScreen = () => {
           </div>
         </div>
         <span className={`inline-flex px-4 py-1 text-xs font-semibold uppercase tracking-wider font-['Montserrat'] rounded-full ${'bg-[rgba(138,99,64,0.18)] text-[#5A3D22] border border-[rgba(138,99,64,0.45)]'}`}>
-          {selectedSeason === 'SS25' ? 'Spring Summer 2025'
-            : selectedSeason === 'FW25' ? 'Fall Winter 2025'
-            : selectedSeason === 'SS26' ? 'Spring Summer 2026'
-            : selectedSeason === 'FW26' ? 'Fall Winter 2026'
-            : selectedSeason}
+          {selectedSeason || '—'}
         </span>
       </div>
 
@@ -364,7 +382,7 @@ const HomeScreen = () => {
           {/* Filter Dropdowns */}
           <div ref={filterRef} className="flex flex-wrap items-center gap-3">
             {[
-              { key: 'season', label: t('home.season'), value: selectedSeason, options: SEASON_OPTIONS, onSelect: setSelectedSeason },
+              { key: 'season', label: t('home.season'), value: selectedSeason, options: seasonOptions, onSelect: setSelectedSeason },
               { key: 'brand', label: t('home.brand'), value: selectedBrand === 'all' ? t('home.allBrands') : selectedBrand, options: ['all', ...brandOptions], onSelect: setSelectedBrand, displayFn: (v: any) => v === 'all' ? t('home.allBrands') : v },
               { key: 'region', label: t('home.region'), value: selectedRegion, options: REGION_OPTIONS, onSelect: setSelectedRegion }
             ].map((filter) => (
@@ -966,7 +984,7 @@ const HomeScreen = () => {
             label: t('home.season'),
             icon: '📅',
             type: 'single',
-            options: SEASON_OPTIONS.map(s => ({ value: s, label: s }))},
+            options: seasonOptions.map(s => ({ value: s, label: s }))},
           {
             key: 'brand',
             label: t('home.brand'),

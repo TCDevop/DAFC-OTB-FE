@@ -51,14 +51,6 @@ vi.mock('../../../../utils/constants', () => ({
     { id: 'ttp', code: 'TTP', name: 'TTP' },
   ],
   CURRENT_YEAR: 2025,
-  CURRENT_SEASON_GROUP: 'SS',
-}));
-
-vi.mock('../../../../utils/formatters', () => ({
-  generateSeasonsMultiple: vi.fn(() => [
-    { id: 'SS-Pre', seasonGroupId: 'SS', seasonType: 'Pre', name: 'SS Pre' },
-    { id: 'SS-Main/Show', seasonGroupId: 'SS', seasonType: 'Main/Show', name: 'SS Main/Show' },
-  ]),
 }));
 
 import { useBudget } from '../useBudget';
