@@ -1560,8 +1560,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         {!isMobile && <>
           {/* ── Group 1: Global Context Filters ── */}
           <div className="-mx-2 md:-mx-3 px-3 md:px-6 py-1.5">
-            <div className="flex items-center gap-1.5">
+            <div className="flex items-end gap-1.5">
               <FilterSelect
+                label="FY"
                 value={fyFilter}
                 options={fyOptions}
                 onChange={(v: string) => { setFyFilter(v); setBudgetFilter('all'); }}
@@ -1569,6 +1570,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               />
               {/* Budget Dropdown — matches BudgetAllocate design */}
               <div className="relative min-w-0" ref={budgetDropdownRef}>
+                <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">
+                  Budget
+                </label>
                 <button
                   type="button"
                   onClick={() => setIsBudgetDropdownOpen(!isBudgetDropdownOpen)}
@@ -1644,43 +1648,47 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 )}
               </div>
               <FilterSelect
+                label={t('budget.brand') || 'Brand'}
                 value={brandFilter}
                 options={brandOptions}
                 onChange={setBrandFilter}
                 placeholder={t('budget.allBrands') || 'All Brands'}
               />
               <FilterSelect
+                label={t('budget.seasonGroup') || 'Season Group'}
                 value={seasonGroupFilter}
                 options={seasonGroupOptions}
                 onChange={(v: string) => { setSeasonGroupFilter(v); setSeasonFilter('all'); }}
                 placeholder={t('budget.allSeasonGroups') || 'All Season Groups'}
               />
               <FilterSelect
+                label={t('budget.season') || 'Season'}
                 value={seasonFilter}
                 options={seasonOptions}
                 onChange={setSeasonFilter}
                 placeholder={t('budget.allSeasons') || 'All Seasons'}
               />
 
-            </div>
-          </div>
+              {/* Separator */}
+              <div className="w-px self-stretch bg-[rgba(215,183,151,0.4)] shrink-0 mx-0.5" />
 
-          {/* ── Group 2: SKU Data Filters ── */}
-          <div className={`-mx-2 md:-mx-3 px-3 md:px-6 py-1.5 border-t border-[rgba(215,183,151,0.2)] ${hasActiveSkuFilter ? 'bg-[rgba(160,120,75,0.04)]' : ''}`}>
-            <div className="flex items-center gap-1.5">
+              {/* SKU Data Filters */}
               <FilterSelect
+                label={t('common.gender') || 'Gender'}
                 value={genderFilter}
                 options={genderOptions}
                 onChange={(v: string) => { setGenderFilter(v); setCategoryFilter('all'); setSubCategoryFilter('all'); }}
                 placeholder={t('common.allGenders') || 'All Genders'}
               />
               <FilterSelect
+                label={t('common.category') || 'Category'}
                 value={categoryFilter}
                 options={categoryOptions}
                 onChange={(v: string) => { setCategoryFilter(v); setSubCategoryFilter('all'); }}
                 placeholder={t('common.allCategories') || 'All Categories'}
               />
               <FilterSelect
+                label={t('common.subCategory') || 'Sub Category'}
                 value={subCategoryFilter}
                 options={subCategoryOptions}
                 onChange={setSubCategoryFilter}
@@ -1697,6 +1705,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   <X size={14} />
                 </button>
               )}
+
             </div>
           </div>
         </>}

@@ -219,19 +219,18 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
             {/* Home */}
             <button
               onClick={() => navigateTo('home')}
-              className="group w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all duration-200"
-              style={currentScreen === 'home' ? {
-                background: 'linear-gradient(135deg, rgba(215,183,151,0.06) 0%, rgba(215,183,151,0.14) 100%)',
-                boxShadow: 'inset 0 0 0 1px rgba(215,183,151,0.1)',
-              } : undefined}
+              className="group w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all duration-150 hover:bg-[rgba(215,183,151,0.04)]"
             >
               <Home
-                size={15}
+                size={14}
                 strokeWidth={2.5}
-                className={`transition-colors duration-150 ${getIconClass('home')}`}
-                style={currentScreen === 'home' ? { filter: 'drop-shadow(0 0 4px rgba(215,183,151,0.4))' } : undefined}
+                className="transition-colors duration-150"
+                style={{ color: '#8A6340' }}
               />
-              <span className={`text-[12px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass('home')}`}>
+              <span
+                className="font-extrabold text-[12px] uppercase tracking-wider font-['Montserrat']"
+                style={{ color: '#8A6340' }}
+              >
                 {t('nav.homeDashboard')}
               </span>
             </button>
@@ -382,19 +381,18 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
             {/* Import Data */}
             <button
               onClick={() => navigateTo('import-data')}
-              className="group w-full flex items-center gap-2 px-2.5 py-1.5 rounded-lg transition-all duration-200"
-              style={currentScreen === 'import-data' ? {
-                background: 'linear-gradient(135deg, rgba(215,183,151,0.06) 0%, rgba(215,183,151,0.14) 100%)',
-                boxShadow: 'inset 0 0 0 1px rgba(215,183,151,0.1)',
-              } : undefined}
+              className="group w-full flex items-center gap-1.5 px-2.5 py-1.5 rounded-md transition-all duration-150 hover:bg-[rgba(215,183,151,0.04)]"
             >
               <Upload
-                size={15}
+                size={14}
                 strokeWidth={2.5}
-                className={`transition-colors duration-150 ${getIconClass('import-data')}`}
-                style={currentScreen === 'import-data' ? { filter: 'drop-shadow(0 0 4px rgba(215,183,151,0.4))' } : undefined}
+                className="transition-colors duration-150"
+                style={{ color: '#8A6340' }}
               />
-              <span className={`text-[12px] font-['Montserrat'] transition-colors duration-150 whitespace-nowrap ${getTextClass('import-data')}`}>
+              <span
+                className="font-extrabold text-[12px] uppercase tracking-wider font-['Montserrat']"
+                style={{ color: '#8A6340' }}
+              >
                 {t('nav.importData') || 'Import Data'}
               </span>
             </button>

@@ -859,29 +859,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     }
   };
 
-  // Reset budget selection when season filters change (if current budget doesn't match)
-  useEffect(() => {
-    if (selectedBudgetId && selectedBudgetId !== 'all' && selectedSeasonGroup !== 'all') {
-      const currentBudget = apiBudgets.find((b: any) => b.id === selectedBudgetId);
-      if (currentBudget && currentBudget.seasonGroup && currentBudget.seasonGroup !== selectedSeasonGroup) {
-        setSelectedBudgetId('all');
-        setSelectedVersionId(null);
-        setVersions([]);
-      }
-    }
-  }, [selectedSeasonGroup]);
-
-  useEffect(() => {
-    if (selectedBudgetId && selectedBudgetId !== 'all' && selectedSeason !== 'all') {
-      const currentBudget = apiBudgets.find((b: any) => b.id === selectedBudgetId);
-      if (currentBudget && currentBudget.seasonType && currentBudget.seasonType !== selectedSeason) {
-        setSelectedBudgetId('all');
-        setSelectedVersionId(null);
-        setVersions([]);
-      }
-    }
-  }, [selectedSeason]);
-
   // Clear all filters
   const clearFilters = () => {
     setSelectedBudgetId('all');
@@ -1468,10 +1445,10 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                   </tr>
                                 )}
                                 <tr>
-                                  <th className={`px-4 py-2 text-left text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>Sub-Category</th>
-                                  <th className={`px-3 py-1 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.pctBuy')}</th>
-                                  <th className={`px-3 py-1 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.pctSales')}</th>
-                                  <th className={`px-3 py-1 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.pctST')}</th>
+                                  <th className={`px-3 py-1 text-left text-[11px] font-semibold font-['Montserrat'] ${headerDarkCell}`}>Sub-Category</th>
+                                  <th className={`px-2 py-1 text-center text-[11px] font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.pctBuy')}</th>
+                                  <th className={`px-2 py-1 text-center text-[11px] font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.pctSales')}</th>
+                                  <th className={`px-2 py-1 text-center text-[11px] font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('otbAnalysis.pctST')}</th>
                                   {historicalPeriods
                                     .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
                                     .map((period) => (
@@ -1481,12 +1458,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                       <th className={`px-2 py-1 text-center text-[10px] font-semibold font-['Montserrat'] ${'bg-[rgba(150,130,110,0.12)] text-[#777]'}`}>%ST</th>
                                     </React.Fragment>
                                   ))}
-                                  <th className={`px-3 py-2 text-center text-xs font-semibold font-['Montserrat'] ${headerGoldCell}`}>{t('otbAnalysis.pctProposed')}</th>
-                                  <th className={`px-3 py-2 text-center text-xs font-semibold font-['Montserrat'] ${headerBrownCell}`}>{t('otbAnalysis.dollarOTB')}</th>
-                                  <th className={`px-3 py-2 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkBrownCell}`}>{t('otbAnalysis.variance')}</th>
-                                  <th className={`px-3 py-2 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('common.submit')}</th>
-                                  <th className={`px-3 py-2 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>% Actual</th>
-                                  <th className={`px-3 py-2 text-center text-xs font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('common.actions')}</th>
+                                  <th className={`px-2 py-1 text-center text-[11px] font-semibold font-['Montserrat'] ${headerGoldCell}`}>{t('otbAnalysis.pctProposed')}</th>
+                                  <th className={`px-2 py-1 text-center text-[11px] font-semibold font-['Montserrat'] ${headerBrownCell}`}>{t('otbAnalysis.dollarOTB')}</th>
+                                  <th className={`px-2 py-1 text-center text-[11px] font-semibold font-['Montserrat'] ${headerDarkBrownCell}`}>{t('otbAnalysis.variance')}</th>
+                                  <th className={`px-2 py-1 text-center text-[11px] font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('common.submit')}</th>
+                                  <th className={`px-2 py-1 text-center text-[11px] font-semibold font-['Montserrat'] ${headerDarkCell}`}>% Actual</th>
+                                  <th className={`px-2 py-1 text-center text-[11px] font-semibold font-['Montserrat'] ${headerDarkCell}`}>{t('common.actions')}</th>
                                 </tr>
                               </thead>
                               <tbody>
@@ -2168,7 +2145,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             {/* Category sub-filters (category tab only) */}
             {activeBrandTab === 'category' && (
               <div className={`border-b px-3 py-2 ${'border-[#C4B5A5]'}`}>
-                <div className="flex items-center gap-2 flex-wrap">
+                <div className="flex items-end gap-2 flex-wrap">
                   <button
                     type="button"
                     onClick={handleToggleAll}
@@ -2177,9 +2154,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     <ChevronDown size={12} className={`transition-transform ${allCollapsed ? '-rotate-90' : ''}`} />
                     {allCollapsed ? 'Expand All' : 'Collapse All'}
                   </button>
-                  <FilterSelect value={categoryFilter} options={[{ value: 'all', label: t('common.allCategories') || 'All Categories' }, ...filterOptions.categories.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleCategoryFilterChange} placeholder={t('common.allCategories') || 'All Categories'} />
-                  <FilterSelect value={subCategoryFilter} options={[{ value: 'all', label: t('common.allSubCategories') || 'All SubCategories' }, ...filteredSubCategoryOptions.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleSubCategoryFilterChange} placeholder={t('common.allSubCategories') || 'All SubCategories'} />
-                  <FilterSelect value={genderFilter} options={[{ value: 'all', label: t('common.allGenders') || 'All Genders' }, ...filterOptions.genders.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleGenderFilterChange} placeholder={t('common.allGenders') || 'All Genders'} />
+                  <FilterSelect label={t('common.category') || 'Category'} value={categoryFilter} options={[{ value: 'all', label: t('common.allCategories') || 'All Categories' }, ...filterOptions.categories.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleCategoryFilterChange} placeholder={t('common.allCategories') || 'All Categories'} />
+                  <FilterSelect label={t('common.subCategory') || 'Sub Category'} value={subCategoryFilter} options={[{ value: 'all', label: t('common.allSubCategories') || 'All SubCategories' }, ...filteredSubCategoryOptions.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleSubCategoryFilterChange} placeholder={t('common.allSubCategories') || 'All SubCategories'} />
+                  <FilterSelect label={t('common.gender') || 'Gender'} value={genderFilter} options={[{ value: 'all', label: t('common.allGenders') || 'All Genders' }, ...filterOptions.genders.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleGenderFilterChange} placeholder={t('common.allGenders') || 'All Genders'} />
                   {(genderFilter !== 'all' || categoryFilter !== 'all' || subCategoryFilter !== 'all') && (
                     <button onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); }} className={`shrink-0 p-1 rounded transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-red-50'}`} title={t('common.clearAll')}><X size={14} /></button>
                   )}
@@ -2287,23 +2264,26 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
               )}
               {/* Desktop Filters */}
               {!isMobile && (
-              <div className="flex flex-wrap items-center gap-2.5 px-3 md:px-6 py-1.5 relative z-[100]">
+              <div className="flex flex-wrap items-end gap-2.5 px-3 md:px-6 py-1.5 relative z-[100]">
                 {/* Year Filter */}
                 <div className="relative shrink-0" ref={setDropdownRef('year')}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">FY</label>
                   <button
                     type="button"
                     onClick={() => {
                       setOpenDropdown((prev: any) => (prev === 'year' ? null : 'year'));
                       setOpenCategoryDropdown(null);
                     }}
-                    className={`px-3 py-[7px] border rounded-lg font-medium cursor-pointer flex items-center gap-2 text-xs transition-all duration-200 ${
+                    className={`px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center gap-1.5 text-xs transition-all duration-200 ${
                       openDropdown === 'year'
-                        ?'bg-[rgba(215,183,151,0.06)] border-[#D7B797]/60 shadow-[0_0_0_1px_rgba(215,183,151,0.15)]': selectedYear !== 'all'
-                          ?'bg-[rgba(215,183,151,0.04)] border-[rgba(215,183,151,0.3)] text-[#6B4D30] hover:border-[rgba(215,183,151,0.5)]':'bg-white border-[#D4CCC2] text-[#1A1A1A] hover:border-[#B8A998] hover:bg-[#FDFCFB]'}`}
+                        ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'
+                        : selectedYear !== 'all'
+                          ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:border-[#D7B797]'
+                          : 'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:border-[rgba(215,183,151,0.4)] hover:bg-[rgba(160,120,75,0.18)]'}`}
                   >
-                      <Calendar size={12} className={selectedYear !== 'all' ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')} />
+                      <Calendar size={12} className="shrink-0" />
                       <span>{selectedYear === 'all' ? (t('common.all') || 'All') : `FY ${selectedYear}`}</span>
-                    <ChevronDown size={10} strokeWidth={2} className={`transition-transform duration-200 ease-out ${openDropdown === 'year' ? 'rotate-180' : ''} ${openDropdown === 'year' ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')}`} />
+                    <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${openDropdown === 'year' ? 'rotate-180' : ''}`} />
                   </button>
                   {openDropdown === 'year' && (
                     <div className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden ${'bg-white border-[#D4CCC2]'}`} style={{ boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06)'}}>
@@ -2337,10 +2317,13 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   )}
                 </div>
 
-                <div className={`h-5 w-px hidden sm:block rounded-full ${'bg-gradient-to-b from-transparent via-[#C4B5A5]/40 to-transparent'}`} />
+                <div className={`self-stretch w-px hidden sm:block rounded-full ${'bg-gradient-to-b from-transparent via-[#C4B5A5]/40 to-transparent'}`} />
 
                 {/* Budget Select — matches BudgetAllocate design */}
-                <div className="relative flex-1 min-w-0" ref={setDropdownRef('budgetSeason')}>
+                <div className="relative shrink-0 min-w-[160px] max-w-[260px]" ref={setDropdownRef('budgetSeason')}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">
+                    Budget
+                  </label>
                   <button
                     type="button"
                     onClick={() => {
@@ -2396,8 +2379,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                               onClick={() => {
                                 setSelectedBudgetId(budget.id);
                                 if (budget.fiscalYear) setSelectedYear(budget.fiscalYear);
-                                if (budget.seasonGroup) setSelectedSeasonGroup(budget.seasonGroup);
-                                if (budget.seasonType) setSelectedSeason(budget.seasonType);
                                 setOpenDropdown(null);
                               }}
                               className={`px-4 py-0.5 cursor-pointer transition-colors border-t border-[#D4C8BB] ${isSelected
@@ -2430,6 +2411,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
                 {/* Type Filter (Same/Different Season) — select mode for comparing previous year data */}
                 <FilterSelect
+                  label={t('otbAnalysis.type') || 'Type'}
                   value={comparisonType}
                   options={[
                     { value: 'same', label: t('otbAnalysis.same') || 'Same' },
@@ -2441,6 +2423,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
                 {/* Number of Seasons Dropdown */}
                 <div className={`relative shrink-0 ${!canEditComparison ? 'opacity-50 pointer-events-none' : ''}`} ref={setDropdownRef('seasonCount')}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Period</label>
                   <button
                     type="button"
                     disabled={!canEditComparison}
@@ -2448,13 +2431,14 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       setOpenDropdown((prev: any) => (prev === 'seasonCount' ? null : 'seasonCount'));
                       setOpenCategoryDropdown(null);
                     }}
-                    className={`px-3 py-[7px] border rounded-lg font-medium cursor-pointer flex items-center gap-2 text-xs transition-all duration-200 ${
+                    className={`px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center gap-1.5 text-xs transition-all duration-200 ${
                       openDropdown === 'seasonCount'
-                        ?'bg-[rgba(215,183,151,0.06)] border-[#D7B797]/60 shadow-[0_0_0_1px_rgba(215,183,151,0.15)]':'bg-[rgba(215,183,151,0.04)] border-[rgba(215,183,151,0.3)] text-[#6B4D30] hover:border-[rgba(215,183,151,0.5)]'}`}
+                        ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'
+                        : 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:border-[#D7B797]'}`}
                   >
-                      <Calendar size={12} className={'text-[#6B4D30]'} />
+                      <Calendar size={12} className="shrink-0" />
                       <span>{seasonCount}</span>
-                    <ChevronDown size={10} strokeWidth={2} className={`transition-transform duration-200 ease-out ${openDropdown === 'seasonCount' ? 'rotate-180' : ''} ${'text-[#6B4D30]'}`} />
+                    <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${openDropdown === 'seasonCount' ? 'rotate-180' : ''}`} />
                   </button>
                   {openDropdown === 'seasonCount' && (
                     <div className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden ${'bg-white border-[#D4CCC2]'}`} style={{ boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06)'}}>
@@ -2484,20 +2468,23 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                 {/* Brand Filter — multi-select brands */}
                 {brandOptions.length >= 1 && (
                 <>
-                <div className={`h-5 w-px hidden sm:block rounded-full ${'bg-gradient-to-b from-transparent via-[#C4B5A5]/40 to-transparent'}`} />
+                <div className={`self-stretch w-px hidden sm:block rounded-full ${'bg-gradient-to-b from-transparent via-[#C4B5A5]/40 to-transparent'}`} />
                 <div className="relative shrink-0" ref={setDropdownRef('brand')}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Brand</label>
                   <button
                     type="button"
                     onClick={() => {
                       setOpenDropdown((prev: any) => (prev === 'brand' ? null : 'brand'));
                       setOpenCategoryDropdown(null);
                     }}
-                    className={`px-3 py-[7px] border rounded-lg font-medium cursor-pointer flex items-center gap-2 text-xs transition-all duration-200 ${
+                    className={`px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center gap-1.5 text-xs transition-all duration-200 ${
                       openDropdown === 'brand'
-                        ?'bg-[rgba(215,183,151,0.06)] border-[#D7B797]/60 shadow-[0_0_0_1px_rgba(215,183,151,0.15)]': selectedBrandIds.length > 0
-                          ?'bg-[rgba(215,183,151,0.04)] border-[rgba(215,183,151,0.3)] text-[#6B4D30] hover:border-[rgba(215,183,151,0.5)]':'bg-white border-[#D4CCC2] text-[#1A1A1A] hover:border-[#B8A998] hover:bg-[#FDFCFB]'}`}
+                        ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'
+                        : selectedBrandIds.length > 0
+                          ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:border-[#D7B797]'
+                          : 'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:border-[rgba(215,183,151,0.4)] hover:bg-[rgba(160,120,75,0.18)]'}`}
                   >
-                    <Tag size={12} className={selectedBrandIds.length > 0 ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')} />
+                    <Tag size={12} className="shrink-0" />
                     <span className="truncate max-w-[120px]">
                       {(() => {
                         const selectedBrands = brandOptions.filter((b: any) => selectedBrandIds.includes(b.value));
@@ -2509,7 +2496,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     {selectedBrandIds.length > 1 && (
                       <span className={`px-1.5 text-[10px] leading-[16px] font-bold rounded-md ${'bg-[#6B4D30] text-white'}`}>{selectedBrandIds.length}</span>
                     )}
-                    <ChevronDown size={10} strokeWidth={2} className={`transition-transform duration-200 ease-out ${openDropdown === 'brand' ? 'rotate-180' : ''} ${openDropdown === 'brand' ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')}`} />
+                    <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${openDropdown === 'brand' ? 'rotate-180' : ''}`} />
                   </button>
                   {openDropdown === 'brand' && (
                     <div
@@ -2582,22 +2569,25 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                 {/* Season Group Filter - only show after budget selected */}
                 {selectedBudgetId && selectedBudgetId !== 'all' && (
                 <>
-                <div className={`h-5 w-px hidden sm:block rounded-full ${'bg-gradient-to-b from-transparent via-[#C4B5A5]/40 to-transparent'}`} />
+                <div className={`self-stretch w-px hidden sm:block rounded-full ${'bg-gradient-to-b from-transparent via-[#C4B5A5]/40 to-transparent'}`} />
                 <div className="relative shrink-0" ref={setDropdownRef('seasonGroup')}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Season Group</label>
                   <button
                     type="button"
                     onClick={() => {
                       setOpenDropdown((prev: any) => (prev === 'seasonGroup' ? null : 'seasonGroup'));
                       setOpenCategoryDropdown(null);
                     }}
-                    className={`px-3 py-[7px] border rounded-lg font-medium cursor-pointer flex items-center gap-1.5 text-xs transition-all duration-200 ${
+                    className={`px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center gap-1.5 text-xs transition-all duration-200 ${
                       openDropdown === 'seasonGroup'
-                        ?'bg-[rgba(215,183,151,0.06)] border-[#D7B797]/60 shadow-[0_0_0_1px_rgba(215,183,151,0.15)]': selectedSeasonGroup !== 'all'
-                          ?'bg-[rgba(215,183,151,0.04)] border-[rgba(215,183,151,0.3)] text-[#6B4D30] hover:border-[rgba(215,183,151,0.5)]':'bg-white border-[#D4CCC2] text-[#1A1A1A] hover:border-[#B8A998] hover:bg-[#FDFCFB]'}`}
+                        ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'
+                        : selectedSeasonGroup !== 'all'
+                          ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:border-[#D7B797]'
+                          : 'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:border-[rgba(215,183,151,0.4)] hover:bg-[rgba(160,120,75,0.18)]'}`}
                   >
-                      <Calendar size={12} className={`shrink-0 ${selectedSeasonGroup !== 'all' ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')}`} />
+                      <Calendar size={12} className="shrink-0" />
                       <span className="truncate">{selectedSeasonGroup === 'all' ? (t('planning.allSeasonGroups') || 'All') : (seasonGroupOptions.find((s: any) => s.id === selectedSeasonGroup)?.label || selectedSeasonGroup)}</span>
-                    <ChevronDown size={12} strokeWidth={2} className={`shrink-0 transition-transform duration-200 ease-out ${openDropdown === 'seasonGroup' ? 'rotate-180' : ''} ${openDropdown === 'seasonGroup' ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')}`} />
+                    <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${openDropdown === 'seasonGroup' ? 'rotate-180' : ''}`} />
                   </button>
                   {openDropdown === 'seasonGroup' && (
                     <div
@@ -2638,20 +2628,23 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
                 {/* Season Filter */}
                 <div className="relative shrink-0" ref={setDropdownRef('season')}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Season</label>
                   <button
                     type="button"
                     onClick={() => {
                       setOpenDropdown((prev: any) => (prev === 'season' ? null : 'season'));
                       setOpenCategoryDropdown(null);
                     }}
-                    className={`px-3 py-[7px] border rounded-lg font-medium cursor-pointer flex items-center gap-1.5 text-xs transition-all duration-200 ${
+                    className={`px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center gap-1.5 text-xs transition-all duration-200 ${
                       openDropdown === 'season'
-                        ?'bg-[rgba(215,183,151,0.06)] border-[#D7B797]/60 shadow-[0_0_0_1px_rgba(215,183,151,0.15)]': selectedSeason !== 'all'
-                          ?'bg-[rgba(215,183,151,0.04)] border-[rgba(215,183,151,0.3)] text-[#6B4D30] hover:border-[rgba(215,183,151,0.5)]':'bg-white border-[#D4CCC2] text-[#1A1A1A] hover:border-[#B8A998] hover:bg-[#FDFCFB]'}`}
+                        ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'
+                        : selectedSeason !== 'all'
+                          ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:border-[#D7B797]'
+                          : 'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:border-[rgba(215,183,151,0.4)] hover:bg-[rgba(160,120,75,0.18)]'}`}
                   >
-                      <Clock size={12} className={`shrink-0 ${selectedSeason !== 'all' ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')}`} />
+                      <Clock size={12} className="shrink-0" />
                       <span className="whitespace-nowrap">{selectedSeason === 'all' ? (t('otbAnalysis.allSeasons') || 'All') : (availableSeasons.find((s: any) => s.id === selectedSeason)?.label || selectedSeason)}</span>
-                    <ChevronDown size={12} strokeWidth={2} className={`shrink-0 transition-transform duration-200 ease-out ${openDropdown === 'season' ? 'rotate-180' : ''} ${openDropdown === 'season' ? ('text-[#6B4D30]') : ('text-[#AAAAAA]')}`} />
+                    <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${openDropdown === 'season' ? 'rotate-180' : ''}`} />
                   </button>
                   {openDropdown === 'season' && (
                     <div
@@ -2703,6 +2696,22 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     <X size={14} strokeWidth={2} />
                   </button>
                 )}
+
+                {/* Collapse All / Expand All — right-aligned in filter row */}
+                {selectedBudget && displayBrands.length > 0 && (
+                  <button
+                    onClick={() => {
+                      const allCollapsedNow = displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true);
+                      const next: Record<string, boolean> = {};
+                      displayBrands.forEach((b: any) => { next[String(b.id)] = !allCollapsedNow; });
+                      setCollapsedBrands(next);
+                    }}
+                    className={`ml-auto shrink-0 flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
+                  >
+                    <ChevronDown size={12} className={`transition-transform ${displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? '-rotate-90' : ''}`} />
+                    {displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? 'Expand' : 'Collapse'}
+                  </button>
+                )}
               </div>
               )}
         </div>{/* end overflow-hidden min-h-0 */}
@@ -2713,20 +2722,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       {/* Per-Brand Sections — each brand is a collapsible section with Category/Season Type/Gender tabs */}
       {selectedBudget && displayBrands.length > 0 && (
         <div className="space-y-3">
-          <div className="flex justify-end">
-            <button
-              onClick={() => {
-                const allCollapsedNow = displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true);
-                const next: Record<string, boolean> = {};
-                displayBrands.forEach((b: any) => { next[String(b.id)] = !allCollapsedNow; });
-                setCollapsedBrands(next);
-              }}
-              className={`flex items-center gap-1.5 px-3 py-1.5 text-xs font-medium font-['Montserrat'] rounded-lg border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
-            >
-              <ChevronDown size={12} className={`transition-transform ${displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? '-rotate-90' : ''}`} />
-              {displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true) ? 'Expand All' : 'Collapse All'}
-            </button>
-          </div>
           {displayBrands.map((brand: any) => renderBrandSection(brand))}
 
           {/* Allocate All Footer */}
@@ -2810,8 +2805,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             const mobileBudget = apiBudgets.find((b: any) => b.id === mobileFilterValues.budget);
             setSelectedBudgetId(mobileFilterValues.budget as string);
             if (mobileBudget?.fiscalYear) setSelectedYear(mobileBudget.fiscalYear);
-            if (mobileBudget?.seasonGroup) setSelectedSeasonGroup(mobileBudget.seasonGroup);
-            if (mobileBudget?.seasonType) setSelectedSeason(mobileBudget.seasonType);
           }
           setSelectedSeasonGroup((mobileFilterValues.seasonGroup as string) || 'all');
           setSelectedSeason((mobileFilterValues.season as string) || 'all');

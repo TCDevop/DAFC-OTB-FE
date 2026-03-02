@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import {
   Sparkles, Filter, Clock, ChevronDown, Check,
   ChevronRight, Sun, Snowflake,
-  Star, Layers, Tag, FileText, X, Split, Pencil
+  Star, Layers, Tag, FileText, X, Split
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '@/utils';
@@ -16,7 +16,6 @@ import { useAppContext } from '@/contexts/AppContext';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useSmartScrollState } from '@/hooks/useSmartScrollState';
 import { FilterBottomSheet, useBottomSheet } from '@/components/mobile';
 import { TableSkeleton } from '@/components/ui';
 import { useAllocationState, BRAND_BUDGET_CAP_PCT } from '../hooks/useAllocationState';
@@ -216,8 +215,8 @@ const BudgetAllocateScreen = ({
 
   // Budget name dropdown state
   const [isBudgetNameDropdownOpen, setIsBudgetNameDropdownOpen] = useState(false);
-  // Smart Filter Bar — direct DOM toggle, zero re-render
-  const { barRef, handleBarClick } = useSmartScrollState();
+  // Filter bar ref (sticky, always visible)
+  const barRef = useRef<HTMLDivElement>(null);
 
   // Store allocation data locally to survive the race condition with API fetch
   const [pendingAllocation, setPendingAllocation] = useState<any>(null);
@@ -1102,9 +1101,9 @@ const BudgetAllocateScreen = ({
       <div ref={barRef} className={`sticky -top-3 md:-top-6 z-[50] -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 backdrop-blur-sm relative border-b ${'bg-white/95 border-[rgba(215,183,151,0.3)]'}`}>
 
         {/* ===== FILTER CONTENT ===== */}
-            <div className={`flex items-center gap-1.5 px-3 md:px-6 py-1.5 relative z-[9999]`}>
               {/* Mobile Filter Button */}
               {isMobile && (
+            <div className="flex items-center gap-1.5 px-3 py-1.5">
                 <button
                   onClick={openFilter}
                   className={`flex items-center gap-1.5 px-3 py-1 border rounded-md text-xs font-medium ${'bg-white border-[#C4B5A5] text-[#6B4D30]'}`}
@@ -1112,11 +1111,14 @@ const BudgetAllocateScreen = ({
                   <Filter size={12} />
                   {t('common.filters')}
                 </button>
+            </div>
               )}
               {/* Desktop Filters */}
-              {!isMobile && <div className="flex items-center gap-1.5 flex-1 min-w-0">
+              {!isMobile && (
+              <div className="flex flex-wrap items-end gap-2.5 px-3 md:px-6 py-1.5 relative z-[100]">
                 {/* Year Filter */}
                 <div className="relative shrink-0" ref={yearDropdownRef}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">FY</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1150,7 +1152,8 @@ const BudgetAllocateScreen = ({
                 </div>
 
                 {/* Budget Name Dropdown */}
-                <div className="relative flex-1 min-w-0" ref={budgetNameDropdownRef}>
+                <div className="relative shrink-0 min-w-[160px] max-w-[260px]" ref={budgetNameDropdownRef}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Budget</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1230,7 +1233,8 @@ const BudgetAllocateScreen = ({
                 </div>
 
                 {/* Group Brand Filter */}
-                <div className="relative flex-1 min-w-0" ref={groupBrandDropdownRef}>
+                <div className="relative shrink-0" ref={groupBrandDropdownRef}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Group Brand</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1275,7 +1279,8 @@ const BudgetAllocateScreen = ({
                 </div>
 
                 {/* Brand Filter */}
-                <div className="relative flex-1 min-w-0" ref={brandDropdownRef}>
+                <div className="relative shrink-0" ref={brandDropdownRef}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Brand</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1320,7 +1325,8 @@ const BudgetAllocateScreen = ({
                 </div>
 
                 {/* Season Group Filter */}
-                <div className="relative flex-1 min-w-0" ref={seasonDropdownRef}>
+                <div className="relative shrink-0" ref={seasonDropdownRef}>
+                  <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Season Group</label>
                   <button
                     type="button"
                     onClick={() => {
@@ -1372,7 +1378,8 @@ const BudgetAllocateScreen = ({
 
                 {/* Sub-Season Filter — only shown when a Season Group is selected */}
                 {selectedSeasonGroup && availableSubSeasons.length > 0 && (
-                  <div className="relative flex-1 min-w-0" ref={subSeasonDropdownRef}>
+                  <div className="relative shrink-0" ref={subSeasonDropdownRef}>
+                    <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Season</label>
                     <button
                       type="button"
                       onClick={() => {
@@ -1416,22 +1423,35 @@ const BudgetAllocateScreen = ({
                   </div>
                 )}
 
-              </div>}
+                {/* Clear all filters - icon only */}
+                {selectedBudgetId && (
+                  <button
+                    onClick={() => {
+                      clearBudgetSelection();
+                      setBrandVersionMap({});
+                    }}
+                    className={`shrink-0 px-1.5 py-[8px] rounded-lg border transition-all duration-200 ${'text-[#999999] border-transparent hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.06)] hover:border-[rgba(248,81,73,0.12)]'}`}
+                    title={t('common.clearAllFilters')}
+                  >
+                    <X size={14} strokeWidth={2} />
+                  </button>
+                )}
 
-              {/* Clear all filters - icon only */}
-              {selectedBudgetId && (
-                <button
-                  onClick={() => {
-                    clearBudgetSelection();
-                    setBrandVersionMap({});
-                  }}
-                  className={`shrink-0 px-1.5 py-1 rounded-md transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-red-50'}`}
-                  title={t('common.clearAllFilters')}
-                >
-                  <X size={14} />
-                </button>
+                {/* Collapse — right-aligned */}
+                {(selectedBudget || selectedBudgetId) && (
+                  <button
+                    onClick={() => {
+                      const allCollapsed = brandList.length > 0 && brandList.every((b: any) => collapsedBrands[b.id]);
+                      if (allCollapsed) expandAll(); else collapseAll();
+                    }}
+                    className={`ml-auto shrink-0 flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
+                  >
+                    <ChevronDown size={12} className={`transition-transform ${brandList.length > 0 && brandList.every((b: any) => collapsedBrands[b.id]) ? '-rotate-90' : ''}`} />
+                    {brandList.length > 0 && brandList.every((b: any) => collapsedBrands[b.id]) ? 'Expand' : 'Collapse'}
+                  </button>
+                )}
+              </div>
               )}
-            </div>
       </div>
 
       {/* Loading skeleton */}
@@ -1442,20 +1462,6 @@ const BudgetAllocateScreen = ({
       {/* Budget Table - Collapsible by Group Brand and Brand */}
       {(selectedBudget || selectedBudgetId) && (
         <>
-        <div className="flex items-center gap-2 mb-2">
-          {(() => {
-            const allCollapsed = brandList.length > 0 && brandList.every((b: any) => collapsedBrands[b.id]);
-            return (
-              <button
-                onClick={allCollapsed ? expandAll : collapseAll}
-                className={`px-2 py-0.5 rounded text-xs font-medium transition-colors flex items-center gap-1 ${'bg-white border border-[#C4B5A5] text-[#666666] hover:text-[#333333] hover:border-[#999]'}`}
-              >
-                {allCollapsed ? <ChevronDown size={12} /> : <ChevronRight size={12} />}
-                {allCollapsed ? 'Expand All' : 'Collapse All'}
-              </button>
-            );
-          })()}
-        </div>
         <div className="space-y-2">
           {displayGroups.map((group: any) => {
             const groupBrands = displayBrands.filter((b: any) => b.groupBrandId === group.id);
@@ -1474,106 +1480,61 @@ const BudgetAllocateScreen = ({
                 {/* Group Header - Collapsible with Total Budget */}
                 <div
                   onClick={() => toggleGroupCollapse(group.id)}
-                  className={`px-3 md:px-4 py-0.5 bg-gradient-to-r ${group.color} border-b border-[#C4B5A5] flex flex-col md:flex-row md:items-center justify-between gap-2 cursor-pointer hover:opacity-90`}
+                  className="px-3 md:px-4 py-1.5 bg-[rgba(215,183,151,0.15)] border-b border-[#C4B5A5] flex items-center justify-between cursor-pointer hover:bg-[rgba(215,183,151,0.25)] transition-colors"
                 >
-                  <div className="flex items-center gap-2 md:gap-4">
-                      <ChevronRight
-                        size={20}
-                        className={`text-white transition-transform duration-200 ${!isGroupCollapsed ? 'rotate-90' : ''}`}
-                      />
-                    <div className="w-6 h-6 rounded-md bg-white/20 flex items-center justify-center text-white text-xs font-bold font-['Montserrat'] shadow-sm">
-                      {group.id}
-                    </div>
-                    <div>
-                      <div className="font-semibold text-xs text-white font-['Montserrat']">{group.name}</div>
-                      <div className="text-[10px] text-white/80 font-['JetBrains_Mono']">
-                        {groupBrands.length} brand{groupBrands.length !== 1 ? 's' : ''} • {selectedSeasonGroup ? dynamicSeasonConfig[selectedSeasonGroup]?.name : t('planning.allSeasonGroups')} {selectedYear}
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <ChevronRight
+                      size={16}
+                      className={`text-[#8A6340] transition-transform duration-200 ${!isGroupCollapsed ? 'rotate-90' : ''}`}
+                    />
+                    <span className="font-bold text-sm font-['Montserrat'] text-[#4A3728]">{group.name}</span>
+                    <span className="text-[11px] text-[#8A6340] font-['JetBrains_Mono']">
+                      {groupBrands.length} brand{groupBrands.length !== 1 ? 's' : ''} • {selectedSeasonGroup ? dynamicSeasonConfig[selectedSeasonGroup]?.name : t('planning.allSeasonGroups')} {selectedYear}
+                    </span>
                   </div>
-                  <div className="flex items-center gap-3 flex-wrap">
-                    {/* Budget Allocated - show when budget is selected */}
-                   
-                    {/* Group Total */}
-                    <div className="text-right">
-                      <div className="text-xs text-white/80 font-['Montserrat']">{t('skuProposal.totalPlanned')}</div>
-                      <div className="font-bold text-sm text-white font-['JetBrains_Mono'] flex items-center gap-2 justify-end">
-                        {formatCurrency(groupTotals.sum)}
-                        {totalBudget > 0 && (() => {
-                          const allocPct = Math.round((groupTotals.sum / totalBudget) * 100);
-                          const badgeColor = allocPct === 0
-                            ? 'bg-white/20 text-white/80'
-                            : allocPct > 100
-                              ? 'bg-[#F85149] text-white'
-                              : allocPct === 100
-                                ? 'bg-[#2A9E6A] text-white'
-                                : 'bg-[#D97706] text-white';
-                          return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${badgeColor}`}>{allocPct}%</span>;
-                        })()}
-                      </div>
-                    </div>
+                  <div className="flex items-center gap-2">
+                    <span className="text-xs text-[#8A6340] font-['Montserrat']">{t('skuProposal.totalPlanned')}:</span>
+                    <span className="font-bold text-sm text-[#4A3728] font-['JetBrains_Mono']">{formatCurrency(groupTotals.sum)}</span>
                   </div>
                 </div>
 
                 {/* Group Content - Collapsible */}
                 {!isGroupCollapsed && (
-                  <div>
+                  <div className="mx-3 md:mx-4 my-2 flex flex-col gap-3">
                     {groupBrands.map((brand: any) => {
                       const isBrandCollapsed = collapsedBrands[brand.id];
                       const brandTotals = tableComputedData.brandTotalsMap[brand.id] || { sum: 0 };
 
                       return (
-                        <div key={brand.id} className={`last:border-b-0 ${'border-b border-[#D4C8BB]'}`}>
+                        <div key={brand.id} className="rounded-lg border border-[#D4C8BB] overflow-hidden bg-white">
                           {/* Brand Header - Collapsible when multiple brands */}
                           {(groupBrands.length > 1) && (
                             <div
                               onClick={() => toggleBrandCollapse(brand.id)}
-                              className={`px-3 md:px-4 py-0.5 border-b flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-0 cursor-pointer transition-colors ${'bg-gradient-to-r from-[rgba(215,183,151,0.05)] to-[rgba(215,183,151,0.1)] border-[#C4B5A5] hover:bg-[rgba(160,120,75,0.18)]'}`}
+                              className="px-3 md:px-4 py-1 border-b border-[#C4B5A5] flex items-center justify-between cursor-pointer transition-colors bg-[rgba(215,183,151,0.08)] hover:bg-[rgba(215,183,151,0.15)]"
                             >
-                              <div className="flex items-center gap-3">
+                              <div className="flex items-center gap-2">
                                 <ChevronRight
-                                  size={18}
-                                  className={`transition-transform duration-200 ${'text-[#666666]'} ${!isBrandCollapsed ? 'rotate-90' : ''}`}
+                                  size={14}
+                                  className={`transition-transform duration-200 text-[#8A6340] ${!isBrandCollapsed ? 'rotate-90' : ''}`}
                                 />
-                                <Tag size={16} className={'text-[#666666]'} />
-                                {(() => {
-                                  const brandStatuses = (selectedSeasonGroup ? [selectedSeasonGroup] : activeSeasonGroups)
-                                    .flatMap((sg: string) => (dynamicSeasonConfig[sg]?.subSeasons || [])
-                                      .map((ss: string) => tableComputedData.rowStatusMap[`${brand.id}-${sg}-${ss}`] || 'empty')
-                                    );
-                                  const bs = getAggregateStatus(brandStatuses);
-                                  return <span className={`w-2 h-2 rounded-full shrink-0 ${
-                                    bs === 'complete' ? 'bg-[#2A9E6A]'
-                                    : bs === 'partial' ? 'bg-[#D97706]'
-                                    :'bg-[#D1D5DB]'}`} />;
-                                })()}
-                                <span className={`font-semibold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#0A0A0A]'}`}>{brand.name}</span>
+                                <span className="font-bold text-xs font-['Montserrat'] uppercase tracking-wide text-[#0A0A0A]">{brand.name}</span>
+                                <span className="text-[11px] text-[#8A6340] font-['JetBrains_Mono']">
+                                  {stores.map((s: any) => `${s.code}: ${formatCurrency(brandTotals[s.id] || 0)}`).join(' ')}
+                                  {' '}Total: {formatCurrency(brandTotals.sum)}
+                                </span>
                               </div>
-                              <div className="flex items-center gap-2 md:gap-4">
-                                <div className="flex items-center gap-2 md:gap-3 flex-wrap">
-                                  {stores.map((store: any) => (
-                                  <div key={store.id} className="text-right">
-                                    <span className={`text-xs ${'text-[#666666]'}`}>{store.code}: </span>
-                                    <span className={`text-xs md:text-sm font-medium font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{formatCurrency(brandTotals[store.id] || 0)}</span>
-                                  </div>
-                                  ))}
-                                  <div className="text-right flex items-center gap-1.5">
-                                    <span className={`text-xs ${'text-[#666666]'}`}>{t('skuProposal.total')}: </span>
-                                    <span className={`font-semibold font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(brandTotals.sum)}</span>
-                                    {totalBudget > 0 && (() => {
-                                      const bPct = Math.round((brandTotals.sum / totalBudget) * 100);
-                                      const bc = bPct === 0
-                                        ? ('bg-[#E5E7EB] text-[#6B7280]')
-                                        : bPct > 100
-                                          ? 'bg-[#F85149]/15 text-[#F85149]'
-                                          : bPct === 100
-                                            ? ('bg-[#127749]/15 text-[#127749]')
-                                            : 'bg-[#D97706]/15 text-[#D97706]';
-                                      return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${bc}`}>{bPct}%</span>;
-                                    })()}
-                                  </div>
-                                </div>
-                              </div>
+                              {totalBudget > 0 && (() => {
+                                const bPct = Math.round((brandTotals.sum / totalBudget) * 100);
+                                const bc = bPct === 0
+                                  ? 'bg-[#E5E7EB] text-[#6B7280]'
+                                  : bPct > 100
+                                    ? 'bg-[#F85149]/15 text-[#F85149]'
+                                    : bPct === 100
+                                      ? 'bg-[#127749]/15 text-[#127749]'
+                                      : 'bg-[#D97706]/15 text-[#D97706]';
+                                return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${bc}`}>{bPct}%</span>;
+                              })()}
                             </div>
                           )}
 
@@ -1583,7 +1544,7 @@ const BudgetAllocateScreen = ({
                               <table className="w-full">
                                 <thead className="sticky top-0 z-10">
                                   <tr className={'bg-[rgba(215,183,151,0.2)]'}>
-                                    <th className={`sticky left-0 z-20 px-3 md:px-4 py-0.5 text-left text-xs font-semibold font-['Montserrat'] whitespace-nowrap ${'text-[#333333] bg-[rgba(215,183,151,0.2)]'}`}>
+                                    <th className={`sticky left-0 z-20 w-[260px] min-w-[260px] max-w-[260px] px-2 md:px-3 py-0.5 text-left text-xs font-semibold font-['Montserrat'] whitespace-nowrap ${'text-[#333333] bg-[rgba(215,183,151,0.2)]'}`}>
                                       {(() => {
                                           const brandHeaders = allocateHeaders.filter(
                                             (h: any) => (h.brand_id ?? h.brandId) === brand.id
@@ -1595,7 +1556,7 @@ const BudgetAllocateScreen = ({
                                             <button
                                               onClick={(e) => { e.stopPropagation(); if (brandHeaders.length > 0) { if (openVersionBrandId === brand.id) { setOpenVersionBrandId(null); setDropdownAnchorEl(null); } else { setOpenVersionBrandId(brand.id); setDropdownAnchorEl(e.currentTarget); } } }}
                                               disabled={brandHeaders.length === 0}
-                                              className={`w-full flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
+                                              className={`inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs font-medium transition-colors ${
                                                 brandHeaders.length === 0
                                                   ?'bg-[rgba(215,183,151,0.1)] text-[#aaa] cursor-not-allowed': selectedHeader
                                                     ? selectedIsFinal
@@ -1635,25 +1596,10 @@ const BudgetAllocateScreen = ({
                                   {(selectedSeasonGroup ? [selectedSeasonGroup] : activeSeasonGroups).map((seasonGroup: any) => (
                                     <Fragment key={`${brand.id}-${seasonGroup}`}>
                                       {/* Season Group Header — summary row (non-editable) */}
-                                      <tr data-season-group={seasonGroup} className={`border-b ${'bg-[rgba(160,120,75,0.18)] border-[#C4B5A5]'}`}>
-                                        <td className={`sticky left-0 z-20 px-3 md:px-4 py-1 ${'bg-[rgba(160,120,75,0.18)]'}`}>
+                                      <tr data-season-group={seasonGroup} className={`border-b ${'bg-[rgba(160,120,75,0.06)] border-[#C4B5A5]'}`}>
+                                        <td className={`sticky left-0 z-20 w-[260px] min-w-[260px] max-w-[260px] px-2 md:px-3 py-1 ${'bg-[rgba(160,120,75,0.06)]'}`}>
                                           <div className="flex items-center gap-2">
-                                            <div className={`w-1.5 h-4 rounded-full ${seasonGroup === 'SS' ? 'bg-[#E3B341]' : 'bg-[#D7B797]'}`}></div>
-                                            {seasonGroup === 'SS' ? (
-                                              <Sun size={14} className="text-[#E3B341]" />
-                                            ) : (
-                                              <Snowflake size={14} className={'text-[#6B4D30]'} />
-                                            )}
-                                            {(() => {
-                                              const sgSubSeasons = dynamicSeasonConfig[seasonGroup]?.subSeasons || [];
-                                              const sgStatus = getAggregateStatus(
-                                                sgSubSeasons.map((ss: string) => tableComputedData.rowStatusMap[`${brand.id}-${seasonGroup}-${ss}`] || 'empty')
-                                              );
-                                              return <span className={`w-2 h-2 rounded-full shrink-0 ${
-                                                sgStatus === 'complete' ? 'bg-[#2A9E6A]'
-                                                : sgStatus === 'partial' ? 'bg-[#D97706]'
-                                                :'bg-[#D1D5DB]'}`} />;
-                                            })()}
+                                            <span className="text-sm" style={{ color: seasonGroup === 'SS' ? '#E3B341' : '#D7B797' }}>■</span>
                                             <span className={`font-semibold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#4A3728]'}`}>{dynamicSeasonConfig[seasonGroup]?.name}</span>
                                           </div>
                                         </td>
@@ -1701,16 +1647,8 @@ const BudgetAllocateScreen = ({
 
                                         return (
                                           <tr key={`${brand.id}-${seasonGroup}-${subSeason}`} className={`border-b transition-colors ${'border-[#D4C8BB] hover:bg-[rgba(160,120,75,0.12)]'}`}>
-                                            <td className={`sticky left-0 z-20 px-3 md:px-4 py-0.5 pl-10 md:pl-12 ${'bg-white'}`}>
+                                            <td className={`sticky left-0 z-20 w-[260px] min-w-[260px] max-w-[260px] px-2 md:px-3 py-px pl-8 md:pl-10 ${'bg-white'}`}>
                                               <div className="flex items-center gap-1.5">
-                                                <span className={`w-1.5 h-1.5 rounded-full shrink-0 ${
-                                                  (() => {
-                                                    const st = tableComputedData.rowStatusMap[`${brand.id}-${seasonGroup}-${subSeason}`] || 'empty';
-                                                    return st === 'complete' ? 'bg-[#2A9E6A]'
-                                                         : st === 'partial'  ? 'bg-[#D97706]'
-                                                         :'bg-[#D1D5DB]';
-                                                  })()
-                                                }`} />
                                                 <span className={`text-xs font-medium ${'text-[#666666]'}`}>{subSeason}</span>
                                               </div>
                                             </td>
@@ -1719,8 +1657,7 @@ const BudgetAllocateScreen = ({
                                               const isNegative = typeof cellVal === 'number' && cellVal < 0;
                                               const isEditing = editingCell === `${brand.id}-${seasonGroup}-${subSeason}-${store.id}`;
                                               return (
-                                            <td key={store.id} className="px-1.5 py-0.5 text-center">
-                                              <div className="relative group">
+                                            <td key={store.id} className="px-1 py-px text-center">
                                                 <input
                                                   type="text"
                                                   data-alloc-cell
@@ -1746,7 +1683,7 @@ const BudgetAllocateScreen = ({
                                                       e.currentTarget.blur();
                                                     }
                                                   }}
-                                                  className={`w-full pl-4 pr-1.5 py-0.5 text-center border rounded text-xs focus:outline-none focus:ring-1 font-medium font-['JetBrains_Mono'] transition-colors ${
+                                                  className={`w-full max-w-[90px] px-1 py-px text-center border rounded text-[11px] focus:outline-none focus:ring-1 font-medium font-['JetBrains_Mono'] transition-colors ${
                                                     isNegative
                                                       ? 'border-[#F85149] focus:ring-[#F85149] focus:border-[#F85149] text-[#F85149]'
                                                       : `focus:ring-[#D7B797] focus:border-[#D7B797] ${'border-[#C4B5A5] text-[#0A0A0A] bg-white hover:border-[rgba(215,183,151,0.4)]'}`
@@ -1754,29 +1691,27 @@ const BudgetAllocateScreen = ({
                                                   placeholder="0"
                                                   title={isNegative ? t('planning.cellNegative') : undefined}
                                                 />
-                                                <Pencil size={8} className={`absolute left-1 top-1/2 -translate-y-1/2 pointer-events-none ${isNegative ? 'text-[#F85149]/60' :'text-[#8A6340]/30'}`} />
-                                              </div>
                                             </td>
                                               );
                                             })}
-                                            <td className="px-1.5 py-0.5 text-center">
-                                              <div className={`px-1.5 py-0.5 font-semibold text-xs font-['JetBrains_Mono'] ${' text-[#127749]'}`}>
+                                            <td className="px-1 py-px text-center">
+                                              <div className={`px-1 py-px font-semibold text-[11px] font-['JetBrains_Mono'] ${' text-[#127749]'}`}>
                                                 {formatCurrency(data.sum)}
                                               </div>
                                             </td>
-                                            <td className={`px-2 py-0.5 text-center text-xs font-['JetBrains_Mono'] ${'text-[#666666]'}`}>
+                                            <td className={`px-1 py-px text-center text-[11px] font-['JetBrains_Mono'] ${'text-[#666666]'}`}>
                                               {mix}%
                                             </td>
-                                            <td className="px-1.5 py-0.5">
+                                            <td className="px-1 py-px">
                                               <input
                                                 type="text"
                                                 value={allocationComments[`${brand.id}-${seasonGroup}-${subSeason}`] || ''}
                                                 onChange={(e) => handleCommentChange(brand.id, seasonGroup, subSeason, e.target.value)}
-                                                className={`w-full min-w-[80px] px-1.5 py-0.5 text-xs border rounded focus:outline-none focus:ring-1 focus:ring-[#D7B797] focus:border-[#D7B797] ${'border-[#C4B5A5] text-[#0A0A0A] bg-white hover:border-[rgba(215,183,151,0.4)]'}`}
+                                                className={`w-full min-w-[60px] px-1 py-px text-[11px] border rounded focus:outline-none focus:ring-1 focus:ring-[#D7B797] focus:border-[#D7B797] ${'border-[#C4B5A5] text-[#0A0A0A] bg-white hover:border-[rgba(215,183,151,0.4)]'}`}
                                                 placeholder={t('planning.commentPlaceholder')}
                                               />
                                             </td>
-                                            <td className="px-1.5 py-0.5 text-center">
+                                            <td className="px-1 py-px text-center">
                                               <button
                                                 onClick={() => {
                                                   if (onOpenOtbAnalysis) {
@@ -1808,31 +1743,6 @@ const BudgetAllocateScreen = ({
                                     </Fragment>
                                   ))}
 
-                                  {/* Total Row — grand total (non-editable) */}
-                                  <tr className={`border-t-2 ${'bg-[rgba(18,119,73,0.12)] border-[#127749]'}`}>
-                                    <td className="px-3 md:px-4 py-1.5">
-                                      <div className="flex items-center gap-2">
-                                        <div className={`w-1.5 h-4 rounded-full ${'bg-[#127749]'}`}></div>
-                                        <span className={`font-semibold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#127749]'}`}>TOTAL</span>
-                                      </div>
-                                    </td>
-                                    {stores.map((store: any) => (
-                                    <td key={store.id} className="px-1.5 py-1.5 text-center">
-                                      <div className={`px-1.5 py-0.5 text-center text-sm font-black font-['JetBrains_Mono'] ${'text-[#127749]'}`}>
-                                        {formatCurrency(getBrandTotalValue(brand.id, store.id) || 0)}
-                                      </div>
-                                    </td>
-                                    ))}
-
-                                    <td className="px-1.5 py-1.5 text-center">
-                                      <div className={`font-black text-sm font-['JetBrains_Mono'] ${'text-[#333333]'}`}>
-                                        {formatCurrency(stores.reduce((s: number, st: any) => s + (getBrandTotalValue(brand.id, st.id) || 0), 0))}
-                                      </div>
-                                    </td>
-                                    <td className={`px-2 py-1.5 text-center text-sm font-black font-['JetBrains_Mono'] ${'text-[#127749]'}`}>100%</td>
-                                    <td className="px-2 py-1.5"></td>
-                                    <td className="px-2 py-1.5"></td>
-                                  </tr>
                                 </tbody>
                               </table>
                             </div>
@@ -1848,7 +1758,7 @@ const BudgetAllocateScreen = ({
         </div>
         </>
       )}
-      {/* Combined Progress Bar + Allocate All Footer */}
+      {/* Progress Bar + Allocate All Footer */}
       {(selectedBudget || selectedBudgetId) && (
         <div className={`mt-4 rounded-xl border overflow-hidden ${'border-[rgba(215,183,151,0.3)] bg-white'}`}>
           <div className="flex items-center gap-4 px-4 py-2.5">

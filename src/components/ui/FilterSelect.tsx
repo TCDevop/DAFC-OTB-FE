@@ -58,6 +58,11 @@ function FilterSelect({
 
   return (
     <div ref={containerRef} className={`relative group ${disabled ? 'opacity-50 pointer-events-none' : ''}`}>
+      {label && (
+        <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">
+          {label}
+        </label>
+      )}
       <button
         type="button"
         onClick={() => !disabled && setIsOpen((p) => !p)}
@@ -78,22 +83,9 @@ function FilterSelect({
           }
         `}
       >
-        <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
-          {label && (
-            <span
-              className={`text-[10px] uppercase tracking-[0.06em] font-bold shrink-0 transition-colors duration-200 ${
-                isOpen || !isDefault
-                  ? 'text-[#6B4D30]'
-                  : 'text-[#999999] group-hover:text-[#777777]'
-              }`}
-            >
-              {label}
-            </span>
-          )}
-          <span className="truncate">
-            {displayLabel}
-          </span>
-        </div>
+        <span className="truncate min-w-0">
+          {displayLabel}
+        </span>
         <ChevronDown
           size={12}
           className={`shrink-0 transition-transform duration-200 ${

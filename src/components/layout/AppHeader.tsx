@@ -349,7 +349,7 @@ const AppHeader = ({
       background: 'linear-gradient(180deg, #ffffff 0%, #fdfbf9 100%)',
     }}>
       {/* Main Header */}
-      <div className="h-11 px-4 flex items-center justify-between" style={{
+      <div className="h-11 px-6 flex items-center justify-between" style={{
         borderBottom: '1px solid #D1D5DB',
         background: 'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.04) 100%)',
       }}>
@@ -699,7 +699,7 @@ const AppHeader = ({
 
       {/* Workflow Stepper Bar - Show for all Planning workflow screens */}
       {isInPlanningWorkflow && (
-        <div className={`px-4 ${isMobile ? 'py-1' : 'py-3'}`} style={{
+        <div className={`px-6 ${isMobile ? 'py-1' : 'py-3'}`} style={{
           borderBottom: '1px solid #D1D5DB',
           background: 'linear-gradient(90deg, #FAFAFA 0%, #ffffff 50%, #FAFAFA 100%)',
           minHeight: isMobile ? undefined : '56px',
@@ -727,20 +727,20 @@ const AppHeader = ({
                   return (
                     <React.Fragment key={step.id}>
                       {index > 0 && (
-                        <div className="flex-1 h-[2px] rounded-full" style={{ background: isCompleted ? '#C4A77D' : '#E5E7EB' }} />
+                        <div className="flex-1 h-[2px] rounded-full" style={{ background: isCompleted ? '#127749' : '#E5E7EB' }} />
                       )}
                       <button
                         onClick={() => onNavigate(step.id)}
                         className="flex items-center justify-center rounded-lg p-1 transition-all duration-200"
                         style={{
                           background: isCurrent
-                            ? 'rgba(215,183,151,0.16)'
-                            : isCompleted ? 'rgba(196,167,125,0.1)' : 'transparent',
-                          border: `1px solid ${isCurrent ? 'rgba(215,183,151,0.3)' : 'transparent'}`,
+                            ? 'rgba(18,119,73,0.12)'
+                            : isCompleted ? 'rgba(18,119,73,0.08)' : 'transparent',
+                          border: `1px solid ${isCurrent ? 'rgba(18,119,73,0.25)' : 'transparent'}`,
                         }}
                       >
                         <div className={`p-1.5 rounded-lg ${
-                          isCurrent || isCompleted ? 'bg-[#C4A77D]' : 'bg-gray-200'
+                          isCurrent || isCompleted ? 'bg-[#127749]' : 'bg-gray-200'
                         }`}>
                           <Icon size={14} className={isCurrent || isCompleted ? 'text-white' : 'text-gray-500'} strokeWidth={2} />
                         </div>
@@ -765,11 +765,16 @@ const AppHeader = ({
                         style={{ width: 'auto' }}
                       >
                         {/* Dot */}
-                        <div className={`w-3 h-3 rounded-full transition-all duration-200 ${
-                          isCurrent || isCompleted
-                            ? 'bg-[#C4A77D] shadow-[0_0_0_3px_rgba(196,167,125,0.2)]'
-                            : 'bg-[#D1D5DB] group-hover/step:bg-[#B0B0B0]'
-                        }`} />
+                        <div className="relative flex items-center justify-center">
+                          {isCurrent && (
+                            <span className="absolute w-3 h-3 rounded-full bg-[#127749] animate-[stepper-ping_2s_cubic-bezier(0,0,0.2,1)_infinite] opacity-0" />
+                          )}
+                          <div className={`w-3 h-3 rounded-full transition-all duration-200 relative z-10 ${
+                            isCurrent || isCompleted
+                              ? 'bg-[#127749] shadow-[0_0_0_3px_rgba(18,119,73,0.2)]'
+                              : 'bg-[#D1D5DB] group-hover/step:bg-[#B0B0B0]'
+                          }`} />
+                        </div>
                         {/* Label */}
                         <span className={`mt-1.5 text-[11px] font-semibold font-['Montserrat'] whitespace-nowrap transition-colors ${
                           isCurrent ? 'text-[#6B4D30]' : isCompleted ? 'text-[#8B7355]' : 'text-gray-400 group-hover/step:text-gray-500'
@@ -782,7 +787,7 @@ const AppHeader = ({
                         <div className="flex-1 flex items-center px-0 mt-[5px]">
                           <div className="w-full h-[2px] rounded-full" style={{
                             background: index < currentStepIndex
-                              ? '#C4A77D'
+                              ? '#127749'
                               : '#E5E7EB',
                           }} />
                         </div>
@@ -795,7 +800,7 @@ const AppHeader = ({
 
             {/* Export + Save/CreateBudget — hidden on Tickets pages */}
             {currentScreen !== 'tickets' && currentScreen !== 'ticket-detail' && (
-            <div className="ml-auto flex items-center gap-2 shrink-0 pr-1">
+            <div className="ml-auto flex items-center gap-2 shrink-0">
               <button
                 onClick={hasExportHandler ? triggerExport : () => window.print()}
                 className="no-print px-1.5 py-1 rounded-lg transition-colors text-[#666] hover:bg-[rgba(160,120,75,0.12)] hover:text-[#6B4D30]"
