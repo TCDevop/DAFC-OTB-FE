@@ -191,7 +191,7 @@ const AppHeader = ({
   const router = useRouter();
   const { t, language, setLanguage } = useLanguage();
   const { isMobile } = useIsMobile();
-  const { triggerSave, hasSaveHandler, triggerSaveAsNew, hasSaveAsNewHandler, triggerCreateBudget, triggerExport, hasExportHandler, headerSubtitle } = useAppContext();
+  const { triggerSave, hasSaveHandler, triggerSaveAsNew, hasSaveAsNewHandler, triggerCreateBudget, triggerExport, hasExportHandler } = useAppContext();
   const SCREEN_CONFIG: any = useMemo(() => getScreenConfig(t), [t]);
   const onNavigate = (screenId: any) => {
     const route = ROUTE_MAP[screenId];
@@ -369,29 +369,10 @@ const AppHeader = ({
 
           {/* Breadcrumb Trail */}
           <nav className="flex items-center gap-1">
-            {isInPlanningWorkflow && (
-              <>
-                <ChevronRight size={11} className="text-gray-300" />
-                <button
-                  onClick={() => onNavigate('budget-management')}
-                  className={`text-[11px] font-['Montserrat'] transition-colors text-gray-400 hover:text-gray-600`}
-                >
-                  {t('screenConfig.budgetManagement')}
-                </button>
-              </>
-            )}
             <ChevronRight size={11} className="text-gray-300" />
             <span className="text-[11px] font-semibold font-['Montserrat'] text-gray-900">
               {currentConfig.label || 'Dashboard'}
             </span>
-            {headerSubtitle && (
-              <>
-                <ChevronRight size={11} className="text-gray-300" />
-                <span className="text-[11px] font-semibold font-['Montserrat'] text-[#6B4D30]">
-                  {headerSubtitle}
-                </span>
-              </>
-            )}
           </nav>
         </div>
 

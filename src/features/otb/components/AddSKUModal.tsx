@@ -194,9 +194,9 @@ const AddSKUModal = ({
   const accentGreen ='bg-[rgba(18,119,73,0.12)] text-[#127749]';
 
   return createPortal(
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" onClick={handleClose}>
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn" onClick={handleClose}>
       <div
-        className={`w-full mx-0 md:mx-4 max-h-[100dvh] md:max-h-[85vh] h-[100dvh] md:h-auto rounded-none md:rounded-xl border shadow-2xl flex flex-col ${
+        className={`w-full mx-0 md:mx-4 max-h-[100dvh] md:max-h-[85vh] h-[100dvh] md:h-auto rounded-none md:rounded-xl border shadow-2xl flex flex-col animate-scalePop ${
           step === 2 ? 'max-w-3xl' : 'max-w-lg'
         } ${bg} ${border}`}
         onClick={(e) => e.stopPropagation()}

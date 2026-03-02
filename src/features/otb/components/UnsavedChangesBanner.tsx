@@ -38,8 +38,8 @@ const UnsavedChangesBanner = ({ isDirty }: UnsavedChangesBannerProps) => {
 
       {/* Confirm discard dialog */}
       {showConfirm && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className="w-full max-w-sm mx-4 rounded-xl border shadow-2xl p-5 bg-white border-[#C4B5A5]">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div className="w-full max-w-sm mx-4 rounded-xl border shadow-2xl p-5 animate-scalePop bg-white border-[#C4B5A5]">
             <div className="flex items-center gap-2 mb-3">
               <AlertTriangle size={18} className="text-[#F85149]" />
               <h3 className="font-semibold font-['Montserrat'] text-[#0A0A0A]">

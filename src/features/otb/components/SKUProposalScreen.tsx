@@ -3,7 +3,7 @@
 import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
-  ChevronDown, Package, Pencil, X, Plus, Trash2, Ruler,
+  ChevronDown, Package, Pencil, X, Plus, Trash2, Ruler, Clock, Users,
   Layers, Check, LayoutGrid, List, SlidersHorizontal, Download, Send, Tag, Star, Sparkles,
   AlertTriangle, ArrowRight, Save, FilePlus, FileText
 } from 'lucide-react';
@@ -79,6 +79,9 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
       if (code) storeQty[code] = Number(a.quantity) || 0;
     }
 
+    const orderQty = Object.values(storeQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+    const itemUnitCost = Number(sp.unit_cost ?? sp.unitCost ?? prod.unitCost) || 0;
+
     block.items.push({
       productId: String(prod.id || sp.product_id || sp.productId || ''),
       skuProposalId: String(sp.id || ''),
@@ -93,7 +96,7 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
       fsr: prod.fsr || '',
       carryForward: prod.carryForward || 'NEW',
       composition: prod.composition || '',
-      unitCost: Number(sp.unit_cost ?? sp.unitCost ?? prod.unitCost) || 0,
+      unitCost: itemUnitCost,
       importTaxPct: Number(prod.importTaxPct || prod.importTax) || 0,
       srp: Number(sp.srp ?? prod.srp) || 0,
       wholesale: Number(prod.wholesale) || 0,
@@ -101,9 +104,9 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
       regionalRrp: Number(prod.regionalRrp) || 0,
       theme: prod.theme || '',
       size: prod.size || '',
-      order: Object.values(storeQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0),
+      order: orderQty,
       storeQty,
-      ttlValue: Number(prod.totalValue) || 0,
+      ttlValue: orderQty * itemUnitCost,
       customerTarget: sp.customer_target || sp.customerTarget || prod.customerTarget || 'New',
     });
   });
@@ -1199,7 +1202,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       block.items.forEach((item: any) => {
         acc.skuCount += 1;
         acc.order += (item.order || 0);
-        acc.ttlValue += (item.ttlValue || 0);
+        acc.ttlValue += ((item.order || 0) * (item.unitCost || 0));
         acc.srp += (item.srp || 0);
         acc.unitCost += (item.unitCost || 0);
         // Aggregate per-store quantities
@@ -1297,7 +1300,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         if (field.startsWith('store_')) {
           const storeCode = field.replace('store_', '');
           const newStoreQty = { ...(item.storeQty || {}), [storeCode]: nextValue };
-          return { ...item, storeQty: newStoreQty };
+          const newOrder = Object.values(newStoreQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+          const newTtlValue = newOrder * (item.unitCost || 0);
+          return { ...item, storeQty: newStoreQty, order: newOrder, ttlValue: newTtlValue };
         }
         return { ...item, [field]: nextValue };
       });
@@ -1344,7 +1349,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         if (field.startsWith('store_')) {
           const storeCode = field.replace('store_', '');
           const newStoreQty = { ...(item.storeQty || {}), [storeCode]: safeValue };
-          return { ...item, storeQty: newStoreQty };
+          const newOrder = Object.values(newStoreQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+          const newTtlValue = newOrder * (item.unitCost || 0);
+          return { ...item, storeQty: newStoreQty, order: newOrder, ttlValue: newTtlValue };
         }
         return { ...item, [field]: safeValue };
       });
@@ -1563,6 +1570,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             <div className="flex items-end gap-1.5">
               <FilterSelect
                 label="FY"
+                icon={Clock}
                 value={fyFilter}
                 options={fyOptions}
                 onChange={(v: string) => { setFyFilter(v); setBudgetFilter('all'); }}
@@ -1587,10 +1595,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   <ChevronDown size={12} className={`flex-shrink-0 transition-transform duration-200 ${isBudgetDropdownOpen ? 'rotate-180' : ''}`} />
                 </button>
                 {isBudgetDropdownOpen && (
-                  <div className="absolute top-full left-0 mt-1 border rounded-xl shadow-xl z-[9999] overflow-hidden whitespace-nowrap w-max min-w-full bg-white border-[#C4B5A5]">
-                    <div className="p-2 border-b border-[#D4C8BB] bg-[rgba(160,120,75,0.08)]">
-                      <span className="text-xs font-semibold uppercase tracking-wide font-['Montserrat'] text-[#666666]">{t('budget.title')}</span>
-                    </div>
+                  <div className="absolute top-full left-0 mt-1 border rounded-xl shadow-xl z-[9999] overflow-hidden whitespace-nowrap w-max min-w-full animate-slideDown bg-white border-[#C4B5A5]">
                     <div className="max-h-72 overflow-y-auto py-0.5">
                       {loadingBudgets && (
                         <div className="px-4 py-6 flex items-center justify-center">
@@ -1649,6 +1654,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               </div>
               <FilterSelect
                 label={t('budget.brand') || 'Brand'}
+                icon={Tag}
                 value={brandFilter}
                 options={brandOptions}
                 onChange={setBrandFilter}
@@ -1656,6 +1662,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               />
               <FilterSelect
                 label={t('budget.seasonGroup') || 'Season Group'}
+                icon={Layers}
                 value={seasonGroupFilter}
                 options={seasonGroupOptions}
                 onChange={(v: string) => { setSeasonGroupFilter(v); setSeasonFilter('all'); }}
@@ -1663,6 +1670,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               />
               <FilterSelect
                 label={t('budget.season') || 'Season'}
+                icon={Clock}
                 value={seasonFilter}
                 options={seasonOptions}
                 onChange={setSeasonFilter}
@@ -1674,6 +1682,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
               {/* SKU Data Filters */}
               <FilterSelect
+                icon={Users}
                 label={t('common.gender') || 'Gender'}
                 value={genderFilter}
                 options={genderOptions}
@@ -1681,6 +1690,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 placeholder={t('common.allGenders') || 'All Genders'}
               />
               <FilterSelect
+                icon={Tag}
                 label={t('common.category') || 'Category'}
                 value={categoryFilter}
                 options={categoryOptions}
@@ -1688,6 +1698,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 placeholder={t('common.allCategories') || 'All Categories'}
               />
               <FilterSelect
+                icon={Tag}
                 label={t('common.subCategory') || 'Sub Category'}
                 value={subCategoryFilter}
                 options={subCategoryOptions}
@@ -1713,7 +1724,20 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         {/* ── Rail Controls + Summary ── */}
         {displayBrands.length > 0 && (
           <div className="border-t border-[rgba(215,183,151,0.25)] -mx-2 md:-mx-3 -mb-2 md:-mb-3 px-3 md:px-6 py-1.5 flex items-center gap-1.5">
-            {/* Collapse/Expand */}
+            {/* Summary (left) */}
+            <span className="text-xs text-[#666]">{displayBrands.length} Brands &middot; {grandTotals.skuCount} SKUs</span>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[rgba(215,183,151,0.08)] border border-[rgba(215,183,151,0.15)]">
+              <span className="text-[10px] uppercase font-bold text-[#999] tracking-wide">Order</span>
+              <span className="text-xs font-bold text-[#6B4D30]">{grandTotals.order}</span>
+            </div>
+            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[rgba(18,119,73,0.06)] border border-[rgba(18,119,73,0.12)]">
+              <span className="text-[10px] uppercase font-bold text-[#127749]/60 tracking-wide">Value</span>
+              <span className="text-xs font-bold text-[#127749]">{formatCurrency(grandTotals.ttlValue)}</span>
+            </div>
+
+            <div className="flex-1" />
+
+            {/* Collapse/Expand (right) */}
             <button
               type="button"
               onClick={() => {
@@ -1752,19 +1776,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 <LayoutGrid size={13} />
               </button>
             </div>
-
-            <div className="flex-1" />
-
-            {/* Summary */}
-            <span className="text-xs text-[#666]">{displayBrands.length} Brands &middot; {grandTotals.skuCount} SKUs</span>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[rgba(215,183,151,0.08)] border border-[rgba(215,183,151,0.15)]">
-              <span className="text-[10px] uppercase font-bold text-[#999] tracking-wide">Order</span>
-              <span className="text-xs font-bold text-[#6B4D30]">{grandTotals.order}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[rgba(18,119,73,0.06)] border border-[rgba(18,119,73,0.12)]">
-              <span className="text-[10px] uppercase font-bold text-[#127749]/60 tracking-wide">Value</span>
-              <span className="text-xs font-bold text-[#127749]">{formatCurrency(grandTotals.ttlValue)}</span>
-            </div>
           </div>
         )}
         </div>{/* end p-2 md:p-3 */}
@@ -1772,8 +1783,23 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         </div>{/* end grid animation wrapper */}
       </div>
 
-      {!skuDataLoading && skuCatalog.length === 0 ? (
-        <div className={`rounded-xl border p-10 text-center ${'bg-white border-[rgba(215,183,151,0.2)]'}`}>
+      {!filtersComplete ? (
+        <div className="flex flex-col items-center justify-center py-20 px-4 animate-fadeIn">
+          <div className="empty-state-rings mb-6">
+            <span className="ring-3" />
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-[rgba(215,183,151,0.12)] relative z-10">
+              <Package size={28} className="text-[#8A6340]" />
+            </div>
+          </div>
+          <h3 className="text-base font-bold font-['Montserrat'] mb-1.5 text-[#4A3728]">
+            {t('skuProposal.noFilterTitle') || 'No data to display'}
+          </h3>
+          <p className="text-sm text-[#999] text-center max-w-sm">
+            {t('skuProposal.noFilterDesc') || 'Please select a budget, season group and season from the filters above to view SKU proposal data.'}
+          </p>
+        </div>
+      ) : !skuDataLoading && skuCatalog.length === 0 ? (
+        <div className={`rounded-xl border p-10 text-center animate-fadeIn ${'bg-white border-[rgba(215,183,151,0.2)]'}`}>
           <Package size={36} className={`mx-auto mb-3 ${'text-[rgba(215,183,151,0.5)]'}`} />
           <p className={`font-medium font-['Montserrat'] ${'text-[#333333]'}`}>No SKU Catalog</p>
           <p className={`text-sm mt-1 mb-3 ${'text-[#666666]'}`}>Import SKU data first to begin creating proposals</p>
@@ -1785,7 +1811,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           </button>
         </div>
       ) : displayBrands.length === 0 ? (
-        <div className={`rounded-xl border p-10 text-center ${'bg-white border-[rgba(215,183,151,0.2)]'}`}>
+        <div className={`rounded-xl border p-10 text-center animate-fadeIn ${'bg-white border-[rgba(215,183,151,0.2)]'}`}>
           <Package size={36} className={`mx-auto mb-3 ${'text-[rgba(215,183,151,0.5)]'}`} />
           <p className={`font-medium font-['Montserrat'] ${'text-[#333333]'}`}>{t('skuProposal.noSkuData')}</p>
           <p className={`text-sm mt-1 ${'text-[#666666]'}`}>Select a brand filter or add brands first</p>
@@ -2180,7 +2206,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                                   <div className={`h-6 w-px ${'bg-[rgba(215,183,151,0.4)]'}`} />
                                   <div className="flex flex-col items-center">
                                     <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>Value</span>
-                                    <span className={`font-semibold ${'text-[#127749]'}`}>{formatCurrency(block.items.reduce((s: number, i: any) => s + (i.ttlValue || 0), 0))}</span>
+                                    <span className={`font-semibold ${'text-[#127749]'}`}>{formatCurrency(block.items.reduce((s: number, i: any) => s + ((i.order || 0) * (i.unitCost || 0)), 0))}</span>
                                   </div>
                                 </div>
                               )}
@@ -2397,7 +2423,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         <tr className={trCls('ttlValue','bg-[rgba(160,120,75,0.06)]')}>
                           <td className={`${labelBase} font-bold cursor-pointer select-none transition-colors ${labelBorder} ${'text-[#6B4D30]'} ${isHl('ttlValue') ? hlLabel : ('bg-[#f5efe8]')}`} onClick={() => toggleHl('ttlValue')}>TTL value</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(item.ttlValue || (item.order * (item.srp || 0)))}</td>
+                            <td key={idx} className={`px-3 py-1.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(item.order * (item.unitCost || 0))}</td>
                           ))}
                         </tr>
                         {/* Customer Target row */}
@@ -2747,14 +2773,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                                 <Pencil size={8} className="absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#8A6340]/30" />
                               </div>
                             </td>
-                            <td className={`px-4 py-2 text-right font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency(storeVal * (lightbox.item.srp || 0))}</td>
+                            <td className={`px-4 py-2 text-right font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency(storeVal * (lightbox.item.unitCost || 0))}</td>
                           </tr>
                         );
                       })}
                       <tr className={`border-t-2 ${'border-[#D7B797]/40 bg-[rgba(160,120,75,0.12)]'}`}>
                         <td className={`px-4 py-2 font-semibold ${'text-[#6B4D30]'}`}>{t('skuProposal.total')}</td>
                         <td className={`px-4 py-2 text-center font-bold font-['JetBrains_Mono'] ${'text-gray-800'}`}>{lightbox.item.order || 0}</td>
-                        <td className={`px-4 py-2 text-right font-bold font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency(lightbox.item.ttlValue || (lightbox.item.order || 0) * (lightbox.item.srp || 0))}</td>
+                        <td className={`px-4 py-2 text-right font-bold font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency((lightbox.item.order || 0) * (lightbox.item.unitCost || 0))}</td>
                       </tr>
                     </tbody>
                   </table>
@@ -2943,7 +2969,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           onClick={() => setCommentPopup(null)}
         >
           <div
-            className={`fixed rounded-lg border px-4 py-3 max-w-xs shadow-xl ${'bg-white border-[#D4CCC2] text-[#333333]'}`}
+            className={`fixed rounded-lg border px-4 py-3 max-w-xs shadow-xl animate-scalePop ${'bg-white border-[#D4CCC2] text-[#333333]'}`}
             style={{
               top: commentPopup.rect.top - 8,
               left: commentPopup.rect.left + commentPopup.rect.width / 2,

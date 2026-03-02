@@ -15,6 +15,7 @@ interface FilterSelectProps {
   onChange: (value: string) => void;
   placeholder?: string;
   disabled?: boolean;
+  icon?: React.ComponentType<{ size?: number; className?: string }>;
 }
 
 function FilterSelect({
@@ -24,6 +25,7 @@ function FilterSelect({
   onChange,
   placeholder = 'Select...',
   disabled = false,
+  icon: Icon,
 }: FilterSelectProps) {
   const [isOpen, setIsOpen] = useState(false);
   const containerRef = useRef<HTMLDivElement>(null);
@@ -83,7 +85,8 @@ function FilterSelect({
           }
         `}
       >
-        <span className="truncate min-w-0">
+        <span className="truncate min-w-0 flex items-center gap-1.5">
+          {Icon && <Icon size={12} className="shrink-0 text-[#666666]" />}
           {displayLabel}
         </span>
         <ChevronDown
@@ -103,6 +106,7 @@ function FilterSelect({
             rounded-lg overflow-hidden
             border
             bg-white border-[#C4B5A5]
+            animate-slideDown
           `}
           style={{
             boxShadow: '0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06)',

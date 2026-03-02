@@ -270,7 +270,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
 
                 {/* Group Items */}
                 {openGroups[group.id] && (
-                  <div className="space-y-1 ml-1.5 pl-2.5 mt-1" style={{
+                  <div className="space-y-1 ml-1.5 pl-2.5 mt-1 animate-expandSection" style={{
                     borderLeft: '1.5px solid rgba(215,183,151,0.45)',
                   }}>
                     {group.items.map((item: any) => {
@@ -411,7 +411,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
           <>
             <div className="fixed inset-0 z-40" onClick={() => setShowUserMenu(false)} />
             <div
-              className={`absolute ${isCollapsed ? 'left-full ml-2 bottom-0' : 'left-2 right-2 bottom-full mb-2'} z-50 rounded-xl shadow-xl border overflow-hidden`}
+              className={`absolute ${isCollapsed ? 'left-full ml-2 bottom-0' : 'left-2 right-2 bottom-full mb-2'} z-50 rounded-xl shadow-xl border overflow-hidden animate-slideDown`}
               style={{
                 background: 'linear-gradient(135deg, #ffffff 0%, #fdfcfa 35%, #faf8f5 100%)',
                 borderColor: '#D1D5DB',

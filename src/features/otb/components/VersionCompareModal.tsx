@@ -108,9 +108,9 @@ const VersionCompareModal = ({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
       <div
-        className={`w-full md:max-w-2xl mx-0 md:mx-4 max-h-[92vh] md:max-h-[80vh] rounded-none md:rounded-xl border-0 md:border shadow-2xl flex flex-col overflow-hidden ${'bg-white md:border-[#C4B5A5]'}`}
+        className={`w-full md:max-w-2xl mx-0 md:mx-4 max-h-[92vh] md:max-h-[80vh] rounded-none md:rounded-xl border-0 md:border shadow-2xl flex flex-col overflow-hidden animate-scalePop ${'bg-white md:border-[#C4B5A5]'}`}
       >
         {/* Header */}
         <div

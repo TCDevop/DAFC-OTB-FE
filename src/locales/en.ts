@@ -383,6 +383,8 @@ const en = {
     duplicate: 'Duplicate',
     approvalHistory: 'Approval History',
     noApprovalRecords: 'No approval records',
+    noDataTitle: 'No budget selected',
+    noDataDesc: 'Please select a budget from the filter above to view and edit allocation data.',
   },
 
   // ──────────────────────────────────────────────
@@ -584,6 +586,10 @@ const en = {
     noBudgets: 'No budgets available',
     noBudgetsDescription: 'Please create a budget in Budget Management first.',
     goToBudgetManagement: 'Go to Budget Management',
+    noBudgetSelected: 'No budget selected',
+    selectBudgetDesc: 'Please select a budget, season group and season from the filters above to view OTB analysis data.',
+    noBrandsFound: 'No brands found',
+    noBrandsDesc: 'No brand data available for the selected filters. Try adjusting your filter criteria.',
   },
 
   // ──────────────────────────────────────────────
@@ -687,6 +693,8 @@ const en = {
     submitFailed: 'Failed to submit proposal',
     name: 'Name',
     value: 'Value',
+    noFilterTitle: 'No data to display',
+    noFilterDesc: 'Please select a budget, season group and season from the filters above to view SKU proposal data.',
   },
 
   // ──────────────────────────────────────────────

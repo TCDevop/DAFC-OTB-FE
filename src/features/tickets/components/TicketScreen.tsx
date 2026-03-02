@@ -299,7 +299,7 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
   };
 
   return (
-    <div className="space-y-2 md:space-y-4">
+    <div className="flex flex-col gap-2 md:gap-4 h-[calc(100vh-140px)]">
       {/* ===== PAGE TITLE ===== */}
       <div className="flex flex-wrap items-center justify-between gap-1.5">
         <div>
@@ -492,15 +492,15 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
           </div>
         ) : (
         /* Desktop Table View */
-        <div className={`border rounded-lg overflow-hidden ${'bg-white border-gray-300'}`}>
-          <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
+        <div className={`border rounded-lg overflow-hidden flex-1 min-h-0 flex flex-col ${'bg-white border-gray-300'}`}>
+          <div className="overflow-x-auto overflow-y-auto flex-1 min-h-0">
           <table className="w-full text-sm">
-            <thead className={`sticky top-0 z-10 ${'bg-[rgba(215,183,151,0.15)]'}`}>
+            <thead className={`sticky top-0 z-10 ${'bg-[#E8DDD1]'}`}>
               <tr>
                 {[t('common.name'), t('approval.brand'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status'), t('common.actions')].map((header: any, idx: any) => (
                   <th
                     key={header}
-                    className={`px-4 py-3 text-left font-medium text-xs uppercase tracking-wider ${'text-gray-600'} ${idx === 6 ? 'text-center' : ''}`}
+                    className={`px-4 py-2 text-left font-semibold text-xs uppercase tracking-wider ${'text-[#4A3728]'} ${idx === 6 ? 'text-center' : ''}`}
                   >
                     {header}
                   </th>

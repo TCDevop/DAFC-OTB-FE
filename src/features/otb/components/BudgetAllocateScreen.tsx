@@ -26,9 +26,6 @@ import AllocationSidePanel from './AllocationSidePanel';
 import VersionCompareModal from './VersionCompareModal';
 import { exportAllocationToExcel } from '../utils/exportExcel';
 
-// Constants - same as BudgetManagementScreen
-const YEARS = Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 2 + i);
-
 const GROUP_BRAND_COLORS = [
   'from-[#8A6340] to-[#6B4D30]',
   'from-[#5C4033] to-[#3E2B22]',
@@ -157,6 +154,12 @@ const BudgetAllocateScreen = ({
     return () => { ignore = true; };
   }, []);
 
+  // Derive available FY list from fetched budgets (like OTB Analysis & SKU Proposal)
+  const availableYears = useMemo(() => {
+    const years = new Set(apiBudgets.map((b: any) => b.fiscalYear).filter(Boolean));
+    return Array.from(years).map(Number).sort((a, b) => b - a);
+  }, [apiBudgets]);
+
   // Filter states - persisted via sessionStorage
   const FILTER_STORAGE_KEY = 'otb_budget_filters';
   const getStoredFilters = () => {
@@ -166,7 +169,7 @@ const BudgetAllocateScreen = ({
     } catch { return null; }
   };
   const storedFilters = getStoredFilters();
-  const [selectedYear, setSelectedYear] = useState(storedFilters?.selectedYear ?? 2025);
+  const [selectedYear, setSelectedYear] = useState<number | 'all'>(storedFilters?.selectedYear ?? 'all');
   const [selectedGroupBrand, setSelectedGroupBrand] = useState<any>(null);
   const [selectedBrand, setSelectedBrand] = useState<any>(null);
   const [selectedSeasonGroup, setSelectedSeasonGroup] = useState<any>(null);
@@ -175,7 +178,7 @@ const BudgetAllocateScreen = ({
   // Fetch season groups filtered by selected year
   useEffect(() => {
     const controller = new AbortController();
-    masterDataService.getSeasonGroups(selectedYear ? { year: Number(selectedYear) } : undefined, { signal: controller.signal }).then(res => {
+    masterDataService.getSeasonGroups(selectedYear && selectedYear !== 'all' ? { year: Number(selectedYear) } : undefined, { signal: controller.signal }).then(res => {
       const data = Array.isArray(res) ? res : [];
       setSeasonGroups(data);
     }).catch((err: any) => {
@@ -206,7 +209,7 @@ const BudgetAllocateScreen = ({
 
   // Filter budgets by selected year for the dropdown
   const availableBudgets = useMemo(() => {
-    if (!selectedYear) return allBudgets;
+    if (!selectedYear || selectedYear === 'all') return allBudgets;
     return allBudgets.filter((b: any) => Number(b.fiscalYear) === Number(selectedYear));
   }, [allBudgets, selectedYear]);
   // Budget info from allocation
@@ -1086,8 +1089,8 @@ const BudgetAllocateScreen = ({
     <>
       {/* ── Save loading overlay — blocks all interaction while saving ── */}
       {saving && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px]">
-          <div className={`flex flex-col items-center gap-4 px-8 py-6 rounded-2xl shadow-2xl border ${'bg-white border-[#C4B5A5]'}`}>
+        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] animate-fadeIn">
+          <div className={`flex flex-col items-center gap-4 px-8 py-6 rounded-2xl shadow-2xl border animate-scalePop ${'bg-white border-[#C4B5A5]'}`}>
             <div className="w-10 h-10 rounded-full border-4 border-[#D7B797]/30 border-t-[#D7B797] animate-spin" />
             <div className="text-center">
               <p className={`text-sm font-semibold font-['Montserrat'] ${'text-[#0A0A0A]'}`}>Saving allocation…</p>
@@ -1130,13 +1133,22 @@ const BudgetAllocateScreen = ({
                   >
                     <div className="flex items-center gap-1.5">
                       <Clock size={12} className={'text-[#666666]'} />
-                      <span className="font-['JetBrains_Mono']">FY {selectedYear}</span>
+                      <span className="font-['JetBrains_Mono']">{selectedYear === 'all' ? 'All FY' : `FY ${selectedYear}`}</span>
                     </div>
                     <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${isYearDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {isYearDropdownOpen && (
-                    <div className={`absolute top-full left-0 right-0 mt-1 border rounded-lg shadow-lg z-[9999] overflow-hidden ${'bg-white border-[#C4B5A5]'}`}>
-                      {YEARS.map((year: any) => (
+                    <div className={`absolute top-full left-0 right-0 mt-1 border rounded-lg shadow-lg z-[9999] overflow-hidden animate-slideDown ${'bg-white border-[#C4B5A5]'}`}>
+                      {/* All FY option */}
+                      <div
+                        onClick={() => { setSelectedYear('all'); setIsYearDropdownOpen(false); }}
+                        className={`px-3 py-0.5 flex items-center justify-between cursor-pointer text-sm transition-colors ${selectedYear === 'all'
+                          ?'bg-[rgba(18,119,73,0.1)] text-[#127749]':'hover:bg-[rgba(160,120,75,0.18)] text-[#0A0A0A]'}`}
+                      >
+                        <span className="font-medium">All FY</span>
+                        {selectedYear === 'all' && <Check size={14} className="text-[#127749]" />}
+                      </div>
+                      {availableYears.map((year: number) => (
                         <div
                           key={year}
                           onClick={() => { setSelectedYear(year); setIsYearDropdownOpen(false); }}
@@ -1171,10 +1183,7 @@ const BudgetAllocateScreen = ({
                     <ChevronDown size={12} className={`flex-shrink-0 transition-transform duration-200 ${isBudgetNameDropdownOpen ? 'rotate-180' : ''}`} />
                   </button>
                   {isBudgetNameDropdownOpen && (
-                    <div className={`absolute top-full left-0 mt-1 border rounded-xl shadow-xl z-[9999] overflow-hidden whitespace-nowrap w-max min-w-full ${'bg-white border-[#C4B5A5]'}`}>
-                      <div className={`p-2 border-b ${'border-[#D4C8BB] bg-[rgba(160,120,75,0.08)]'}`}>
-                        <span className={`text-xs font-semibold uppercase tracking-wide font-['Montserrat'] ${'text-[#666666]'}`}>{t('budget.title')}</span>
-                      </div>
+                    <div className={`absolute top-full left-0 mt-1 border rounded-xl shadow-xl z-[9999] overflow-hidden whitespace-nowrap w-max min-w-full animate-slideDown ${'bg-white border-[#C4B5A5]'}`}>
                       <div className="max-h-72 overflow-y-auto py-0.5">
                         {/* Loading state */}
                         {loadingBudgets && (
@@ -1459,6 +1468,24 @@ const BudgetAllocateScreen = ({
         <TableSkeleton rows={4} cols={stores.length + 3} />
       )}
 
+      {/* Empty state — no budget selected */}
+      {!loadingBudgets && !selectedBudgetId && (
+        <div className="flex flex-col items-center justify-center py-20 px-4 animate-fadeIn">
+          <div className="empty-state-rings mb-6">
+            <span className="ring-3" />
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-[rgba(215,183,151,0.12)] relative z-10">
+              <Layers size={28} className="text-[#8A6340]" />
+            </div>
+          </div>
+          <h3 className="text-base font-bold font-['Montserrat'] mb-1.5 text-[#4A3728]">
+            {t('budget.noDataTitle') || 'No budget selected'}
+          </h3>
+          <p className="text-sm text-[#999] text-center max-w-sm">
+            {t('budget.noDataDesc') || 'Please select a budget from the filter above to view and edit allocation data.'}
+          </p>
+        </div>
+      )}
+
       {/* Budget Table - Collapsible by Group Brand and Brand */}
       {(selectedBudget || selectedBudgetId) && (
         <>
@@ -1476,7 +1503,7 @@ const BudgetAllocateScreen = ({
             }, { sum: 0 } as Record<string, any>);
 
             return (
-              <div key={group.id} className={`rounded-xl shadow-sm border overflow-hidden ${'bg-white border-[#C4B5A5]'}`}>
+              <div key={group.id} className={`rounded-xl shadow-sm border overflow-hidden animate-cardEntrance ${'bg-white border-[#C4B5A5]'}`}>
                 {/* Group Header - Collapsible with Total Budget */}
                 <div
                   onClick={() => toggleGroupCollapse(group.id)}
@@ -1500,7 +1527,7 @@ const BudgetAllocateScreen = ({
 
                 {/* Group Content - Collapsible */}
                 {!isGroupCollapsed && (
-                  <div className="mx-3 md:mx-4 my-2 flex flex-col gap-3">
+                  <div className="mx-3 md:mx-4 my-2 flex flex-col gap-3 animate-expandSection">
                     {groupBrands.map((brand: any) => {
                       const isBrandCollapsed = collapsedBrands[brand.id];
                       const brandTotals = tableComputedData.brandTotalsMap[brand.id] || { sum: 0 };
@@ -1540,7 +1567,7 @@ const BudgetAllocateScreen = ({
 
                           {/* Brand Table Content */}
                           {(!isBrandCollapsed || groupBrands.length === 1) && (
-                            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)]">
+                            <div className="overflow-x-auto overflow-y-auto max-h-[calc(100vh-220px)] animate-fadeIn">
                               <table className="w-full">
                                 <thead className="sticky top-0 z-10">
                                   <tr className={'bg-[rgba(215,183,151,0.2)]'}>
@@ -1760,7 +1787,7 @@ const BudgetAllocateScreen = ({
       )}
       {/* Progress Bar + Allocate All Footer */}
       {(selectedBudget || selectedBudgetId) && (
-        <div className={`mt-4 rounded-xl border overflow-hidden ${'border-[rgba(215,183,151,0.3)] bg-white'}`}>
+        <div className={`mt-4 rounded-xl border overflow-hidden animate-cardEntrance ${'border-[rgba(215,183,151,0.3)] bg-white'}`}>
           <div className="flex items-center gap-4 px-4 py-2.5">
             <div className="flex-1">
               <AllocationProgressBar
@@ -1797,8 +1824,8 @@ const BudgetAllocateScreen = ({
 
       {/* Leave Confirmation Dialog (3 options) */}
       {leaveDialog && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm">
-          <div className={`w-full max-w-sm mx-4 rounded-xl border shadow-2xl p-5 ${'bg-white border-[#C4B5A5]'}`}>
+        <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/50 backdrop-blur-sm animate-fadeIn">
+          <div className={`w-full max-w-sm mx-4 rounded-xl border shadow-2xl p-5 animate-scalePop ${'bg-white border-[#C4B5A5]'}`}>
             <h3 className={`font-semibold font-['Montserrat'] mb-2 ${'text-[#0A0A0A]'}`}>
               {t('planning.leaveWithoutSaving')}
             </h3>
@@ -1853,7 +1880,7 @@ const BudgetAllocateScreen = ({
             key: 'year',
             label: t('budget.fiscalYear'),
             type: 'single' as const,
-            options: YEARS.map((y: any) => ({ label: `FY${y}`, value: String(y) }))},
+            options: [{ label: 'All FY', value: 'all' }, ...availableYears.map((y: number) => ({ label: `FY${y}`, value: String(y) }))]},
           {
             key: 'seasonGroup',
             label: t('planning.seasonGroup'),

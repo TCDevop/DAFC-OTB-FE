@@ -353,7 +353,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   // Category hierarchy collapse states (Category -> SubCategory -> Gender)
   const [expandedCategories, setExpandedCategories] = useState<Record<string, any>>({});
   const [expandedSubCategories, setExpandedSubCategories] = useState<Record<string, any>>({});
-  const [allCollapsed, setAllCollapsed] = useState(false);
+  const [allCollapsedPerBrand, setAllCollapsedPerBrand] = useState<Record<string, boolean>>({});
 
 
   // Refs
@@ -912,28 +912,32 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   }, [localData, seasonTypeSections, activeStores]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Toggle expanded state for hierarchy (Category -> SubCategory -> Gender)
-  const toggleCategoryExpanded = (categoryId: any) => {
-    setExpandedCategories((prev: any) => ({ ...prev, [categoryId]: prev[categoryId] === false ? true : false }));
+  const toggleCategoryExpanded = (categoryId: any, brandId?: string) => {
+    const key = brandId ? `${brandId}::${categoryId}` : categoryId;
+    setExpandedCategories((prev: any) => ({ ...prev, [key]: prev[key] === false ? true : false }));
   };
 
-  const toggleSubCategoryExpanded = (catId: any, subCatId: any) => {
-    const key = `${catId}_${subCatId}`;
+  const toggleSubCategoryExpanded = (catId: any, subCatId: any, brandId?: string) => {
+    const rawKey = `${catId}_${subCatId}`;
+    const key = brandId ? `${brandId}::${rawKey}` : rawKey;
     setExpandedSubCategories((prev: any) => ({ ...prev, [key]: prev[key] === false ? true : false }));
   };
 
-  const handleToggleAll = () => {
-    const newExpanded = allCollapsed; // if currently collapsed → expand, vice versa
-    setAllCollapsed(!newExpanded);
+  const handleToggleAll = (brandId?: string) => {
+    const key = brandId || '__global__';
+    const isCollapsed = allCollapsedPerBrand[key] || false;
+    setAllCollapsedPerBrand(prev => ({ ...prev, [key]: !isCollapsed }));
     const newCats: Record<string, boolean> = {};
     const newSubCats: Record<string, boolean> = {};
+    const prefix = brandId ? `${brandId}::` : '';
     genderFirstStructure.forEach((genderEntry: any) => {
-      newCats[genderEntry.gender.id] = newExpanded;
+      newCats[`${prefix}${genderEntry.gender.id}`] = isCollapsed;
       genderEntry.categories.forEach((catEntry: any) => {
-        newSubCats[`${genderEntry.gender.id}_${catEntry.category.id}`] = newExpanded;
+        newSubCats[`${prefix}${genderEntry.gender.id}_${catEntry.category.id}`] = isCollapsed;
       });
     });
-    setExpandedCategories(newCats);
-    setExpandedSubCategories(newSubCats);
+    setExpandedCategories(prev => ({ ...prev, ...newCats }));
+    setExpandedSubCategories(prev => ({ ...prev, ...newSubCats }));
   };
 
   // Generate filter options from categoryStructure
@@ -1348,13 +1352,14 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         {/* Hierarchical Content: Gender (L1) -> Category (L2) -> SubCategory rows (L3) */}
         {filteredData.map((genderEntry: any) => {
           const genderTotals = calculateGenderTotals(genderEntry);
-          const isGenderExpanded = expandedCategories[genderEntry.gender.id] !== false;
+          const expandKey = brandId ? `${brandId}::${genderEntry.gender.id}` : genderEntry.gender.id;
+          const isGenderExpanded = expandedCategories[expandKey] !== false;
 
           return (
             <div key={genderEntry.gender.id} className={`rounded-xl border overflow-hidden ${'border-[#C4B5A5]'}`}>
               {/* Gender Header - Level 1 */}
               <div
-                onClick={() => toggleCategoryExpanded(genderEntry.gender.id)}
+                onClick={() => toggleCategoryExpanded(genderEntry.gender.id, brandId || undefined)}
                 className={`flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-0.5 cursor-pointer transition-all ${'bg-gradient-to-r from-[rgba(215,183,151,0.15)] to-[rgba(215,183,151,0.08)] hover:from-[rgba(215,183,151,0.25)] hover:to-[rgba(215,183,151,0.15)] border-b border-[rgba(215,183,151,0.2)]'}`}
               >
                 <button className={`p-1 rounded-lg transition-colors ${'bg-[rgba(138,99,64,0.1)] hover:bg-[rgba(138,99,64,0.2)]'}`}>
@@ -1377,9 +1382,10 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
               {/* Gender Content */}
               {isGenderExpanded && (
-                <div className={`p-3 space-y-2 ${'bg-[#F2F2F2]'}`}>
+                <div className={`p-3 space-y-2 animate-expandSection ${'bg-[#F2F2F2]'}`}>
                   {genderEntry.categories.map((catEntry: any) => {
-                    const catKey = `${genderEntry.gender.id}_${catEntry.category.id}`;
+                    const rawCatKey = `${genderEntry.gender.id}_${catEntry.category.id}`;
+                    const catKey = brandId ? `${brandId}::${rawCatKey}` : rawCatKey;
                     const isCatExpanded = expandedSubCategories[catKey] !== false;
                     const catTotals = calculateCategoryTotals(catEntry);
 
@@ -1387,7 +1393,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       <div key={catEntry.category.id} className={`rounded-xl border overflow-hidden ${'border-[#C4B5A5] bg-white'}`}>
                         {/* Category Header - Level 2 */}
                         <div
-                          onClick={() => toggleSubCategoryExpanded(genderEntry.gender.id, catEntry.category.id)}
+                          onClick={() => toggleSubCategoryExpanded(genderEntry.gender.id, catEntry.category.id, brandId || undefined)}
                           className={`flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-0.5 cursor-pointer transition-all ${'bg-[rgba(160,120,75,0.12)] hover:bg-[rgba(215,183,151,0.2)]'}`}
                         >
                           <button className={`p-1 rounded-lg transition-colors ${'bg-[rgba(215,183,151,0.2)] hover:bg-[rgba(215,183,151,0.3)]'}`}>
@@ -1404,7 +1410,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
                         {/* SubCategory Table - Level 3 */}
                         {isCatExpanded && (
-                          <div className="overflow-x-auto">
+                          <div className="overflow-x-auto animate-fadeIn">
                             <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
                               <colgroup>
                                 <col style={{ width: '160px' }} />{/* Sub-Category name */}
@@ -1667,7 +1673,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
               {/* Season Type Store Table */}
               {isExpanded && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto animate-expandSection">
                   <table className="w-full text-sm">
                     <thead>
                       {baselinePeriod && (
@@ -1863,7 +1869,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
               {/* Gender Store Table */}
               {isExpanded && (
-                <div className="overflow-x-auto">
+                <div className="overflow-x-auto animate-expandSection">
                   <table className="w-full text-sm">
                     <thead>
                       {baselinePeriod && (
@@ -2003,9 +2009,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   // Empty state: no budgets available
   if (!loadingBudgets && apiBudgets.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-4 text-center">
-        <div className={`w-16 h-16 rounded-2xl flex items-center justify-center mb-4 ${'bg-[rgba(215,183,151,0.15)]'}`}>
-          <BarChart3 size={32} className={'text-[#6B4D30]'} />
+      <div className="flex flex-col items-center justify-center py-20 px-4 text-center animate-fadeIn">
+        <div className="empty-state-rings mb-6">
+          <span className="ring-3" />
+          <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-[rgba(215,183,151,0.15)] relative z-10">
+            <BarChart3 size={32} className={'text-[#6B4D30]'} />
+          </div>
         </div>
         <h3 className={`text-lg font-bold font-['Montserrat'] mb-2 ${'text-[#1A1A1A]'}`}>
           {t('otbAnalysis.noBudgets') || 'No budgets available'}
@@ -2030,7 +2039,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     const activeBrandTab = brandActiveTabs[brandId] || 'category';
 
     return (
-      <div key={brandId} className={`rounded-xl shadow-sm border overflow-hidden ${'bg-white border-[#C4B5A5]'}`}>
+      <div key={brandId} className={`rounded-xl shadow-sm border overflow-hidden animate-cardEntrance ${'bg-white border-[#C4B5A5]'}`}>
         {/* Brand Section Header — collapsible */}
         <div
           onClick={() => setCollapsedBrands(prev => ({ ...prev, [brandId]: !isCollapsed }))}
@@ -2106,7 +2115,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         </div>
 
         {!isCollapsed && !filtersComplete && (
-          <div className={`px-4 py-6 text-center border-t ${'border-[#C4B5A5]'}`}>
+          <div className={`px-4 py-6 text-center border-t animate-fadeIn ${'border-[#C4B5A5]'}`}>
             <Filter size={20} className={`mx-auto mb-2 ${'text-[#AAAAAA]'}`} />
             <p className={`text-xs font-['Montserrat'] ${'text-[#999999]'}`}>
               Please select <strong>Season Group</strong> and <strong>Season</strong> to view data.
@@ -2115,7 +2124,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         )}
 
         {!isCollapsed && filtersComplete && (
-          <>
+          <div className="animate-expandSection">
             {/* Tab Navigation: Category | Season Type | Gender */}
             <div className={`border-b ${'border-[#C4B5A5]'}`}>
               <div className="flex">
@@ -2146,20 +2155,21 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             {activeBrandTab === 'category' && (
               <div className={`border-b px-3 py-2 ${'border-[#C4B5A5]'}`}>
                 <div className="flex items-end gap-2 flex-wrap">
-                  <button
-                    type="button"
-                    onClick={handleToggleAll}
-                    className={`flex items-center gap-1.5 px-3 py-[7px] text-sm font-medium rounded-lg border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
-                  >
-                    <ChevronDown size={12} className={`transition-transform ${allCollapsed ? '-rotate-90' : ''}`} />
-                    {allCollapsed ? 'Expand All' : 'Collapse All'}
-                  </button>
-                  <FilterSelect label={t('common.category') || 'Category'} value={categoryFilter} options={[{ value: 'all', label: t('common.allCategories') || 'All Categories' }, ...filterOptions.categories.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleCategoryFilterChange} placeholder={t('common.allCategories') || 'All Categories'} />
-                  <FilterSelect label={t('common.subCategory') || 'Sub Category'} value={subCategoryFilter} options={[{ value: 'all', label: t('common.allSubCategories') || 'All SubCategories' }, ...filteredSubCategoryOptions.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleSubCategoryFilterChange} placeholder={t('common.allSubCategories') || 'All SubCategories'} />
-                  <FilterSelect label={t('common.gender') || 'Gender'} value={genderFilter} options={[{ value: 'all', label: t('common.allGenders') || 'All Genders' }, ...filterOptions.genders.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleGenderFilterChange} placeholder={t('common.allGenders') || 'All Genders'} />
+                  <FilterSelect icon={Tag} label={t('common.category') || 'Category'} value={categoryFilter} options={[{ value: 'all', label: t('common.allCategories') || 'All Categories' }, ...filterOptions.categories.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleCategoryFilterChange} placeholder={t('common.allCategories') || 'All Categories'} />
+                  <FilterSelect icon={Tag} label={t('common.subCategory') || 'Sub Category'} value={subCategoryFilter} options={[{ value: 'all', label: t('common.allSubCategories') || 'All SubCategories' }, ...filteredSubCategoryOptions.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleSubCategoryFilterChange} placeholder={t('common.allSubCategories') || 'All SubCategories'} />
+                  <FilterSelect icon={Users} label={t('common.gender') || 'Gender'} value={genderFilter} options={[{ value: 'all', label: t('common.allGenders') || 'All Genders' }, ...filterOptions.genders.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleGenderFilterChange} placeholder={t('common.allGenders') || 'All Genders'} />
                   {(genderFilter !== 'all' || categoryFilter !== 'all' || subCategoryFilter !== 'all') && (
                     <button onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); }} className={`shrink-0 p-1 rounded transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-red-50'}`} title={t('common.clearAll')}><X size={14} /></button>
                   )}
+                  <div className="flex-1" />
+                  <button
+                    type="button"
+                    onClick={() => handleToggleAll(brandId)}
+                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors border-[#C4B5A5] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] shrink-0"
+                  >
+                    <ChevronDown size={12} className={`transition-transform ${allCollapsedPerBrand[brandId] ? '-rotate-90' : ''}`} />
+                    {allCollapsedPerBrand[brandId] ? 'Expand' : 'Collapse'}
+                  </button>
                 </div>
               </div>
             )}
@@ -2233,7 +2243,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                 </div>
               );
             })()}
-          </>
+          </div>
         )}
       </div>
     );
@@ -2286,7 +2296,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${openDropdown === 'year' ? 'rotate-180' : ''}`} />
                   </button>
                   {openDropdown === 'year' && (
-                    <div className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden ${'bg-white border-[#D4CCC2]'}`} style={{ boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06)'}}>
+                    <div className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden animate-slideDown ${'bg-white border-[#D4CCC2]'}`} style={{ boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06)'}}>
                       <div className="h-[1.5px]" style={{ background:'linear-gradient(90deg, transparent 5%, rgba(184,153,112,0.4) 50%, transparent 95%)'}} />
                       <div className="py-1">
                       <div
@@ -2345,10 +2355,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     <ChevronDown size={12} className={`flex-shrink-0 transition-transform duration-200 ${openDropdown === 'budgetSeason' ? 'rotate-180' : ''}`} />
                   </button>
                   {openDropdown === 'budgetSeason' && (
-                    <div className="absolute top-full left-0 mt-1 border rounded-xl shadow-xl z-[9999] overflow-hidden whitespace-nowrap w-max min-w-full bg-white border-[#C4B5A5]">
-                      <div className="p-2 border-b border-[#D4C8BB] bg-[rgba(160,120,75,0.08)]">
-                        <span className="text-xs font-semibold uppercase tracking-wide font-['Montserrat'] text-[#666666]">{t('budget.title')}</span>
-                      </div>
+                    <div className="absolute top-full left-0 mt-1 border rounded-xl shadow-xl z-[9999] overflow-hidden whitespace-nowrap w-max min-w-full bg-white border-[#C4B5A5] animate-slideDown">
                       <div className="max-h-72 overflow-y-auto py-0.5">
                         {loadingBudgets && (
                           <div className="px-4 py-6 flex items-center justify-center">
@@ -2411,6 +2418,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
                 {/* Type Filter (Same/Different Season) — select mode for comparing previous year data */}
                 <FilterSelect
+                  icon={GitBranch}
                   label={t('otbAnalysis.type') || 'Type'}
                   value={comparisonType}
                   options={[
@@ -2441,7 +2449,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${openDropdown === 'seasonCount' ? 'rotate-180' : ''}`} />
                   </button>
                   {openDropdown === 'seasonCount' && (
-                    <div className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden ${'bg-white border-[#D4CCC2]'}`} style={{ boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06)'}}>
+                    <div className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden animate-slideDown ${'bg-white border-[#D4CCC2]'}`} style={{ boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06)'}}>
                       <div className="h-[1.5px]" style={{ background:'linear-gradient(90deg, transparent 5%, rgba(184,153,112,0.4) 50%, transparent 95%)'}} />
                       <div className="py-1">
                       {[1, 2, 3].map((n) => (
@@ -2500,7 +2508,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   </button>
                   {openDropdown === 'brand' && (
                     <div
-                      className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-[220px] border rounded-lg z-[9999] overflow-hidden ${'bg-white border-[#D4CCC2]'}`}
+                      className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-[220px] border rounded-lg z-[9999] overflow-hidden animate-slideDown ${'bg-white border-[#D4CCC2]'}`}
                       style={{
                         boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06), inset 0 1px 0 rgba(215,183,151,0.15)'}}
                     >
@@ -2566,9 +2574,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                 </>
                 )}
 
-                {/* Season Group Filter - only show after budget selected */}
-                {selectedBudgetId && selectedBudgetId !== 'all' && (
-                <>
+                {/* Season Group Filter */}
                 <div className={`self-stretch w-px hidden sm:block rounded-full ${'bg-gradient-to-b from-transparent via-[#C4B5A5]/40 to-transparent'}`} />
                 <div className="relative shrink-0" ref={setDropdownRef('seasonGroup')}>
                   <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Season Group</label>
@@ -2591,7 +2597,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   </button>
                   {openDropdown === 'seasonGroup' && (
                     <div
-                      className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden ${'bg-white border-[#D4CCC2]'}`}
+                      className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden animate-slideDown ${'bg-white border-[#D4CCC2]'}`}
                       style={{
                         boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06), inset 0 1px 0 rgba(215,183,151,0.15)'}}
                     >
@@ -2648,7 +2654,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   </button>
                   {openDropdown === 'season' && (
                     <div
-                      className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden ${'bg-white border-[#D4CCC2]'}`}
+                      className={`absolute top-full left-0 mt-1.5 whitespace-nowrap w-max min-w-full border rounded-lg z-[9999] overflow-hidden animate-slideDown ${'bg-white border-[#D4CCC2]'}`}
                       style={{
                         boxShadow:'0 8px 32px rgba(107,77,48,0.08), 0 2px 8px rgba(107,77,48,0.06), inset 0 1px 0 rgba(215,183,151,0.15)'}}
                     >
@@ -2682,9 +2688,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     </div>
                   )}
                 </div>
-                </>
-                )}
-
 
                 {/* Clear Filters Button */}
                 {hasActiveFilters && (
@@ -2718,6 +2721,28 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         </div>{/* end grid animation wrapper */}
       </div>
 
+
+      {/* Empty state — no budget selected or no brands */}
+      {!loadingBudgets && (!selectedBudget || displayBrands.length === 0) && (
+        <div className="flex flex-col items-center justify-center py-20 px-4 animate-fadeIn">
+          <div className="empty-state-rings mb-6">
+            <span className="ring-3" />
+            <div className="w-16 h-16 rounded-2xl flex items-center justify-center bg-[rgba(215,183,151,0.12)] relative z-10">
+              <BarChart3 size={28} className="text-[#8A6340]" />
+            </div>
+          </div>
+          <h3 className="text-base font-bold font-['Montserrat'] mb-1.5 text-[#4A3728]">
+            {!selectedBudget
+              ? (t('otbAnalysis.noBudgetSelected') || 'No budget selected')
+              : (t('otbAnalysis.noBrandsFound') || 'No brands found')}
+          </h3>
+          <p className="text-sm text-[#999] text-center max-w-sm">
+            {!selectedBudget
+              ? (t('otbAnalysis.selectBudgetDesc') || 'Please select a budget, season group and season from the filters above to view OTB analysis data.')
+              : (t('otbAnalysis.noBrandsDesc') || 'No brand data available for the selected filters. Try adjusting your filter criteria.')}
+          </p>
+        </div>
+      )}
 
       {/* Per-Brand Sections — each brand is a collapsible section with Category/Season Type/Gender tabs */}
       {selectedBudget && displayBrands.length > 0 && (

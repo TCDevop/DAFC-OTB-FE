@@ -383,6 +383,8 @@ const vi = {
     duplicate: 'Nhân bản',
     approvalHistory: 'Lịch sử phê duyệt',
     noApprovalRecords: 'Chưa có lịch sử phê duyệt',
+    noDataTitle: 'Chưa chọn ngân sách',
+    noDataDesc: 'Vui lòng chọn ngân sách từ bộ lọc phía trên để xem và chỉnh sửa dữ liệu phân bổ.',
   },
 
   // ──────────────────────────────────────────────
@@ -584,6 +586,10 @@ const vi = {
     noBudgets: 'Không có ngân sách',
     noBudgetsDescription: 'Vui lòng tạo ngân sách trong Quản lý Ngân sách trước.',
     goToBudgetManagement: 'Đi tới Quản lý Ngân sách',
+    noBudgetSelected: 'Chưa chọn ngân sách',
+    selectBudgetDesc: 'Vui lòng chọn ngân sách, nhóm mùa và mùa từ bộ lọc phía trên để xem dữ liệu phân tích OTB.',
+    noBrandsFound: 'Không tìm thấy thương hiệu',
+    noBrandsDesc: 'Không có dữ liệu thương hiệu cho bộ lọc đã chọn. Hãy thử điều chỉnh tiêu chí lọc.',
   },
 
   // ──────────────────────────────────────────────
@@ -687,6 +693,8 @@ const vi = {
     submitFailed: 'Gửi đề xuất thất bại',
     name: 'Tên',
     value: 'Giá trị',
+    noFilterTitle: 'Chưa có dữ liệu hiển thị',
+    noFilterDesc: 'Vui lòng chọn ngân sách, nhóm mùa và mùa từ bộ lọc phía trên để xem dữ liệu đề xuất SKU.',
   },
 
   // ──────────────────────────────────────────────

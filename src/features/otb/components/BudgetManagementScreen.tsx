@@ -1,8 +1,9 @@
 'use client';
 
 import React, { useState, useMemo, useEffect, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 import {
-  ChevronDown, Plus, X, Filter, Eye, Split,
+  ChevronDown, Plus, X, Filter, Eye, Split, Check, Clock,
   Wallet, CircleCheckBig, Hourglass, Trash2, Send, Archive
 } from 'lucide-react';
 import toast from 'react-hot-toast';
@@ -14,8 +15,6 @@ import { MobileList, FilterChips, FloatingActionButton, PullToRefresh, FilterBot
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useAppContext } from '@/contexts/AppContext';
-
-const YEARS = Array.from({ length: 4 }, (_, i) => new Date().getFullYear() - 2 + i);
 
 const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: any) => {
   const { t } = useLanguage();
@@ -44,14 +43,12 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
   const [saving, setSaving] = useState(false);
   const [newForm, setNewForm] = useState({ fiscalYear: new Date().getFullYear() + 1, name: '', totalBudget: '', description: '' });
 
-  // ── Fetch budgets ──────────────────────────────────────────────────
+  // ── Fetch budgets (always fetch all — client-side year filtering) ──
   const fetchBudgets = useCallback(async () => {
     setLoading(true);
     setError(null);
     try {
-      const filters: Record<string, any> = {};
-      if (selectedYear) filters.fiscalYear = selectedYear;
-      const response = await budgetService.getAll(filters);
+      const response = await budgetService.getAll({});
       const budgets = (Array.isArray(response) ? response : []).map((b: any) => ({
         id: b.id,
         fiscalYear: b.fiscal_year ?? b.fiscalYear,
@@ -70,7 +67,13 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
     } finally {
       setLoading(false);
     }
-  }, [selectedYear]);
+  }, []);
+
+  // Derive available FY list from fetched budgets
+  const availableYears = useMemo(() => {
+    const years = new Set(budgetData.map((b: any) => b.fiscalYear).filter(Boolean));
+    return Array.from(years).map(Number).sort((a, b) => b - a);
+  }, [budgetData]);
 
   // ── Actions ────────────────────────────────────────────────────────
   const handleDelete = async () => {
@@ -209,55 +212,67 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
     <div className="space-y-2 md:space-y-3">
 
       {/* ── Filters ─────────────────────────────────────────────── */}
-      <div className="sticky -top-3 md:-top-6 z-30 -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 border-b backdrop-blur-sm bg-white/95 border-[#C4B5A5]">
-        <div className="flex flex-wrap items-center gap-1.5 px-3 md:px-6 py-1.5">
-          {isMobile && (
-            <button onClick={openFilter} className="flex items-center gap-1.5 px-3 py-1 border rounded-lg text-xs font-medium bg-white border-[#C4B5A5] text-[#6B4D30]">
+      <div className="sticky -top-3 md:-top-6 z-30 -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 border-b backdrop-blur-sm bg-white/95 border-[rgba(215,183,151,0.3)]">
+        {/* Mobile Filter Button */}
+        {isMobile && (
+          <div className="flex items-center gap-1.5 px-3 py-1.5">
+            <button onClick={openFilter} className="flex items-center gap-1.5 px-3 py-1 border rounded-md text-xs font-medium bg-white border-[#C4B5A5] text-[#6B4D30]">
               <Filter size={12} />
-              {t('budget.filters')}
+              {t('common.filters')}
               {selectedYear && <span className="w-2 h-2 rounded-full bg-[#D7B797]" />}
             </button>
-          )}
-
-          {!isMobile && (
-            <div className="relative">
+          </div>
+        )}
+        {/* Desktop Filters */}
+        {!isMobile && (
+          <div className="flex flex-wrap items-end gap-2.5 px-3 md:px-6 py-1.5 relative z-[100]">
+            {/* Year Filter */}
+            <div className="relative shrink-0">
+              <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">FY</label>
               <button
+                type="button"
                 onClick={() => setYearDropdownOpen(!yearDropdownOpen)}
-                className={`flex items-center justify-between gap-2 px-3 py-[7px] border rounded-lg transition-colors min-w-[110px] ${
-                  selectedYear ? 'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]' : 'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:bg-[rgba(160,120,75,0.18)]'
-                }`}
+                className={`w-full px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center justify-between text-xs transition-all bg-white border-[#C4B5A5] text-[#0A0A0A] hover:border-[rgba(215,183,151,0.4)] hover:bg-[rgba(160,120,75,0.18)]`}
               >
-                <span className="text-sm font-medium">{selectedYear ? `FY${selectedYear}` : t('budget.allYears')}</span>
-                <ChevronDown size={12} className="opacity-50 shrink-0" />
+                <div className="flex items-center gap-1.5">
+                  <Clock size={12} className="text-[#666666]" />
+                  <span className="font-['JetBrains_Mono']">{selectedYear ? `FY ${selectedYear}` : 'All FY'}</span>
+                </div>
+                <ChevronDown size={12} className={`shrink-0 transition-transform duration-200 ${yearDropdownOpen ? 'rotate-180' : ''}`} />
               </button>
               {yearDropdownOpen && (
-                <div className="absolute top-full left-0 mt-1 rounded-lg shadow-lg border py-0.5 z-20 min-w-[140px] bg-white border-[#C4B5A5]">
-                  <button
+                <div className="absolute top-full left-0 right-0 mt-1 border rounded-lg shadow-lg z-[9999] overflow-hidden animate-slideDown bg-white border-[#C4B5A5]">
+                  {/* All FY option */}
+                  <div
                     onClick={() => { setSelectedYear(null); setYearDropdownOpen(false); }}
-                    className={`w-full px-4 py-0.5 text-left text-sm transition-colors hover:bg-[rgba(160,120,75,0.18)] ${!selectedYear ? 'text-[#6B4D30] font-medium' : 'text-[#0A0A0A]'}`}
+                    className={`px-3 py-0.5 flex items-center justify-between cursor-pointer text-sm transition-colors ${!selectedYear
+                      ? 'bg-[rgba(18,119,73,0.1)] text-[#127749]' : 'hover:bg-[rgba(160,120,75,0.18)] text-[#0A0A0A]'}`}
                   >
-                    {t('budget.allYears')}
-                  </button>
-                  {YEARS.map((year) => (
-                    <button
+                    <span className="font-medium">All FY</span>
+                    {!selectedYear && <Check size={14} className="text-[#127749]" />}
+                  </div>
+                  {availableYears.map((year) => (
+                    <div
                       key={year}
                       onClick={() => { setSelectedYear(year); setYearDropdownOpen(false); }}
-                      className={`w-full px-4 py-0.5 text-left text-sm transition-colors hover:bg-[rgba(160,120,75,0.18)] ${selectedYear === year ? 'text-[#6B4D30] font-medium' : 'text-[#0A0A0A]'}`}
+                      className={`px-3 py-0.5 flex items-center justify-between cursor-pointer text-sm transition-colors ${selectedYear === year
+                        ? 'bg-[rgba(18,119,73,0.1)] text-[#127749]' : 'hover:bg-[rgba(160,120,75,0.18)] text-[#0A0A0A]'}`}
                     >
-                      FY{year}
-                    </button>
+                      <span className="font-medium font-['JetBrains_Mono']">FY {year}</span>
+                      {selectedYear === year && <Check size={14} className="text-[#127749]" />}
+                    </div>
                   ))}
                 </div>
               )}
             </div>
-          )}
 
-          {hasActiveFilters && (
-            <button onClick={clearFilters} className="shrink-0 p-1 rounded transition-colors text-[#999] hover:text-red-500 hover:bg-red-50" title={t('common.clearAllFilters')}>
-              <X size={14} />
-            </button>
-          )}
-        </div>
+            {hasActiveFilters && (
+              <button onClick={clearFilters} className="shrink-0 p-1 rounded transition-colors text-[#999] hover:text-red-500 hover:bg-red-50 mb-0.5" title={t('common.clearAllFilters')}>
+                <X size={14} />
+              </button>
+            )}
+          </div>
+        )}
       </div>
 
       {/* ── Summary Cards ───────────────────────────────────────── */}
@@ -393,7 +408,7 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
       <FilterBottomSheet
         isOpen={filterOpen}
         onClose={closeFilter}
-        filters={[{ key: 'year', label: t('budget.fiscalYear'), type: 'single', options: YEARS.map((y) => ({ label: `FY${y}`, value: String(y) })) }]}
+        filters={[{ key: 'year', label: t('budget.fiscalYear'), type: 'single', options: [{ label: 'All FY', value: '' }, ...availableYears.map((y) => ({ label: `FY${y}`, value: String(y) }))] }]}
         values={mobileFilterValues}
         onChange={(key, value) => setMobileFilterValues(prev => ({ ...prev, [key]: value }))}
         onApply={() => setSelectedYear(mobileFilterValues.year ? Number(mobileFilterValues.year) : null)}
@@ -401,11 +416,11 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
       />
 
       {/* ── View / Edit Modal ───────────────────────────────────── */}
-      {showViewModal && selectedBudget && (
-        <div className="fixed inset-0 z-[9999]">
+      {showViewModal && selectedBudget && createPortal(
+        <div className="fixed inset-0 z-[9999] animate-fadeIn">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowViewModal(false)} />
           <div className="relative flex min-h-screen items-center justify-center p-4">
-            <div className="w-full max-w-lg rounded-2xl shadow-xl overflow-hidden bg-white text-[#0A0A0A]">
+            <div className="w-full max-w-lg rounded-2xl shadow-xl overflow-hidden animate-scalePop bg-white text-[#0A0A0A]">
 
               {/* Header */}
               <div className="flex items-center justify-between px-6 py-4 border-b border-[#C4B5A5]">
@@ -513,14 +528,14 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* ── Delete Confirmation ──────────────────────────────────── */}
-      {showDeleteConfirm && selectedBudget && (
-        <div className="fixed inset-0 z-[10000]">
+      {showDeleteConfirm && selectedBudget && createPortal(
+        <div className="fixed inset-0 z-[10000] animate-fadeIn">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowDeleteConfirm(false)} />
           <div className="relative flex min-h-screen items-center justify-center p-4">
-            <div className="w-full max-w-sm rounded-2xl shadow-xl overflow-hidden bg-white text-[#0A0A0A]">
+            <div className="w-full max-w-sm rounded-2xl shadow-xl overflow-hidden animate-scalePop bg-white text-[#0A0A0A]">
               <div className="px-6 py-5 space-y-3">
                 <h3 className="text-lg font-semibold font-['Montserrat']">{t('budget.confirmDelete') || 'Confirm Delete'}</h3>
                 <p className="text-sm text-[#666]">{t('budget.deleteWarning') || 'Are you sure you want to delete this budget? This action cannot be undone.'}</p>
@@ -537,14 +552,14 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* ── Archive Confirmation ─────────────────────────────────── */}
-      {showArchiveConfirm && selectedBudget && (
-        <div className="fixed inset-0 z-[10000]">
+      {showArchiveConfirm && selectedBudget && createPortal(
+        <div className="fixed inset-0 z-[10000] animate-fadeIn">
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowArchiveConfirm(false)} />
           <div className="relative flex min-h-screen items-center justify-center p-4">
-            <div className="w-full max-w-sm rounded-2xl shadow-xl overflow-hidden bg-white text-[#0A0A0A]">
+            <div className="w-full max-w-sm rounded-2xl shadow-xl overflow-hidden animate-scalePop bg-white text-[#0A0A0A]">
               <div className="px-6 py-5 space-y-3">
                 <div className="flex items-center gap-2">
                   <Archive size={18} className="text-[#9A7B2E]" />
@@ -565,12 +580,14 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
             </div>
           </div>
         </div>
-      )}
+      , document.body)}
 
       {/* ── Create Budget Modal ──────────────────────────────────── */}
-      {showCreateModal && (
-        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-50 p-4">
-          <div className="rounded-2xl shadow-xl w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-hidden bg-white">
+      {showCreateModal && createPortal(
+        <div className="fixed inset-0 z-[9999] animate-fadeIn">
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" onClick={() => setShowCreateModal(false)} />
+          <div className="relative flex min-h-screen items-center justify-center p-4">
+          <div className="relative rounded-2xl shadow-xl w-full max-w-lg max-h-[calc(100vh-2rem)] overflow-hidden bg-white animate-scalePop">
             <div className="flex items-center justify-between p-6 border-b border-[#C4B5A5]">
               <h3 className="text-lg font-semibold font-['Montserrat'] text-[#0A0A0A]">{t('budget.createNewBudget')}</h3>
               <button onClick={() => setShowCreateModal(false)} className="p-2 rounded-lg transition-colors text-[#999] hover:text-[#0A0A0A] hover:bg-[#F2F2F2]"><X size={20} /></button>
@@ -586,7 +603,7 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
                   onChange={(e) => setNewForm({ ...newForm, fiscalYear: parseInt(e.target.value) })}
                   className="w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] bg-white border-[#C4B5A5] text-[#0A0A0A]"
                 >
-                  {YEARS.map((year) => <option key={year} value={year}>{year}</option>)}
+                  {[...new Set([...availableYears, new Date().getFullYear(), new Date().getFullYear() + 1])].sort((a, b) => b - a).map((year) => <option key={year} value={year}>{year}</option>)}
                 </select>
               </div>
 
@@ -652,8 +669,9 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
               </button>
             </div>
           </div>
+          </div>
         </div>
-      )}
+      , document.body)}
 
     </div>
   );
