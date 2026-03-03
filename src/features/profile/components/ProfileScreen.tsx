@@ -8,7 +8,7 @@ import {
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { authService } from '@/services/authService';
+// authService import removed — BE does not have PUT /auth/me endpoint
 import toast from 'react-hot-toast';
 import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 
@@ -33,8 +33,9 @@ const ProfileScreen = ({ user: propUser, onUpdateUser }: any) => {
       if (onUpdateUser) {
         await onUpdateUser(formData);
       } else {
-        // Default: call API directly
-        await authService.updateProfile(formData);
+        // BE does not have PUT /auth/me yet — show info toast
+        toast(t('profile.updateNotSupported') || 'Profile update is not available yet', { icon: 'ℹ️' });
+        return;
       }
       toast.success(t('profile.savedSuccessfully'));
     } catch (err: any) {

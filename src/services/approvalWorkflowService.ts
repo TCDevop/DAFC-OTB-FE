@@ -1,40 +1,60 @@
 import api from './api';
+import { extract } from './serviceUtils';
 
 export const approvalWorkflowService = {
-  async getAll(brandId: any = null) {
-    const params: any = brandId ? { brandId } : {};
+  // List all workflows (optionally filtered by groupBrandId)
+  async getAll(groupBrandId: any = null) {
+    const params: any = groupBrandId ? { groupBrandId } : {};
     const response: any = await api.get('/approval-workflow', { params });
-    return response.data.data || response.data;
+    return extract(response);
   },
 
-  async getByBrand(brandId: any) {
-    const response: any = await api.get(`/approval-workflow/brand/${brandId}`);
-    return response.data.data || response.data;
+  // Get workflow by ID with levels
+  async getOne(id: any) {
+    const response: any = await api.get(`/approval-workflow/${id}`);
+    return extract(response);
   },
 
-  async getAvailableRoles() {
-    const response: any = await api.get('/approval-workflow/roles');
-    return response.data.data || response.data;
+  // Get workflows for a group brand
+  async getByGroupBrand(groupBrandId: any) {
+    const response: any = await api.get(`/approval-workflow/group-brand/${groupBrandId}`);
+    return extract(response);
   },
 
-  async create(data: any) {
+  // Create a new approval workflow
+  async create(data: { groupBrandId: string; workflowName: string; levels?: any[] }) {
     const response: any = await api.post('/approval-workflow', data);
-    return response.data.data || response.data;
+    return extract(response);
   },
 
-  async update(id: any, data: any) {
-    const response: any = await api.patch(`/approval-workflow/${id}`, data);
-    return response.data.data || response.data;
+  // Add a level to a workflow
+  async addLevel(workflowId: any, data: { levelOrder: number; levelName: string; approverUserId: string; isRequired: boolean }) {
+    const response: any = await api.post(`/approval-workflow/${workflowId}/levels`, data);
+    return extract(response);
   },
 
+  // Update a workflow level
+  async updateLevel(levelId: any, data: any) {
+    const response: any = await api.patch(`/approval-workflow/levels/${levelId}`, data);
+    return extract(response);
+  },
+
+  // Delete a workflow level
+  async deleteLevel(levelId: any) {
+    const response: any = await api.delete(`/approval-workflow/levels/${levelId}`);
+    return extract(response);
+  },
+
+  // Delete a workflow
   async delete(id: any) {
     const response: any = await api.delete(`/approval-workflow/${id}`);
-    return response.data;
+    return extract(response);
   },
 
-  async reorderSteps(brandId: any, stepIds: any) {
-    const response: any = await api.post(`/approval-workflow/brand/${brandId}/reorder`, { stepIds });
-    return response.data.data || response.data;
+  // Reorder workflow levels
+  async reorderLevels(workflowId: any, levelIds: string[]) {
+    const response: any = await api.post(`/approval-workflow/${workflowId}/reorder`, { levelIds });
+    return extract(response);
   },
 };
 

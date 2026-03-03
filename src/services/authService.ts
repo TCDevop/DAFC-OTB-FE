@@ -46,13 +46,8 @@ export const authService = {
     throw lastError;
   },
 
-  // Logout - notify backend + clear tokens
-  async logout() {
-    try {
-      await api.post('/auth/logout');
-    } catch {
-      // Ignore errors — token may already be expired
-    }
+  // Logout - clear tokens (client-only, BE has no logout endpoint)
+  logout() {
     if (isBrowser) {
       localStorage.removeItem('accessToken');
       localStorage.removeItem('refreshToken');
@@ -77,12 +72,6 @@ export const authService = {
     }
 
     return data;
-  },
-
-  // Update current user profile
-  async updateProfile(data: { name?: string; phone?: string; department?: string }) {
-    const response: any = await api.put('/auth/me', data);
-    return response.data.data || response.data;
   },
 
   // Login with Microsoft (Azure AD) — send MS access token to backend

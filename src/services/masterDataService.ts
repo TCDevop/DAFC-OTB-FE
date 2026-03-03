@@ -5,6 +5,17 @@ import api from './api';
 import { extract } from './serviceUtils';
 
 export const masterDataService = {
+  // Get all group brands (with nested brands)
+  async getGroupBrands() {
+    try {
+      const response = await api.get('/master/group-brands');
+      return extract(response);
+    } catch (err: any) {
+      console.error('[masterDataService.getGroupBrands]', err?.response?.status, err?.message);
+      throw err;
+    }
+  },
+
   // Get all brands
   async getBrands(params?: { groupBrandId?: string }) {
     try {
