@@ -8,7 +8,7 @@ import {
   Star, Layers, Tag, FileText, X, Split
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '@/utils';
+import { formatCurrency, displayPct } from '@/utils';
 // (Season groups & seasons loaded from API via masterDataService.getSeasonGroups)
 import { budgetService, masterDataService, planningService } from '@/services';
 import { invalidateCache } from '@/services/api';
@@ -576,18 +576,7 @@ const BudgetAllocateScreen = ({
     return `${brandId}-${seasonGroup}-${subSeason}`;
   };
 
-  // Calculate total allocated for progress bar
-  const totalAllocated = useMemo(() => {
-    let sum = 0;
-    Object.values(allocationValues).forEach((storeValues: any) => {
-      if (storeValues && typeof storeValues === 'object') {
-        Object.values(storeValues).forEach((val: any) => {
-          if (typeof val === 'number') sum += val;
-        });
-      }
-    });
-    return sum;
-  }, [allocationValues]);
+  // totalAllocated is computed below after tableComputedData (which scopes to displayBrands)
 
   // Build brandId → display name map for validation messages
   const brandNames = useMemo(() => {
@@ -596,11 +585,7 @@ const BudgetAllocateScreen = ({
     return map;
   }, [brandList]);
 
-  // Validation issues for side panel
-  const validationIssues = useMemo(
-    () => validate(totalBudget, totalAllocated, brandNames),
-    [validate, totalBudget, totalAllocated, brandNames],
-  );
+  // validationIssues is computed after totalAllocated (which depends on tableComputedData)
 
   // Navigate away (with unsaved changes check)
   const navigateTo = (target: string) => {
@@ -872,6 +857,19 @@ const BudgetAllocateScreen = ({
 
     return { rowDataMap, seasonTotalsMap, brandTotalsMap, rowStatusMap };
   }, [allocationValues, displayBrands, selectedSeasonGroup, activeSeasonGroups, dynamicSeasonConfig, stores, budgets, selectedYear]);
+
+  // Calculate total allocated from displayed brands only (scoped to current filters)
+  const totalAllocated = useMemo(() => {
+    return Object.values(tableComputedData.brandTotalsMap).reduce(
+      (sum: number, bTotal: any) => sum + (Number(bTotal.sum) || 0), 0
+    );
+  }, [tableComputedData.brandTotalsMap]);
+
+  // Validation issues for side panel
+  const validationIssues = useMemo(
+    () => validate(totalBudget, totalAllocated, brandNames),
+    [validate, totalBudget, totalAllocated, brandNames],
+  );
 
   // Allocate All: validate season group, season, and final versions, then navigate with full context
   // (must be after displayBrands, allocateHeaders, brandNames are initialized)
@@ -1560,7 +1558,7 @@ const BudgetAllocateScreen = ({
                                     : bPct === 100
                                       ? 'bg-[#127749]/15 text-[#127749]'
                                       : 'bg-[#D97706]/15 text-[#D97706]';
-                                return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${bc}`}>{bPct}%</span>;
+                                return <span className={`text-[10px] font-bold px-1.5 py-0.5 rounded-full ${bc}`}>{displayPct(bPct)}</span>;
                               })()}
                             </div>
                           )}

@@ -7,7 +7,7 @@ import {
   Calendar, User, MessageSquare, AlertCircle, CheckCircle, XCircle,
   Send, FileText, DollarSign
 } from 'lucide-react';
-import { formatCurrency } from '@/utils';
+import { formatCurrency, formatNumber, displayPct, formatPercent } from '@/utils';
 import { GENDERS, STORES } from '@/utils/constants';
 import { masterDataService, planningService, approvalService } from '@/services';
 import { invalidateCache } from '@/services/api';
@@ -46,7 +46,7 @@ const EditableCell = React.memo(({ cellKey, value, isEditing, editValue, onStart
   if (readOnly) {
     return (
       <div className="flex items-center justify-center">
-        <span className={`text-xs font-medium tabular-nums ${'text-[#6B553A]'}`}>{typeof value === 'number' ? value.toFixed(0) : value}%</span>
+        <span className={`text-xs font-medium tabular-nums ${'text-[#6B553A]'}`}>{displayPct(value)}</span>
       </div>
     );
   }
@@ -58,7 +58,7 @@ const EditableCell = React.memo(({ cellKey, value, isEditing, editValue, onStart
       title={t ? t('planningDetail.clickToEdit') : 'Click to edit'}
     >
       <div className={`flex items-center gap-1 px-2.5 py-0.5 rounded-md transition-all min-w-[52px] justify-center border ${'bg-white border-[#D4C8B8] hover:border-[#8B6F47] hover:shadow-sm'}`}>
-        <span className={`text-xs font-semibold tabular-nums ${'text-[#4A3D2E]'}`}>{typeof value === 'number' ? value.toFixed(0) : value}%</span>
+        <span className={`text-xs font-semibold tabular-nums ${'text-[#4A3D2E]'}`}>{displayPct(value)}</span>
         <Pencil size={9} className={`opacity-0 group-hover:opacity-100 transition-opacity ${'text-[#8B6F47]'}`} />
       </div>
     </div>
@@ -786,7 +786,7 @@ const PlanningDetailPage = ({
                       </td>
                       <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{dimZero(storeRow.buyPct)}</td>
                       <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{dimZero(storeRow.salesPct)}</td>
-                      <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{storeRow.stPct.toFixed(0)}%</td>
+                      <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{displayPct(storeRow.stPct)}</td>
                       <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{storeRow.moc.toFixed(1)}</td>
                       <td className={`px-3 py-1.5 ${isReadOnly ? 'bg-[rgba(160,120,75,0.08)]' : 'bg-[rgba(160,120,75,0.12)]'}`}>
                         <EditableCell
@@ -805,7 +805,7 @@ const PlanningDetailPage = ({
                       <td className={`px-3 py-1.5 text-center text-xs font-medium ${
                         variance < 0 ? 'text-red-500' : variance > 0 ? 'text-emerald-600' : tableCellText
                       }`}>
-                        {variance > 0 ? '+' : ''}{variance.toFixed(0)}%
+                        {formatPercent(variance)}
                       </td>
                     </tr>
                   );
@@ -896,7 +896,7 @@ const PlanningDetailPage = ({
                       </td>
                       <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{dimZero(storeRow.buyPct)}</td>
                       <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{dimZero(storeRow.salesPct)}</td>
-                      <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{storeRow.stPct.toFixed(0)}%</td>
+                      <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{displayPct(storeRow.stPct)}</td>
                       <td className={`px-3 py-1.5 ${isReadOnly ? 'bg-[rgba(160,120,75,0.08)]' : 'bg-[rgba(160,120,75,0.12)]'}`}>
                         <EditableCell
                           cellKey={cellKey}
@@ -914,7 +914,7 @@ const PlanningDetailPage = ({
                       <td className={`px-3 py-1.5 text-center text-xs font-medium ${
                         variance < 0 ? 'text-red-500' : variance > 0 ? 'text-emerald-600' : tableCellText
                       }`}>
-                        {variance > 0 ? '+' : ''}{variance.toFixed(0)}%
+                        {formatPercent(variance)}
                       </td>
                     </tr>
                   );
@@ -945,12 +945,12 @@ const PlanningDetailPage = ({
         cat.subCategories.forEach((subCat: any) => {
           const key = `${genderGroup.gender.id}_${cat.id}_${subCat.id}`;
           const data = localData[key] || {};
-          totals.buyPct += data.buyPct || 0;
-          totals.salesPct += data.salesPct || 0;
-          totals.buyProposed += data.buyProposed || 0;
-          totals.otbProposed += data.otbProposed || 0;
-          totals.otbSubmitted += data.otbSubmitted || 0;
-          totals.buyActual += data.buyActual || 0;
+          totals.buyPct += Number(data.buyPct) || 0;
+          totals.salesPct += Number(data.salesPct) || 0;
+          totals.buyProposed += Number(data.buyProposed) || 0;
+          totals.otbProposed += Number(data.otbProposed) || 0;
+          totals.otbSubmitted += Number(data.otbSubmitted) || 0;
+          totals.buyActual += Number(data.buyActual) || 0;
         });
       });
       totals.stPct = 90;
@@ -963,12 +963,12 @@ const PlanningDetailPage = ({
       cat.subCategories.forEach((subCat: any) => {
         const key = `${genderId}_${cat.id}_${subCat.id}`;
         const data = localData[key] || {};
-        totals.buyPct += data.buyPct || 0;
-        totals.salesPct += data.salesPct || 0;
-        totals.buyProposed += data.buyProposed || 0;
-        totals.otbProposed += data.otbProposed || 0;
-        totals.otbSubmitted += data.otbSubmitted || 0;
-        totals.buyActual += data.buyActual || 0;
+        totals.buyPct += Number(data.buyPct) || 0;
+        totals.salesPct += Number(data.salesPct) || 0;
+        totals.buyProposed += Number(data.buyProposed) || 0;
+        totals.otbProposed += Number(data.otbProposed) || 0;
+        totals.otbSubmitted += Number(data.otbSubmitted) || 0;
+        totals.buyActual += Number(data.buyActual) || 0;
       });
       totals.stPct = 47;
       totals.varPct = totals.buyProposed - totals.salesPct;
@@ -1155,9 +1155,9 @@ const PlanningDetailPage = ({
                   </span>
                 </div>
                 <div className="flex flex-wrap items-center gap-2 md:gap-4 md:ml-auto text-white/90 text-xs md:text-sm pl-8 md:pl-0">
-                  <span>Buy: <strong>{genderTotals.buyPct}%</strong></span>
-                  <span>Sales: <strong>{genderTotals.salesPct}%</strong></span>
-                  <span>OTB: <strong>{genderTotals.otbProposed.toLocaleString()}</strong></span>
+                  <span>Buy: <strong>{displayPct(genderTotals.buyPct)}</strong></span>
+                  <span>Sales: <strong>{displayPct(genderTotals.salesPct)}</strong></span>
+                  <span>OTB: <strong>{formatNumber(genderTotals.otbProposed)}</strong></span>
                 </div>
               </div>
 
@@ -1200,9 +1200,9 @@ const PlanningDetailPage = ({
                             </span>
                           </div>
                           <div className={`flex flex-wrap items-center gap-2 md:gap-4 md:ml-auto ${tableCellText} text-xs md:text-sm pl-7 md:pl-0`}>
-                            <span>Buy: <strong>{catTotals.buyPct}%</strong></span>
-                            <span>Proposed: <strong>{catTotals.buyProposed}%</strong></span>
-                            <span>OTB: <strong>{catTotals.otbProposed.toLocaleString()}</strong></span>
+                            <span>Buy: <strong>{displayPct(catTotals.buyPct)}</strong></span>
+                            <span>Proposed: <strong>{displayPct(catTotals.buyProposed)}</strong></span>
+                            <span>OTB: <strong>{formatNumber(catTotals.otbProposed)}</strong></span>
                           </div>
                         </div>
 
@@ -1242,9 +1242,9 @@ const PlanningDetailPage = ({
                                           <span className={tableCellTextBold}>{subCat.name}</span>
                                         </div>
                                       </td>
-                                      <td className={`px-3 py-0.5 text-center ${tableCellText}`}>{rowData.buyPct || 0}%</td>
-                                      <td className={`px-3 py-0.5 text-center ${tableCellText}`}>{rowData.salesPct || 0}%</td>
-                                      <td className={`px-3 py-0.5 text-center ${tableCellText}`}>{rowData.stPct || 0}%</td>
+                                      <td className={`px-3 py-0.5 text-center ${tableCellText}`}>{displayPct(rowData.buyPct)}</td>
+                                      <td className={`px-3 py-0.5 text-center ${tableCellText}`}>{displayPct(rowData.salesPct)}</td>
+                                      <td className={`px-3 py-0.5 text-center ${tableCellText}`}>{displayPct(rowData.stPct)}</td>
                                       <td className={`px-3 py-0.5 ${isReadOnly ? 'bg-[rgba(160,120,75,0.1)]' : 'bg-[rgba(160,120,75,0.18)]'}`}>
                                         <EditableCell
                                           cellKey={cellKey}
@@ -1259,7 +1259,7 @@ const PlanningDetailPage = ({
                                         />
                                       </td>
                                       <td className={`px-3 py-0.5 text-center ${tableCellTextBold} font-medium`}>
-                                        {(rowData.otbProposed || 0).toLocaleString()}
+                                        {formatNumber(rowData.otbProposed || 0)}
                                       </td>
                                       <td className={`px-3 py-0.5 text-center font-medium ${
                                         (rowData.varPct || 0) < 0 ? 'text-red-600' : 'text-emerald-600'
@@ -1267,27 +1267,27 @@ const PlanningDetailPage = ({
                                         {(rowData.varPct || 0) > 0 ? '+' : ''}{rowData.varPct || 0}%
                                       </td>
                                       <td className={`px-3 py-0.5 text-center ${tableCellText}`}>
-                                        {(rowData.otbSubmitted || 0).toLocaleString()}
+                                        {formatNumber(rowData.otbSubmitted || 0)}
                                       </td>
-                                      <td className={`px-3 py-0.5 text-center ${tableCellText}`}>{rowData.buyActual || 0}%</td>
+                                      <td className={`px-3 py-0.5 text-center ${tableCellText}`}>{displayPct(rowData.buyActual)}</td>
                                     </tr>
                                   );
                                 })}
                                 {/* Category Subtotal Row */}
                                 <tr className="bg-gradient-to-r from-[rgba(160,120,75,0.28)] to-[rgba(160,120,75,0.18)] font-medium">
                                   <td className="px-4 py-0.5 text-[#5C4A32] font-semibold">{t('planningDetail.subtotal')}</td>
-                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{catTotals.buyPct}%</td>
-                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{catTotals.salesPct}%</td>
-                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{catTotals.stPct}%</td>
-                                  <td className="px-3 py-0.5 text-center text-[#6B4D30] bg-[rgba(160,120,75,0.22)] font-bold">{catTotals.buyProposed}%</td>
-                                  <td className="px-3 py-0.5 text-center text-[#5C4A32] font-bold">{catTotals.otbProposed.toLocaleString()}</td>
+                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{displayPct(catTotals.buyPct)}</td>
+                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{displayPct(catTotals.salesPct)}</td>
+                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{displayPct(catTotals.stPct)}</td>
+                                  <td className="px-3 py-0.5 text-center text-[#6B4D30] bg-[rgba(160,120,75,0.22)] font-bold">{displayPct(catTotals.buyProposed)}</td>
+                                  <td className="px-3 py-0.5 text-center text-[#5C4A32] font-bold">{formatNumber(catTotals.otbProposed)}</td>
                                   <td className={`px-3 py-0.5 text-center font-bold ${
                                     catTotals.varPct < 0 ? 'text-red-600' : 'text-[#5C4A32]'
                                   }`}>
-                                    {catTotals.varPct > 0 ? '+' : ''}{catTotals.varPct}%
+                                    {formatPercent(catTotals.varPct)}
                                   </td>
-                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{catTotals.otbSubmitted.toLocaleString()}</td>
-                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{catTotals.buyActual}%</td>
+                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{formatNumber(catTotals.otbSubmitted)}</td>
+                                  <td className="px-3 py-0.5 text-center text-[#5C4A32]">{displayPct(catTotals.buyActual)}</td>
                                 </tr>
                               </tbody>
                             </table>
@@ -1308,13 +1308,13 @@ const PlanningDetailPage = ({
                         {t('planningDetail.total')} {genderGroup.gender.name.toUpperCase()}
                       </span>
                       <div className={`flex flex-wrap items-center gap-2 md:gap-6 text-xs md:text-sm ${isFemale ? 'text-pink-700' : 'text-[#6B553A]'}`}>
-                        <span>% Buy: <strong>{genderTotals.buyPct}%</strong></span>
-                        <span>% Sales: <strong>{genderTotals.salesPct}%</strong></span>
-                        <span>% ST: <strong>{genderTotals.stPct}%</strong></span>
-                        <span>% Proposed: <strong>{genderTotals.buyProposed}%</strong></span>
-                        <span>$ OTB: <strong>{genderTotals.otbProposed.toLocaleString()}</strong></span>
+                        <span>% Buy: <strong>{displayPct(genderTotals.buyPct)}</strong></span>
+                        <span>% Sales: <strong>{displayPct(genderTotals.salesPct)}</strong></span>
+                        <span>% ST: <strong>{displayPct(genderTotals.stPct)}</strong></span>
+                        <span>% Proposed: <strong>{displayPct(genderTotals.buyProposed)}</strong></span>
+                        <span>$ OTB: <strong>{formatNumber(genderTotals.otbProposed)}</strong></span>
                         <span className={genderTotals.varPct < 0 ? 'text-red-600' : ''}>
-                          Var: <strong>{genderTotals.varPct > 0 ? '+' : ''}{genderTotals.varPct}%</strong>
+                          Var: <strong>{formatPercent(genderTotals.varPct)}</strong>
                         </span>
                       </div>
                     </div>

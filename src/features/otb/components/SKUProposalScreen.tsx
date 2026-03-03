@@ -953,8 +953,15 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const genderOptions = useMemo(() => {
     const fromBlocks = skuBlocks.map((s: any) => s.gender).filter(Boolean);
     const fromMaster = masterGenders.filter(Boolean);
-    const genders = new Set([...fromBlocks, ...fromMaster]);
-    return ['all', ...Array.from(genders)];
+    const map = new Map<string, string>();
+    [...fromBlocks, ...fromMaster].forEach((g: string) => {
+      const key = g.toLowerCase();
+      if (!map.has(key)) map.set(key, g);
+    });
+    return [
+      { value: 'all', label: 'All Genders' },
+      ...Array.from(map.entries()).map(([value, label]) => ({ value, label })),
+    ];
   }, [skuBlocks, masterGenders]);
 
   const categoryOptions = useMemo(() => {
@@ -962,8 +969,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       .filter((s: any) => genderFilter === 'all' || s.gender.toLowerCase() === genderFilter.toLowerCase())
       .map((s: any) => s.category)
       .filter(Boolean);
-    const fromMaster = masterCategories.map((c: any) => (c.name || c.code || '').toLowerCase()).filter(Boolean);
-    return ['all', ...Array.from(new Set([...fromBlocks, ...fromMaster]))];
+    const fromMaster = masterCategories.map((c: any) => (c.name || c.code || '')).filter(Boolean);
+    const map = new Map<string, string>();
+    [...fromBlocks, ...fromMaster].forEach((c: string) => {
+      const key = c.toLowerCase();
+      if (!map.has(key)) map.set(key, c);
+    });
+    return [
+      { value: 'all', label: 'All Categories' },
+      ...Array.from(map.entries()).map(([value, label]) => ({ value, label })),
+    ];
   }, [genderFilter, skuBlocks, masterCategories]);
 
   const subCategoryOptions = useMemo(() => {
@@ -974,9 +989,17 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       .filter(Boolean);
     // Also extract sub-categories from master data (API returns snake_case)
     const fromMaster = masterCategories
-      .flatMap((c: any) => (c.sub_categories || c.subCategories || []).map((sc: any) => (sc.name || sc.code || '').toLowerCase()))
+      .flatMap((c: any) => (c.sub_categories || c.subCategories || []).map((sc: any) => (sc.name || sc.code || '')))
       .filter(Boolean);
-    return ['all', ...Array.from(new Set([...fromBlocks, ...fromMaster]))];
+    const map = new Map<string, string>();
+    [...fromBlocks, ...fromMaster].forEach((s: string) => {
+      const key = s.toLowerCase();
+      if (!map.has(key)) map.set(key, s);
+    });
+    return [
+      { value: 'all', label: 'All Sub Categories' },
+      ...Array.from(map.entries()).map(([value, label]) => ({ value, label })),
+    ];
   }, [genderFilter, categoryFilter, skuBlocks, masterCategories]);
 
   const filteredSkuBlocks = useMemo(() => {

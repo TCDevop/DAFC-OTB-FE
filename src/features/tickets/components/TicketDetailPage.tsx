@@ -3,7 +3,7 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import { ChevronDown, ChevronUp, Package, ArrowLeft, Loader2, Check, X, Clock, Send, CheckCircle, XCircle, LayoutGrid, List, GitCompare, RotateCcw, ExternalLink, DollarSign } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '@/utils';
+import { formatCurrency, displayPct } from '@/utils';
 import { ProductImage, ConfirmDialog } from '@/components/ui';
 import { budgetService, planningService, proposalService } from '@/services';
 import { invalidateCache } from '@/services/api';
@@ -218,7 +218,7 @@ const PremiumSKUCard = ({ item, block, prevItem }: { item: any; block: any; prev
             <div className="grid grid-cols-3 gap-1.5 mb-3">
               {[
                 { label: 'Unit Cost', value: formatCurrency(unitCost) },
-                { label: 'Margin', value: `${marginPct.toFixed(1)}%` },
+                { label: 'Margin', value: displayPct(marginPct) },
                 { label: 'Markup', value: `${markup.toFixed(2)}x` },
               ].map(({ label, value }) => (
                 <div key={label} className={`rounded-lg px-2 py-1.5 text-center ${'bg-[rgba(160,120,75,0.04)] border border-[rgba(160,120,75,0.1)]'}`}>
@@ -245,7 +245,7 @@ const PremiumSKUCard = ({ item, block, prevItem }: { item: any; block: any; prev
                       />
                     </div>
                     <span className={`text-[10px] font-bold font-['JetBrains_Mono'] w-6 text-right ${'text-gray-800'}`}>{store.qty}</span>
-                    <span className={`text-[9px] w-8 text-right ${'text-gray-400'}`}>{pct}%</span>
+                    <span className={`text-[9px] w-8 text-right ${'text-gray-400'}`}>{displayPct(pct)}</span>
                   </div>
                 );
               })}
@@ -1534,7 +1534,7 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
                 <div className="hidden md:flex items-center gap-6 shrink-0">
                   <div className="text-right">
                     <div className={`text-xs uppercase tracking-wide ${'text-[#E8D5BE]'}`}>% Buy propose</div>
-                    <div className={`text-sm font-bold font-['JetBrains_Mono'] ${'text-white'}`}>{block.pctBuyPropose}%</div>
+                    <div className={`text-sm font-bold font-['JetBrains_Mono'] ${'text-white'}`}>{displayPct(block.pctBuyPropose)}</div>
                   </div>
                   <div className={`w-px h-8 ${'bg-[rgba(255,255,255,0.2)]'}`} />
                   <div className="text-right">

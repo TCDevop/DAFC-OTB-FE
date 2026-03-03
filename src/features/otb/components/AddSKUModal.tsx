@@ -4,6 +4,7 @@ import { useState, useMemo, memo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
 import { X, Search, Check, Package, ArrowLeft, ArrowRight, ShoppingCart } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
+import { formatNumber } from '@/utils';
 import { ProductImage } from '@/components/ui';
 import CreatableSelect from '@/components/ui/CreatableSelect';
 
@@ -316,7 +317,7 @@ const AddSKUModal = ({
                         </div>
                         {sku.srp > 0 && (
                           <span className={`text-[10px] font-['JetBrains_Mono'] shrink-0 ${'text-[#6B4D30]'}`}>
-                            {sku.srp.toLocaleString()}
+                            {formatNumber(sku.srp)}
                           </span>
                         )}
                       </button>
@@ -389,7 +390,7 @@ const AddSKUModal = ({
                       placeholder="Target..."
                     />
                     <div className={`text-sm font-bold font-['JetBrains_Mono'] mt-1 ${'text-[#6B4D30]'}`}>
-                      {fd.unitCost.toLocaleString()}
+                      {formatNumber(fd.unitCost)}
                     </div>
                   </div>
                 </div>
@@ -426,11 +427,11 @@ const AddSKUModal = ({
                     </div>
                     <div className="flex justify-between">
                       <span className={`text-[10px] ${textMuted}`}>{t('proposal.unitCost') || 'Unit Cost'}</span>
-                      <span className={`text-[10px] font-medium font-['JetBrains_Mono'] ${textPrimary}`}>{(activeSku.unitCost || 0).toLocaleString()}</span>
+                      <span className={`text-[10px] font-medium font-['JetBrains_Mono'] ${textPrimary}`}>{formatNumber(activeSku.unitCost || 0)}</span>
                     </div>
                     <div className="flex justify-between">
                       <span className={`text-[10px] ${textMuted}`}>SRP</span>
-                      <span className={`text-[10px] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{fd.unitCost.toLocaleString()}</span>
+                      <span className={`text-[10px] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{formatNumber(fd.unitCost)}</span>
                     </div>
                   </div>
                 </div>
@@ -471,12 +472,12 @@ const AddSKUModal = ({
                   <div className="flex items-center justify-between">
                     <span className={`text-xs ${textSecondary}`}>{t('proposal.totalValue') || 'Total Value'}</span>
                     <span className={`text-xl font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>
-                      {totalValue.toLocaleString()}
+                      {formatNumber(totalValue)}
                     </span>
                   </div>
                   {totalOrder > 0 && (
                     <p className={`text-[9px] mt-1.5 text-right font-['JetBrains_Mono'] ${textMuted}`}>
-                      = {totalOrder} x {fd.unitCost.toLocaleString()}
+                      = {totalOrder} x {formatNumber(fd.unitCost)}
                     </p>
                   )}
                 </div>
@@ -489,7 +490,7 @@ const AddSKUModal = ({
                   {selectedSkus.size} SKU{selectedSkus.size > 1 ? 's' : ''}
                   {' · TTL: '}
                   <span className={`font-['JetBrains_Mono'] font-semibold ${'text-[#6B4D30]'}`}>
-                    {selectedSkuItems.reduce((sum: number, sku: any) => sum + calcTtlValue(sku.sku), 0).toLocaleString()}
+                    {formatNumber(selectedSkuItems.reduce((sum: number, sku: any) => sum + calcTtlValue(sku.sku), 0))}
                   </span>
                 </div>
                 <div className="flex items-center gap-2">

@@ -50,10 +50,30 @@ export function formatFullCurrency(value: number | string | null | undefined): s
   return new Intl.NumberFormat('vi-VN').format(num) + ' VND';
 }
 
-// Format percentage with optional sign and color hint
-export function formatPercent(value: number, decimals = 1): string {
-  const sign = value > 0 ? '+' : '';
-  return `${sign}${value.toFixed(decimals)}%`;
+// Format plain number with thousand separators (e.g. 1,234,567)
+export function formatNumber(value: number | string | null | undefined): string {
+  let num = 0;
+  if (value === null || value === undefined) {
+    num = 0;
+  } else if (typeof value === 'string') {
+    num = parseFloat(value.replace(/[^\d.-]/g, '')) || 0;
+  } else if (typeof value === 'number') {
+    num = isNaN(value) ? 0 : value;
+  }
+  return new Intl.NumberFormat('vi-VN').format(num);
+}
+
+// Format percentage display (no sign, just value with decimals)
+export function displayPct(value: number | string | null | undefined, decimals = 1): string {
+  const num = Number(value) || 0;
+  return `${num.toFixed(decimals)}%`;
+}
+
+// Format percentage with optional sign and color hint (for changes/variance)
+export function formatPercent(value: number | string | null | undefined, decimals = 1): string {
+  const num = Number(value) || 0;
+  const sign = num > 0 ? '+' : '';
+  return `${sign}${num.toFixed(decimals)}%`;
 }
 
 // Format change between two values as percentage

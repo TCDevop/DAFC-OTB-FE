@@ -10,7 +10,7 @@ import {
   Save, FilePlus, Star, Sparkles, AlertTriangle, ArrowRight
 } from 'lucide-react';
 import toast from 'react-hot-toast';
-import { formatCurrency } from '@/utils';
+import { formatCurrency, formatNumber, displayPct, formatPercent } from '@/utils';
 import { STORES, GENDERS } from '@/utils/constants';
 import { budgetService, masterDataService, planningService } from '@/services';
 import { invalidateCache } from '@/services/api';
@@ -47,7 +47,7 @@ const EditableCell = React.memo(({ cellKey, value, isEditing, editValue, onStart
       <div className="flex items-center justify-center">
         <div className={`flex items-center gap-1.5 px-3 py-0.5 border rounded-lg min-w-[70px] justify-center ${'bg-[#F2F2F2] border-[#C4B5A5]'}`}>
           <span className={`font-['JetBrains_Mono'] font-medium ${'text-[#666666]'}`}>
-            {typeof value === 'number' ? value.toFixed(0) : value}%
+            {displayPct(value)}
           </span>
         </div>
       </div>
@@ -62,7 +62,7 @@ const EditableCell = React.memo(({ cellKey, value, isEditing, editValue, onStart
     >
       <div className={`flex items-center gap-1.5 px-3 py-0.5 border rounded-lg transition-all min-w-[70px] justify-center ${'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] hover:bg-[rgba(215,183,151,0.25)] hover:border-[rgba(215,183,151,0.5)]'}`}>
         <span className={`font-['JetBrains_Mono'] font-medium ${'text-[#6B4D30]'}`}>
-          {typeof value === 'number' ? value.toFixed(0) : value}%
+          {displayPct(value)}
         </span>
         <Pencil size={12} className={`opacity-40 group-hover:opacity-100 transition-opacity ${'text-[#6B4D30]'}`} />
       </div>
@@ -742,14 +742,14 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           const count = subCatEntry.genders.length || 1;
           subCatEntry.genders.forEach((g: any) => {
             const d = getRowData(g.dataKey, subCatId);
-            buyPct += d.buyPct || 0;
-            salesPct += d.salesPct || 0;
-            stPct += d.stPct || 0;
-            buyProposed += d.buyProposed || 0;
-            otbProposed += d.otbProposed || 0;
-            varPct += d.varPct || 0;
-            otbSubmitted += d.otbSubmitted || 0;
-            buyActual += d.buyActual || 0;
+            buyPct += Number(d.buyPct) || 0;
+            salesPct += Number(d.salesPct) || 0;
+            stPct += Number(d.stPct) || 0;
+            buyProposed += Number(d.buyProposed) || 0;
+            otbProposed += Number(d.otbProposed) || 0;
+            varPct += Number(d.varPct) || 0;
+            otbSubmitted += Number(d.otbSubmitted) || 0;
+            buyActual += Number(d.buyActual) || 0;
           });
           categories.push({
             subcategoryId: subCatId,
@@ -1291,12 +1291,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       genderEntry.categories.forEach((catEntry: any) => {
         catEntry.subCategories.forEach((subEntry: any) => {
           const data = getRowData(subEntry.dataKey, String(subEntry.subCategory.id));
-          totals.buyPct += data.buyPct || 0;
-          totals.salesPct += data.salesPct || 0;
-          totals.buyProposed += data.buyProposed || 0;
-          totals.otbProposed += data.otbProposed || 0;
-          totals.otbSubmitted += data.otbSubmitted || 0;
-          totals.buyActual += data.buyActual || 0;
+          totals.buyPct += Number(data.buyPct) || 0;
+          totals.salesPct += Number(data.salesPct) || 0;
+          totals.buyProposed += Number(data.buyProposed) || 0;
+          totals.otbProposed += Number(data.otbProposed) || 0;
+          totals.otbSubmitted += Number(data.otbSubmitted) || 0;
+          totals.buyActual += Number(data.buyActual) || 0;
         });
       });
       totals.stPct = totals.salesPct > 0 ? Math.round((totals.salesPct / (totals.buyPct || 1)) * 100) : 0;
@@ -1309,12 +1309,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       let totals = { buyPct: 0, salesPct: 0, stPct: 0, buyProposed: 0, otbProposed: 0, varPct: 0, otbSubmitted: 0, buyActual: 0 };
       catEntry.subCategories.forEach((subEntry: any) => {
         const data = getRowData(subEntry.dataKey, String(subEntry.subCategory.id));
-        totals.buyPct += data.buyPct || 0;
-        totals.salesPct += data.salesPct || 0;
-        totals.buyProposed += data.buyProposed || 0;
-        totals.otbProposed += data.otbProposed || 0;
-        totals.otbSubmitted += data.otbSubmitted || 0;
-        totals.buyActual += data.buyActual || 0;
+        totals.buyPct += Number(data.buyPct) || 0;
+        totals.salesPct += Number(data.salesPct) || 0;
+        totals.buyProposed += Number(data.buyProposed) || 0;
+        totals.otbProposed += Number(data.otbProposed) || 0;
+        totals.otbSubmitted += Number(data.otbSubmitted) || 0;
+        totals.buyActual += Number(data.buyActual) || 0;
       });
       totals.stPct = totals.salesPct > 0 ? Math.round((totals.salesPct / (totals.buyPct || 1)) * 100) : 0;
       totals.varPct = totals.buyProposed - totals.salesPct;
@@ -1374,9 +1374,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   {genderEntry.categories.length} categories
                 </span>
                 <div className={`hidden md:flex items-center gap-4 ml-4 text-sm font-['JetBrains_Mono'] ${'text-[#5C4A3A]'}`}>
-                  <span>Buy: <strong>{genderTotals.buyPct}%</strong></span>
-                  <span>Sales: <strong>{genderTotals.salesPct}%</strong></span>
-                  <span>OTB: <strong>{genderTotals.otbProposed.toLocaleString()}</strong></span>
+                  <span>Buy: <strong>{displayPct(genderTotals.buyPct)}</strong></span>
+                  <span>Sales: <strong>{displayPct(genderTotals.salesPct)}</strong></span>
+                  <span>OTB: <strong>{formatNumber(genderTotals.otbProposed)}</strong></span>
                 </div>
               </div>
 
@@ -1490,9 +1490,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                           <span className={'text-[#1A1A1A]'}>{subEntry.subCategory.name}</span>
                                         </div>
                                       </td>
-                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{rowData.buyPct || 0}%</td>
-                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{rowData.salesPct || 0}%</td>
-                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{rowData.stPct || 0}%</td>
+                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(rowData.buyPct)}</td>
+                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(rowData.salesPct)}</td>
+                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(rowData.stPct)}</td>
                                       {historicalPeriods
                                         .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
                                         .map((period) => {
@@ -1500,9 +1500,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                         const hData = hLookup.bySub[subCatId] || {};
                                         return (
                                           <React.Fragment key={`cat_data_${period.label}_${cellKey}`}>
-                                            <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.buyPct || 0}%</td>
-                                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.salesPct || 0}%</td>
-                                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.stPct || 0}%</td>
+                                            <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{displayPct(hData.buyPct)}</td>
+                                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{displayPct(hData.salesPct)}</td>
+                                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{displayPct(hData.stPct)}</td>
                                           </React.Fragment>
                                         );
                                       })}
@@ -1519,17 +1519,17 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                         />
                                       </td>
                                       <td className={`px-3 py-0.5 text-center font-medium font-['JetBrains_Mono'] ${'text-[#1A1A1A]'}`}>
-                                        {(rowData.otbProposed || 0).toLocaleString()}
+                                        {formatNumber(rowData.otbProposed || 0)}
                                       </td>
                                       <td className={`px-3 py-0.5 text-center font-medium font-['JetBrains_Mono'] ${
                                         (rowData.varPct || 0) < 0 ? 'text-[#F85149]' : 'text-[#2A9E6A]'
                                       }`}>
-                                        {(rowData.varPct || 0) > 0 ? '+' : ''}{rowData.varPct || 0}%
+                                        {formatPercent(rowData.varPct || 0)}
                                       </td>
                                       <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>
-                                        {(rowData.otbSubmitted || 0).toLocaleString()}
+                                        {formatNumber(rowData.otbSubmitted || 0)}
                                       </td>
-                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{rowData.buyActual || 0}%</td>
+                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(rowData.buyActual)}</td>
                                       <td className="px-3 py-0.5 text-center">
                                         <button
                                           onClick={() => {
@@ -1561,9 +1561,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                 {/* Category Subtotal Row */}
                                 <tr className={'bg-gradient-to-r from-[rgba(215,183,151,0.25)] to-[rgba(215,183,151,0.2)] font-medium'}>
                                   <td className={`px-4 py-0.5 font-semibold font-['Montserrat'] ${'text-[#5C4A32]'}`}>{t('otbAnalysis.subTotal')}</td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.buyPct}%</td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.salesPct}%</td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.stPct}%</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(catTotals.buyPct)}</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(catTotals.salesPct)}</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(catTotals.stPct)}</td>
                                   {historicalPeriods
                                     .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
                                     .map((period) => (
@@ -1573,14 +1573,14 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                       <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>-</td>
                                     </React.Fragment>
                                   ))}
-                                  <td className={`px-3 py-0.5 text-center bg-[rgba(160,120,75,0.18)] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{catTotals.buyProposed}%</td>
-                                  <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.otbProposed.toLocaleString()}</td>
+                                  <td className={`px-3 py-0.5 text-center bg-[rgba(160,120,75,0.18)] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{displayPct(catTotals.buyProposed)}</td>
+                                  <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{formatNumber(catTotals.otbProposed)}</td>
                                   <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${
                                     catTotals.varPct < 0 ? 'text-[#FF7B72]' :'text-[#5C4A32]'}`}>
-                                    {catTotals.varPct > 0 ? '+' : ''}{catTotals.varPct}%
+                                    {formatPercent(catTotals.varPct)}
                                   </td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.otbSubmitted.toLocaleString()}</td>
-                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{catTotals.buyActual}%</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{formatNumber(catTotals.otbSubmitted)}</td>
+                                  <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(catTotals.buyActual)}</td>
                                   <td className="px-3 py-0.5"></td>
                                 </tr>
                               </tbody>
@@ -1598,13 +1598,13 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                         TOTAL {genderEntry.gender.name.toUpperCase()}
                       </span>
                       <div className={`flex flex-wrap items-center gap-2 md:gap-6 text-xs md:text-sm font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>
-                        <span>% Buy: <strong>{genderTotals.buyPct}%</strong></span>
-                        <span>% Sales: <strong>{genderTotals.salesPct}%</strong></span>
-                        <span>% ST: <strong>{genderTotals.stPct}%</strong></span>
-                        <span>% Proposed: <strong>{genderTotals.buyProposed}%</strong></span>
-                        <span>$ OTB: <strong>{genderTotals.otbProposed.toLocaleString()}</strong></span>
+                        <span>% Buy: <strong>{displayPct(genderTotals.buyPct)}</strong></span>
+                        <span>% Sales: <strong>{displayPct(genderTotals.salesPct)}</strong></span>
+                        <span>% ST: <strong>{displayPct(genderTotals.stPct)}</strong></span>
+                        <span>% Proposed: <strong>{displayPct(genderTotals.buyProposed)}</strong></span>
+                        <span>$ OTB: <strong>{formatNumber(genderTotals.otbProposed)}</strong></span>
                         <span className={genderTotals.varPct < 0 ? 'text-[#F85149]' : ''}>
-                          Var: <strong>{genderTotals.varPct > 0 ? '+' : ''}{genderTotals.varPct}%</strong>
+                          Var: <strong>{formatPercent(genderTotals.varPct)}</strong>
                         </span>
                       </div>
                     </div>
@@ -1630,12 +1630,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         const key = `seasonType_${sectionId}_${store.id}`;
         const bl = colBaselineLookup?.bySeasonType[key];
         const data = localData[key] || {};
-        totals.buyPct += bl?.buyPct || 0;
-        totals.salesPct += bl?.salesPct || 0;
-        totals.moc += bl?.moc || 0;
-        totals.userBuyPct += data.userBuyPct || 0;
-        totals.otbValue += data.otbValue || 0;
-        totals.varPct += data.varPct || 0;
+        totals.buyPct += Number(bl?.buyPct) || 0;
+        totals.salesPct += Number(bl?.salesPct) || 0;
+        totals.moc += Number(bl?.moc) || 0;
+        totals.userBuyPct += Number(data.userBuyPct) || 0;
+        totals.otbValue += Number(data.otbValue) || 0;
+        totals.varPct += Number(data.varPct) || 0;
         count++;
       });
       totals.stPct = totals.salesPct > 0 ? Math.round((totals.salesPct / (totals.buyPct || 1)) * 100) : 0;
@@ -1665,8 +1665,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   {activeStores.length} stores
                 </span>
                 <div className={`hidden md:flex items-center gap-4 ml-4 text-sm font-['JetBrains_Mono'] ${'text-[#5C4A3A]'}`}>
-                  <span>Buy: <strong>{sectionTotals.buyPct}%</strong></span>
-                  <span>Sales: <strong>{sectionTotals.salesPct}%</strong></span>
+                  <span>Buy: <strong>{displayPct(sectionTotals.buyPct)}</strong></span>
+                  <span>Sales: <strong>{displayPct(sectionTotals.salesPct)}</strong></span>
                   <span>OTB: <strong>{formatCurrency(sectionTotals.otbValue)}</strong></span>
                 </div>
               </div>
@@ -1731,9 +1731,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                 <span className={'text-[#1A1A1A]'}>{store.name}</span>
                               </div>
                             </td>
-                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{colBl.buyPct || 0}%</td>
-                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{colBl.salesPct || 0}%</td>
-                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{colBl.stPct || 0}%</td>
+                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(colBl.buyPct)}</td>
+                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(colBl.salesPct)}</td>
+                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(colBl.stPct)}</td>
                             <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{colBl.moc || 0}</td>
                             {historicalPeriods
                               .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
@@ -1742,9 +1742,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                               const hData = hLookup.bySeasonType[cellKey] || {};
                               return (
                                 <React.Fragment key={`col_data_${period.label}_${cellKey}`}>
-                                  <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.buyPct || 0}%</td>
-                                  <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.salesPct || 0}%</td>
-                                  <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.stPct || 0}%</td>
+                                  <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{displayPct(hData.buyPct)}</td>
+                                  <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{displayPct(hData.salesPct)}</td>
+                                  <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{displayPct(hData.stPct)}</td>
                                   <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.moc || 0}</td>
                                 </React.Fragment>
                               );
@@ -1767,7 +1767,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                             <td className={`px-3 py-0.5 text-center font-medium font-['JetBrains_Mono'] ${
                               (rowData.varPct || 0) < 0 ? 'text-[#F85149]' : 'text-[#2A9E6A]'
                             }`}>
-                              {(rowData.varPct || 0) > 0 ? '+' : ''}{rowData.varPct || 0}%
+                              {formatPercent(rowData.varPct || 0)}
                             </td>
                           </tr>
                         );
@@ -1775,9 +1775,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       {/* Season Type Subtotal */}
                       <tr className={'bg-gradient-to-r from-[rgba(215,183,151,0.25)] to-[rgba(215,183,151,0.2)] font-medium'}>
                         <td className={`px-4 py-0.5 font-semibold font-['Montserrat'] ${'text-[#5C4A32]'}`}>{t('otbAnalysis.subTotal')}</td>
-                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{sectionTotals.buyPct}%</td>
-                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{sectionTotals.salesPct}%</td>
-                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{sectionTotals.stPct}%</td>
+                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(sectionTotals.buyPct)}</td>
+                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(sectionTotals.salesPct)}</td>
+                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(sectionTotals.stPct)}</td>
                         <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{sectionTotals.moc}</td>
                         {historicalPeriods
                           .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
@@ -1790,18 +1790,18 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                           });
                           return (
                             <React.Fragment key={`col_sub_${period.label}`}>
-                              <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hBuy}%</td>
-                              <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hSales}%</td>
-                              <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hCount > 0 ? Math.round((hSales / (hBuy || 1)) * 100) : 0}%</td>
+                              <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{displayPct(hBuy)}</td>
+                              <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{displayPct(hSales)}</td>
+                              <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{displayPct(hCount > 0 ? (hSales / (hBuy || 1)) * 100 : 0)}</td>
                               <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hCount > 0 ? Math.round((hMoc / hCount) * 10) / 10 : 0}</td>
                             </React.Fragment>
                           );
                         })}
-                        <td className={`px-3 py-0.5 text-center bg-[rgba(160,120,75,0.18)] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{sectionTotals.userBuyPct}%</td>
+                        <td className={`px-3 py-0.5 text-center bg-[rgba(160,120,75,0.18)] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{displayPct(sectionTotals.userBuyPct)}</td>
                         <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{formatCurrency(sectionTotals.otbValue)}</td>
                         <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${
                           sectionTotals.varPct < 0 ? 'text-[#FF7B72]' :'text-[#5C4A32]'}`}>
-                          {sectionTotals.varPct > 0 ? '+' : ''}{sectionTotals.varPct}%
+                          {formatPercent(sectionTotals.varPct)}
                         </td>
                       </tr>
                     </tbody>
@@ -1829,11 +1829,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         const key = `gender_${genderId}_${store.id}`;
         const bl = genBaselineLookup?.byGender[key];
         const data = localData[key] || {};
-        totals.buyPct += bl?.buyPct || 0;
-        totals.salesPct += bl?.salesPct || 0;
-        totals.userBuyPct += data.userBuyPct || 0;
-        totals.otbValue += data.otbValue || 0;
-        totals.varPct += data.varPct || 0;
+        totals.buyPct += Number(bl?.buyPct) || 0;
+        totals.salesPct += Number(bl?.salesPct) || 0;
+        totals.userBuyPct += Number(data.userBuyPct) || 0;
+        totals.otbValue += Number(data.otbValue) || 0;
+        totals.varPct += Number(data.varPct) || 0;
       });
       totals.stPct = totals.salesPct > 0 ? Math.round((totals.salesPct / (totals.buyPct || 1)) * 100) : 0;
       return totals;
@@ -1861,8 +1861,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   {activeStores.length} stores
                 </span>
                 <div className={`hidden md:flex items-center gap-4 ml-4 text-sm font-['JetBrains_Mono'] ${'text-[#5C4A3A]'}`}>
-                  <span>Buy: <strong>{genderTotals.buyPct}%</strong></span>
-                  <span>Sales: <strong>{genderTotals.salesPct}%</strong></span>
+                  <span>Buy: <strong>{displayPct(genderTotals.buyPct)}</strong></span>
+                  <span>Sales: <strong>{displayPct(genderTotals.salesPct)}</strong></span>
                   <span>OTB: <strong>{formatCurrency(genderTotals.otbValue)}</strong></span>
                 </div>
               </div>
@@ -1925,9 +1925,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                 <span className={'text-[#1A1A1A]'}>{store.name}</span>
                               </div>
                             </td>
-                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{genBl.buyPct || rowData.buyPct || 0}%</td>
-                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{genBl.salesPct || rowData.salesPct || 0}%</td>
-                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{genBl.stPct || rowData.stPct || 0}%</td>
+                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(genBl.buyPct || rowData.buyPct)}</td>
+                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(genBl.salesPct || rowData.salesPct)}</td>
+                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(genBl.stPct || rowData.stPct)}</td>
                             {historicalPeriods
                               .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
                               .map((period) => {
@@ -1935,9 +1935,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                               const hData = hLookup.byGender[cellKey] || {};
                               return (
                                 <React.Fragment key={`gen_data_${period.label}_${cellKey}`}>
-                                  <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.buyPct || 0}%</td>
-                                  <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.salesPct || 0}%</td>
-                                  <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{hData.stPct || 0}%</td>
+                                  <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{displayPct(hData.buyPct)}</td>
+                                  <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{displayPct(hData.salesPct)}</td>
+                                  <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777] bg-[rgba(150,130,110,0.04)]'}`}>{displayPct(hData.stPct)}</td>
                                 </React.Fragment>
                               );
                             })}
@@ -1959,7 +1959,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                             <td className={`px-3 py-0.5 text-center font-medium font-['JetBrains_Mono'] ${
                               (rowData.varPct || 0) < 0 ? 'text-[#F85149]' : 'text-[#2A9E6A]'
                             }`}>
-                              {(rowData.varPct || 0) > 0 ? '+' : ''}{rowData.varPct || 0}%
+                              {formatPercent(rowData.varPct || 0)}
                             </td>
                           </tr>
                         );
@@ -1967,9 +1967,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       {/* Gender Subtotal */}
                       <tr className={'bg-gradient-to-r from-[rgba(215,183,151,0.25)] to-[rgba(215,183,151,0.2)] font-medium'}>
                         <td className={`px-4 py-0.5 font-semibold font-['Montserrat'] ${'text-[#5C4A32]'}`}>{t('otbAnalysis.subTotal')}</td>
-                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{genderTotals.buyPct}%</td>
-                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{genderTotals.salesPct}%</td>
-                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{genderTotals.stPct}%</td>
+                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(genderTotals.buyPct)}</td>
+                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(genderTotals.salesPct)}</td>
+                        <td className={`px-3 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(genderTotals.stPct)}</td>
                         {historicalPeriods
                           .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
                           .map((period) => {
@@ -1982,17 +1982,17 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                           hSt = hSales > 0 ? Math.round((hSales / (hBuy || 1)) * 100) : 0;
                           return (
                             <React.Fragment key={`gen_sub_${period.label}`}>
-                              <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hBuy}%</td>
-                              <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hSales}%</td>
-                              <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{hSt}%</td>
+                              <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{displayPct(hBuy)}</td>
+                              <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{displayPct(hSales)}</td>
+                              <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{displayPct(hSt)}</td>
                             </React.Fragment>
                           );
                         })}
-                        <td className={`px-3 py-0.5 text-center bg-[rgba(160,120,75,0.18)] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{genderTotals.userBuyPct}%</td>
+                        <td className={`px-3 py-0.5 text-center bg-[rgba(160,120,75,0.18)] font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{displayPct(genderTotals.userBuyPct)}</td>
                         <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{formatCurrency(genderTotals.otbValue)}</td>
                         <td className={`px-3 py-0.5 text-center font-bold font-['JetBrains_Mono'] ${
                           genderTotals.varPct < 0 ? 'text-[#FF7B72]' :'text-[#5C4A32]'}`}>
-                          {genderTotals.varPct > 0 ? '+' : ''}{genderTotals.varPct}%
+                          {formatPercent(genderTotals.varPct)}
                         </td>
                       </tr>
                     </tbody>
@@ -2130,7 +2130,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
               <div className="flex">
                 {(['category', 'seasonType', 'gender'] as const).map((tab) => {
                   const isActive = activeBrandTab === tab;
-                  const labels: Record<string, string> = { category: 'Category', seasonType: 'Season Type', gender: 'Gender' };
+                  const labels: Record<string, string> = { category: 'Category', seasonType: 'Collection', gender: 'Gender' };
                   const icons: Record<string, React.ReactNode> = {
                     category: <Tag size={13} />,
                     seasonType: <Bookmark size={13} />,
@@ -2419,7 +2419,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                 {/* Type Filter (Same/Different Season) — select mode for comparing previous year data */}
                 <FilterSelect
                   icon={GitBranch}
-                  label={t('otbAnalysis.type') || 'Type'}
+                  label="Season Type"
                   value={comparisonType}
                   options={[
                     { value: 'same', label: t('otbAnalysis.same') || 'Same' },

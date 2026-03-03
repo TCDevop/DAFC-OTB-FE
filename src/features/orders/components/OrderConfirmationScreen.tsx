@@ -12,7 +12,7 @@ import { proposalService, orderService } from '@/services';
 import { invalidateCache } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
-import { formatCurrency } from '@/utils';
+import { formatCurrency, displayPct } from '@/utils';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { PullToRefresh } from '@/components/mobile';
 
@@ -253,14 +253,14 @@ const OrderDetailPanel = ({ order }: any) => {
                               <tr className={`border-t ${'border-gray-100'}`}>
                                 <td className={`px-3.5 py-1.5 ${'text-gray-700'}`}>% Sales mix</td>
                                 {sizeKeys.map(s => (
-                                  <td key={s} className={`px-3 py-1.5 text-center font-['JetBrains_Mono'] ${'text-gray-600'}`}>{sizes[s].salesMix}%</td>
+                                  <td key={s} className={`px-3 py-1.5 text-center font-['JetBrains_Mono'] ${'text-gray-600'}`}>{displayPct(sizes[s].salesMix)}</td>
                                 ))}
                                 <td className={`px-3 py-1.5 text-center font-semibold font-['JetBrains_Mono'] ${'text-gray-800'}`}>100%</td>
                               </tr>
                               <tr className={`border-t ${'border-gray-100'}`}>
                                 <td className={`px-3.5 py-1.5 ${'text-gray-700'}`}>% ST</td>
                                 {sizeKeys.map(s => (
-                                  <td key={s} className={`px-3 py-1.5 text-center font-['JetBrains_Mono'] ${'text-gray-600'}`}>{sizes[s].st}%</td>
+                                  <td key={s} className={`px-3 py-1.5 text-center font-['JetBrains_Mono'] ${'text-gray-600'}`}>{displayPct(sizes[s].st)}</td>
                                 ))}
                                 <td className={`px-3 py-1.5 text-center ${'text-gray-500'}`}>-</td>
                               </tr>
