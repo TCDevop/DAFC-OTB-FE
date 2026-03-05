@@ -10,7 +10,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
-import { approvalService } from '@/services';
+import { approvalService, masterDataService } from '@/services';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ExpandableStatCard } from '@/components/ui';
@@ -34,19 +34,23 @@ const ENTITY_ICONS: any = {
   planning: BarChart3,
   proposal: Package};
 
-/* Helper: extract display name & brand from any pending approval item */
+/* Helper: extract display name, group brand & brand from any pending approval item */
 const getItemDisplayInfo = (item: any) => {
   const d = item.data || {};
   // Name: try common fields, then type-specific codes
   const name = d.name || d.budgetName || d.planningName || d.ticketName
     || d.budgetCode || d.planningCode || d.proposalCode
     || `${item.entityType} #${String(item.entityId).substring(0, 8)}`;
-  // Brand: try direct groupBrand, then nested paths for planning/proposal
-  const brand = d.groupBrand?.name
+  // Group Brand
+  const groupBrand = d.groupBrand?.name
     || d.budgetDetail?.budget?.groupBrand?.name
     || d.budget?.groupBrand?.name
-    || d.brand?.name || d.brandName || '-';
-  return { name, brand };
+    || '-';
+  // Brand (child brand)
+  const brand = d.brand?.name || d.brandName
+    || d.budgetDetail?.brand?.name
+    || '-';
+  return { name, groupBrand, brand };
 };
 
 /* ═══════════════════════════════════════════════
@@ -63,6 +67,10 @@ const ApprovalsScreen = ({  }: any) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [entityFilter, setEntityFilter] = useState<string>('all');
   const [levelFilter, setLevelFilter] = useState<string>('all');
+  const [groupBrandFilter, setGroupBrandFilter] = useState<string>('all');
+  const [brandFilter, setBrandFilter] = useState<string>('all');
+  const [groupBrands, setGroupBrands] = useState<any[]>([]);
+  const [brands, setBrands] = useState<any[]>([]);
   const { isOpen: filterOpen, open: openFilterSheet, close: closeFilterSheet } = useBottomSheet();
   const [mobileFilterValues, setMobileFilterValues] = useState<Record<string, string | string[]>>({});
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
@@ -70,9 +78,21 @@ const ApprovalsScreen = ({  }: any) => {
   const [bulkRejectModalOpen, setBulkRejectModalOpen] = useState<boolean>(false);
   const [bulkRejectComment, setBulkRejectComment] = useState<string>('');
 
-  // Fetch pending approvals
+  // Fetch pending approvals + master data
   useEffect(() => {
     fetchPendingApprovals();
+    masterDataService.getGroupBrands().then((res: any) => {
+      const data = Array.isArray(res) ? res : [];
+      setGroupBrands(data);
+      // Flatten all child brands from group brands
+      const allBrands: any[] = [];
+      data.forEach((gb: any) => {
+        (gb.brands || []).forEach((b: any) => {
+          allBrands.push({ ...b, groupBrandName: gb.name });
+        });
+      });
+      setBrands(allBrands);
+    }).catch(() => { setGroupBrands([]); setBrands([]); });
   }, []);
 
   const fetchPendingApprovals = async () => {
@@ -119,19 +139,23 @@ const ApprovalsScreen = ({  }: any) => {
     return items.filter((item: any) => {
       if (entityFilter !== 'all' && item.entityType !== entityFilter) return false;
       if (levelFilter !== 'all' && item.level !== parseInt(levelFilter)) return false;
+      const info = getItemDisplayInfo(item);
+      if (groupBrandFilter !== 'all' && info.groupBrand !== groupBrandFilter) return false;
+      if (brandFilter !== 'all' && info.brand !== brandFilter) return false;
       if (searchTerm) {
         const term = searchTerm.toLowerCase();
-        const info = getItemDisplayInfo(item);
-        return info.name.toLowerCase().includes(term) || info.brand.toLowerCase().includes(term);
+        return info.name.toLowerCase().includes(term)
+          || info.groupBrand.toLowerCase().includes(term)
+          || info.brand.toLowerCase().includes(term);
       }
       return true;
     });
-  }, [items, entityFilter, levelFilter, searchTerm]);
+  }, [items, entityFilter, levelFilter, groupBrandFilter, brandFilter, searchTerm]);
 
   // Clear selection when filters/data change
   useEffect(() => {
     setSelectedIds(new Set());
-  }, [entityFilter, levelFilter, searchTerm, items]);
+  }, [entityFilter, levelFilter, groupBrandFilter, brandFilter, searchTerm, items]);
 
   const toggleSelectAll = useCallback(() => {
     setSelectedIds(prev => {
@@ -253,7 +277,7 @@ const ApprovalsScreen = ({  }: any) => {
               >
                 <Filter size={12} />
                 {t('budget.filters')}
-                {(entityFilter !== 'all' || levelFilter !== 'all' || searchTerm) && (
+                {(entityFilter !== 'all' || levelFilter !== 'all' || groupBrandFilter !== 'all' || brandFilter !== 'all' || searchTerm) && (
                   <span className="w-2 h-2 rounded-full bg-[#D7B797]" />
                 )}
               </button>
@@ -301,6 +325,37 @@ const ApprovalsScreen = ({  }: any) => {
                 <option value="all">{t('approvals.allLevels')}</option>
                 <option value="1">Level 1</option>
                 <option value="2">Level 2</option>
+              </select>
+              <ChevronDown size={10} className={`absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none ${textMuted}`} />
+            </div>
+
+            <div className="relative">
+              <select
+                value={groupBrandFilter}
+                onChange={(e: any) => { setGroupBrandFilter(e.target.value); setBrandFilter('all'); }}
+                className={`appearance-none px-2 py-1 pr-6 rounded-lg border ${border} ${'bg-gray-50'} text-xs font-['Montserrat'] ${textPrimary} outline-none cursor-pointer`}
+              >
+                <option value="all">{t('approvals.allGroupBrands')}</option>
+                {groupBrands.map((gb: any) => (
+                  <option key={gb.id} value={gb.name}>{gb.name}</option>
+                ))}
+              </select>
+              <ChevronDown size={10} className={`absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none ${textMuted}`} />
+            </div>
+
+            <div className="relative">
+              <select
+                value={brandFilter}
+                onChange={(e: any) => setBrandFilter(e.target.value)}
+                className={`appearance-none px-2 py-1 pr-6 rounded-lg border ${border} ${'bg-gray-50'} text-xs font-['Montserrat'] ${textPrimary} outline-none cursor-pointer`}
+              >
+                <option value="all">{t('approvals.allBrands')}</option>
+                {(groupBrandFilter !== 'all'
+                  ? brands.filter((b: any) => b.groupBrandName === groupBrandFilter)
+                  : brands
+                ).map((b: any) => (
+                  <option key={b.id} value={b.name}>{b.name}</option>
+                ))}
               </select>
               <ChevronDown size={10} className={`absolute right-1.5 top-1/2 -translate-y-1/2 pointer-events-none ${textMuted}`} />
             </div>
@@ -440,7 +495,7 @@ const ApprovalsScreen = ({  }: any) => {
               {filtered.map((item: any, idx: any) => {
                 const status = item.data?.status || 'SUBMITTED';
                 const sc = STATUS_CONFIG[status] || STATUS_CONFIG.SUBMITTED;
-                const { name, brand } = getItemDisplayInfo(item);
+                const { name, groupBrand, brand } = getItemDisplayInfo(item);
                 const itemKey = getItemKey(item);
                 const isSelected = selectedIds.has(itemKey);
 
@@ -471,6 +526,8 @@ const ApprovalsScreen = ({  }: any) => {
                       </div>
                       <div className="flex items-center gap-2 mt-1">
                         <span className={`text-xs font-['Montserrat'] capitalize ${textSecondary}`}>{item.entityType}</span>
+                        <span className={textMuted}>&#183;</span>
+                        <span className={`text-xs font-['Montserrat'] ${textSecondary}`}>{groupBrand}</span>
                         <span className={textMuted}>&#183;</span>
                         <span className={`text-xs font-['Montserrat'] ${textSecondary}`}>{brand}</span>
                         <span className={textMuted}>&#183;</span>
@@ -506,7 +563,7 @@ const ApprovalsScreen = ({  }: any) => {
                       }
                     </button>
                   </th>
-                  {[t('approvals.colType'), t('approvals.colName'), t('approvals.colBrand'), t('approvals.colLevel'), t('approvals.colStatus'), t('approvals.colSubmitted'), t('common.actions')].map((h: any) => (
+                  {[t('approvals.colType'), t('approvals.colName'), t('approvals.colGroupBrand'), t('approvals.colBrand'), t('approvals.colLevel'), t('approvals.colStatus'), t('approvals.colSubmitted'), t('common.actions')].map((h: any) => (
                     <th key={h} className={`px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${textMuted}`}>
                       {h}
                     </th>
@@ -517,7 +574,7 @@ const ApprovalsScreen = ({  }: any) => {
                 {filtered.map((item: any, idx: any) => {
                   const status = item.data?.status || 'SUBMITTED';
                   const sc = STATUS_CONFIG[status] || STATUS_CONFIG.SUBMITTED;
-                  const { name, brand } = getItemDisplayInfo(item);
+                  const { name, groupBrand, brand } = getItemDisplayInfo(item);
 
                   const itemKey = getItemKey(item);
                   const isSelected = selectedIds.has(itemKey);
@@ -550,6 +607,11 @@ const ApprovalsScreen = ({  }: any) => {
                       {/* Name */}
                       <td className="px-3 py-1.5">
                         <span className={`text-sm font-medium font-['Montserrat'] ${textPrimary}`}>{name}</span>
+                      </td>
+
+                      {/* Group Brand */}
+                      <td className="px-3 py-1.5">
+                        <span className={`text-sm font-['Montserrat'] ${textSecondary}`}>{groupBrand}</span>
                       </td>
 
                       {/* Brand */}
@@ -630,12 +692,31 @@ const ApprovalsScreen = ({  }: any) => {
               { value: '1', label: 'Level 1' },
               { value: '2', label: 'Level 2' },
             ]},
+          {
+            key: 'groupBrandFilter',
+            label: t('approvals.allGroupBrands'),
+            icon: '🏢',
+            type: 'single',
+            options: groupBrands.map((gb: any) => ({ value: gb.name, label: gb.name })),
+          },
+          {
+            key: 'brandFilter',
+            label: t('approvals.allBrands'),
+            icon: '🏷️',
+            type: 'single',
+            options: (groupBrandFilter !== 'all'
+              ? brands.filter((b: any) => b.groupBrandName === groupBrandFilter)
+              : brands
+            ).map((b: any) => ({ value: b.name, label: b.name })),
+          },
         ]}
         values={mobileFilterValues}
         onChange={(key, value) => {
           setMobileFilterValues(prev => ({ ...prev, [key]: value }));
           if (key === 'entityFilter') setEntityFilter(value ? String(value) : 'all');
           if (key === 'levelFilter') setLevelFilter(value ? String(value) : 'all');
+          if (key === 'groupBrandFilter') { setGroupBrandFilter(value ? String(value) : 'all'); setBrandFilter('all'); }
+          if (key === 'brandFilter') setBrandFilter(value ? String(value) : 'all');
         }}
         onApply={closeFilterSheet}
         onReset={() => {
@@ -643,6 +724,8 @@ const ApprovalsScreen = ({  }: any) => {
           setSearchTerm('');
           setEntityFilter('all');
           setLevelFilter('all');
+          setGroupBrandFilter('all');
+          setBrandFilter('all');
         }}
       />
 

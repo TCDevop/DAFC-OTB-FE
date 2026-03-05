@@ -1,10 +1,10 @@
 'use client';
 
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import {
   Settings, Plus, Edit2, Trash2, Save, X,
-  ChevronRight, Users, Building2, RefreshCw,
-  LayoutList, GitBranch
+  ChevronRight, ChevronDown, Check, Users, Building2, RefreshCw,
+  LayoutList, GitBranch, Layers, Tag
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { approvalWorkflowService } from '@/services/approvalWorkflowService';
@@ -46,9 +46,17 @@ const ApprovalWorkflowScreen = ({}: any) => {
   const [steps, setSteps] = useState<any[]>([]);
   const [workflows, setWorkflows] = useState<any[]>([]);
   const [groupBrands, setGroupBrands] = useState<any[]>([]);
+  const [brandList, setBrandList] = useState<any[]>([]);
   const [selectedGroupBrandId, setSelectedGroupBrandId] = useState<string>('all');
+  const [selectedBrandId, setSelectedBrandId] = useState<string>('all');
   const [loading, setLoading] = useState<boolean>(true);
   const [viewMode, setViewMode] = useState<string>('table');
+
+  // Dropdown states
+  const [isGBDropdownOpen, setIsGBDropdownOpen] = useState(false);
+  const [isBrandDropdownOpen, setIsBrandDropdownOpen] = useState(false);
+  const gbDropdownRef = useRef<HTMLDivElement>(null);
+  const brandDropdownRef = useRef<HTMLDivElement>(null);
 
   // Modal state
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
@@ -85,12 +93,38 @@ const ApprovalWorkflowScreen = ({}: any) => {
         const gbRes = await masterDataService.getGroupBrands();
         const gbList = Array.isArray(gbRes) ? gbRes : (gbRes?.data || []);
         setGroupBrands(gbList);
+        // Flatten child brands
+        const allBrands: any[] = [];
+        gbList.forEach((gb: any) => {
+          (gb.brands || []).forEach((b: any) => {
+            allBrands.push({ ...b, groupBrandId: gb.id, groupBrandName: gb.name });
+          });
+        });
+        setBrandList(allBrands);
       } catch (err: any) {
         console.error('Failed to fetch group brands:', err);
       }
     };
     fetchInitialData();
   }, []);
+
+  // Click outside to close dropdowns
+  useEffect(() => {
+    const handleClickOutside = (e: MouseEvent) => {
+      if (gbDropdownRef.current && !gbDropdownRef.current.contains(e.target as Node)) setIsGBDropdownOpen(false);
+      if (brandDropdownRef.current && !brandDropdownRef.current.contains(e.target as Node)) setIsBrandDropdownOpen(false);
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  // Brands filtered by selected group brand
+  const filteredBrands = selectedGroupBrandId === 'all'
+    ? brandList
+    : brandList.filter((b: any) => String(b.groupBrandId) === String(selectedGroupBrandId));
+
+  const selectedGroupBrandObj = groupBrands.find((g: any) => String(g.id) === String(selectedGroupBrandId));
+  const selectedBrandObj = brandList.find((b: any) => String(b.id) === String(selectedBrandId));
 
   useEffect(() => {
     fetchSteps();
@@ -230,17 +264,86 @@ const ApprovalWorkflowScreen = ({}: any) => {
           </div>
 
           {/* Inline Filters */}
-          <div className="flex flex-wrap items-center gap-2 md:ml-auto">
-            <select
-              value={selectedGroupBrandId}
-              onChange={(e: any) => setSelectedGroupBrandId(e.target.value)}
-              className={`flex-1 md:flex-none px-2 py-1 border rounded-lg text-xs font-['Montserrat'] transition-all focus:outline-none focus:ring-1 focus:ring-[#D7B797] ${'bg-white border-[#C4B5A5] text-[#0A0A0A]'}`}
-            >
-              <option value="all">{t('approval.allBrands')}</option>
-              {groupBrands.map((gb: any) => (
-                <option key={gb.id} value={gb.id}>{gb.name || gb.code}</option>
-              ))}
-            </select>
+          <div className="flex flex-wrap items-end gap-2.5 md:ml-auto">
+            {/* Group Brand Filter */}
+            <div className="relative shrink-0" ref={gbDropdownRef}>
+              <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">{t('approval.groupBrand')}</label>
+              <button
+                type="button"
+                onClick={() => { setIsGBDropdownOpen(!isGBDropdownOpen); setIsBrandDropdownOpen(false); }}
+                className={`w-full px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center justify-between text-xs transition-all ${selectedGroupBrandId !== 'all'
+                  ?'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:border-[#D7B797]':'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:border-[rgba(215,183,151,0.4)] hover:bg-[rgba(160,120,75,0.18)]'}`}
+              >
+                <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                  <Layers size={12} className={`shrink-0 ${selectedGroupBrandId !== 'all' ? 'text-[#6B4D30]' : 'text-[#666666]'}`} />
+                  <span className="truncate">{selectedGroupBrandObj?.name || t('approval.allGroupBrands')}</span>
+                </div>
+                <ChevronDown size={12} className={`shrink-0 ml-1 transition-transform duration-200 ${isGBDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isGBDropdownOpen && (
+                <div className={`absolute top-full left-0 mt-1 border rounded-lg shadow-lg z-[9999] overflow-hidden whitespace-nowrap min-w-full w-max ${'bg-white border-[#C4B5A5]'}`}>
+                  <div
+                    onClick={() => { setSelectedGroupBrandId('all'); setSelectedBrandId('all'); setIsGBDropdownOpen(false); }}
+                    className={`px-3 py-1 flex items-center justify-between cursor-pointer text-sm transition-colors ${selectedGroupBrandId === 'all'
+                      ?'bg-[rgba(18,119,73,0.1)] text-[#127749]':'hover:bg-[rgba(160,120,75,0.18)] text-[#0A0A0A]'}`}
+                  >
+                    <span className="font-medium">{t('approval.allGroupBrands')}</span>
+                    {selectedGroupBrandId === 'all' && <Check size={14} className="text-[#127749]" />}
+                  </div>
+                  {groupBrands.map((gb: any) => (
+                    <div
+                      key={gb.id}
+                      onClick={() => { setSelectedGroupBrandId(gb.id); setSelectedBrandId('all'); setIsGBDropdownOpen(false); }}
+                      className={`px-3 py-1 flex items-center justify-between cursor-pointer text-sm transition-colors ${String(selectedGroupBrandId) === String(gb.id)
+                        ?'bg-[rgba(18,119,73,0.1)] text-[#127749]':'hover:bg-[rgba(160,120,75,0.18)] text-[#0A0A0A]'}`}
+                    >
+                      <span className="font-medium">{gb.name || gb.code}</span>
+                      {String(selectedGroupBrandId) === String(gb.id) && <Check size={14} className="text-[#127749]" />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Brand Filter */}
+            <div className="relative shrink-0" ref={brandDropdownRef}>
+              <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">{t('approval.brand')}</label>
+              <button
+                type="button"
+                onClick={() => { setIsBrandDropdownOpen(!isBrandDropdownOpen); setIsGBDropdownOpen(false); }}
+                className={`w-full px-2 py-1 border rounded-md font-medium cursor-pointer flex items-center justify-between text-xs transition-all ${selectedBrandId !== 'all'
+                  ?'bg-[rgba(160,120,75,0.18)] border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:border-[#D7B797]':'bg-white border-[#C4B5A5] text-[#0A0A0A] hover:border-[rgba(215,183,151,0.4)] hover:bg-[rgba(160,120,75,0.18)]'}`}
+              >
+                <div className="flex items-center gap-1.5 min-w-0 overflow-hidden">
+                  <Tag size={12} className={`shrink-0 ${selectedBrandId !== 'all' ? 'text-[#6B4D30]' : 'text-[#666666]'}`} />
+                  <span className="truncate">{selectedBrandObj?.name || t('approval.allBrands')}</span>
+                </div>
+                <ChevronDown size={12} className={`shrink-0 ml-1 transition-transform duration-200 ${isBrandDropdownOpen ? 'rotate-180' : ''}`} />
+              </button>
+              {isBrandDropdownOpen && (
+                <div className={`absolute top-full left-0 mt-1 border rounded-lg shadow-lg z-[9999] overflow-hidden whitespace-nowrap min-w-full w-max max-h-60 overflow-y-auto ${'bg-white border-[#C4B5A5]'}`}>
+                  <div
+                    onClick={() => { setSelectedBrandId('all'); setIsBrandDropdownOpen(false); }}
+                    className={`px-3 py-1 flex items-center justify-between cursor-pointer text-sm transition-colors ${selectedBrandId === 'all'
+                      ?'bg-[rgba(18,119,73,0.1)] text-[#127749]':'hover:bg-[rgba(160,120,75,0.18)] text-[#0A0A0A]'}`}
+                  >
+                    <span className="font-medium">{t('approval.allBrands')}</span>
+                    {selectedBrandId === 'all' && <Check size={14} className="text-[#127749]" />}
+                  </div>
+                  {filteredBrands.map((b: any) => (
+                    <div
+                      key={b.id}
+                      onClick={() => { setSelectedBrandId(b.id); setIsBrandDropdownOpen(false); }}
+                      className={`px-3 py-1 flex items-center justify-between cursor-pointer text-sm transition-colors ${String(selectedBrandId) === String(b.id)
+                        ?'bg-[rgba(18,119,73,0.1)] text-[#127749]':'hover:bg-[rgba(160,120,75,0.18)] text-[#0A0A0A]'}`}
+                    >
+                      <span className="font-medium">{b.name}</span>
+                      {String(selectedBrandId) === String(b.id) && <Check size={14} className="text-[#127749]" />}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <button
               onClick={fetchSteps}
@@ -333,7 +436,7 @@ const ApprovalWorkflowScreen = ({}: any) => {
             <table className="w-full">
               <thead>
                 <tr className={'bg-[rgba(160,120,75,0.12)]'}>
-                  <th className={`px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#666666]'}`}>{t('approval.brand')}</th>
+                  <th className={`px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#666666]'}`}>{t('approval.groupBrand')}</th>
                   <th className={`px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] w-16 ${'text-[#666666]'}`}>{t('approval.step')}</th>
                   <th className={`px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#666666]'}`}>{t('approval.roleUser')}</th>
                   <th className={`px-3 py-1.5 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#666666]'}`}>{t('approval.required')}</th>
@@ -492,7 +595,7 @@ const ApprovalWorkflowScreen = ({}: any) => {
             <div className="space-y-3 md:space-y-4">
               {/* Group Brand */}
               <div>
-                <label className={`block text-xs font-medium mb-1.5 font-['Montserrat'] ${'text-[#666666]'}`}>{t('approval.brand')}</label>
+                <label className={`block text-xs font-medium mb-1.5 font-['Montserrat'] ${'text-[#666666]'}`}>{t('approval.groupBrand')}</label>
                 <select
                   value={formData.groupBrandId}
                   onChange={(e: any) => setFormData((prev: any) => ({ ...prev, groupBrandId: e.target.value }))}
