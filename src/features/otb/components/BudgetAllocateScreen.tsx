@@ -175,10 +175,10 @@ const BudgetAllocateScreen = ({
   const [selectedSeasonGroup, setSelectedSeasonGroup] = useState<any>(null);
   const [selectedSeason, setSelectedSeason] = useState<any>(null);
 
-  // Fetch season groups filtered by selected year
+  // Fetch all season groups (no year filter)
   useEffect(() => {
     const controller = new AbortController();
-    masterDataService.getSeasonGroups(selectedYear && selectedYear !== 'all' ? { year: Number(selectedYear) } : undefined, { signal: controller.signal }).then(res => {
+    masterDataService.getSeasonGroups(undefined, { signal: controller.signal }).then(res => {
       const data = Array.isArray(res) ? res : [];
       setSeasonGroups(data);
     }).catch((err: any) => {
@@ -186,7 +186,7 @@ const BudgetAllocateScreen = ({
       setSeasonGroups([]);
     });
     return () => { controller.abort(); };
-  }, [selectedYear]);
+  }, []);
 
   // Reset sub-season when season group changes
   useEffect(() => {
@@ -536,11 +536,18 @@ const BudgetAllocateScreen = ({
     return config;
   }, [seasonGroups]);
 
-  // Sub-seasons available for the selected season group
+  // Sub-seasons available — show all when no season group is selected
   const availableSubSeasons = useMemo(() => {
-    if (!selectedSeasonGroup) return [];
-    return dynamicSeasonConfig[selectedSeasonGroup]?.subSeasons || [];
-  }, [selectedSeasonGroup, dynamicSeasonConfig]);
+    if (selectedSeasonGroup) return dynamicSeasonConfig[selectedSeasonGroup]?.subSeasons || [];
+    // Flatten all sub-seasons from every season group (deduplicated, ordered)
+    const all: string[] = [];
+    activeSeasonGroups.forEach((sg: any) => {
+      (dynamicSeasonConfig[sg]?.subSeasons || []).forEach((ss: string) => {
+        if (!all.includes(ss)) all.push(ss);
+      });
+    });
+    return all;
+  }, [selectedSeasonGroup, dynamicSeasonConfig, activeSeasonGroups]);
 
   const storePercentages = useMemo(() => {
     const totalByStore: Record<string, number> = {};
@@ -1383,8 +1390,8 @@ const BudgetAllocateScreen = ({
                   )}
                 </div>
 
-                {/* Sub-Season Filter — only shown when a Season Group is selected */}
-                {selectedSeasonGroup && availableSubSeasons.length > 0 && (
+                {/* Sub-Season Filter — always visible */}
+                {availableSubSeasons.length > 0 && (
                   <div className="relative shrink-0" ref={subSeasonDropdownRef}>
                     <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">Season</label>
                     <button
@@ -1514,7 +1521,10 @@ const BudgetAllocateScreen = ({
                     />
                     <span className="font-bold text-sm font-['Montserrat'] text-[#4A3728]">{group.name}</span>
                     <span className="text-[11px] text-[#8A6340] font-['JetBrains_Mono']">
-                      {groupBrands.length} brand{groupBrands.length !== 1 ? 's' : ''} • {selectedSeasonGroup ? dynamicSeasonConfig[selectedSeasonGroup]?.name : t('planning.allSeasonGroups')} {selectedYear}
+                      {groupBrands.length === 1
+                        ? <><span className="font-bold text-[#4A3728]">{groupBrands[0].name}</span>{` • ${selectedSeasonGroup ? dynamicSeasonConfig[selectedSeasonGroup]?.name : t('planning.allSeasonGroups')} ${selectedYear}`}</>
+                        : `${groupBrands.length} brands • ${selectedSeasonGroup ? dynamicSeasonConfig[selectedSeasonGroup]?.name : t('planning.allSeasonGroups')} ${selectedYear}`
+                      }
                     </span>
                   </div>
                   <div className="flex items-center gap-2">

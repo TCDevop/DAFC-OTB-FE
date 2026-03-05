@@ -15,6 +15,7 @@ import { ProductImage } from '@/components/ui';
 interface ProposalTicketReviewProps {
   reviewData: {
     budgetId: string;
+    proposalHeaderIds?: string[];
     skuBlocks: any[];
     grandTotals: any;
     stores: any[];
@@ -30,7 +31,7 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
   const [submitting, setSubmitting] = useState(false);
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({});
 
-  const { skuBlocks, grandTotals, stores, budgetId, sizingChoiceName } = reviewData;
+  const { skuBlocks, grandTotals, stores, budgetId, proposalHeaderIds, sizingChoiceName } = reviewData;
 
   const toggleBlock = useCallback((key: string) => {
     setExpandedBlocks(prev => ({ ...prev, [key]: !prev[key] }));
@@ -40,8 +41,14 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
     if (submitting) return;
     setSubmitting(true);
     try {
-      if (budgetId) {
-        await proposalService.submit(budgetId);
+      const headerIds = proposalHeaderIds || [];
+      if (headerIds.length === 0) {
+        toast.error('No proposal headers to submit');
+        return;
+      }
+      // Submit all proposal headers
+      for (const hId of headerIds) {
+        await proposalService.submit(hId);
       }
       toast.success(t('skuProposal.submitSuccess') || 'Proposal submitted for approval');
       onSubmitted();
@@ -177,7 +184,7 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
                     </thead>
                     <tbody className={'divide-y divide-gray-100'}>
                       {blockItems.map((item: any, iIdx: number) => (
-                        <tr key={item.sku || iIdx} className={`${'hover:bg-gray-50'}`}>
+                        <tr key={`${item.sku}_${iIdx}`} className={`${'hover:bg-gray-50'}`}>
                           <td className="px-3 py-1.5">
                             <div className="flex items-center gap-2">
                               <ProductImage subCategory={block.subCategory || ''} sku={item.sku} size={40} rounded="rounded-md" />

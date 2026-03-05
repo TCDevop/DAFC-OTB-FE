@@ -15,7 +15,10 @@ const withErrorLog = async <T>(tag: string, fn: () => Promise<T>): Promise<T> =>
     if (err?.name === 'CanceledError' || err?.name === 'AbortError' || err?.code === 'ERR_CANCELED') {
       throw err; // rethrow silently (no console.error)
     }
-    console.error(`[proposalService.${tag}]`, err?.response?.status, err?.message);
+    const rd = err?.response?.data;
+    console.error(`[proposalService.${tag}]`, err?.response?.status, err?.message,
+      '\n  → serverMessage:', rd?.message || 'N/A',
+      '\n  → fullResponse:', JSON.stringify(rd));
     throw err;
   }
 };

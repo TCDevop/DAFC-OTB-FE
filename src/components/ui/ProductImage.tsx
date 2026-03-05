@@ -8,6 +8,7 @@ import { getDemoImageSvg } from '../../utils';
 interface ProductImageProps {
   subCategory: string;
   sku: string;
+  imageUrl?: string;
   size?: 40 | 48 | 56 | 64 | 140;
   rounded?: string;
 }
@@ -218,14 +219,19 @@ function ImageEditorPopup({
 function ProductImage({
   subCategory,
   sku,
+  imageUrl,
   size = 48,
   rounded = 'rounded-lg',
 }: ProductImageProps) {
   const [customSrc, setCustomSrc] = useState<string | null>(null);
   const [popupOpen, setPopupOpen] = useState(false);
+  const [imgError, setImgError] = useState(false);
+
+  // Reset error state when imageUrl changes
+  useEffect(() => { setImgError(false); }, [imageUrl]);
 
   const defaultSrc = getDemoImageSvg(subCategory || '', sku || '');
-  const src = customSrc || defaultSrc;
+  const src = customSrc || (imageUrl && !imgError ? imageUrl : defaultSrc);
   const sz = sizeMap[size] || sizeMap[48];
   const borderCls = 'border-[rgba(215,183,151,0.25)]';
   const bgCls = 'bg-gray-50';
@@ -247,7 +253,7 @@ function ProductImage({
         className={`group relative ${sz} ${rounded} border overflow-hidden cursor-pointer transition-all hover:shadow-md ${borderCls} ${bgCls}`}
         onClick={() => setPopupOpen(true)}
       >
-        <img src={src} alt="" className="w-full h-full object-contain" />
+        <img src={src} alt="" className="w-full h-full object-contain" onError={() => setImgError(true)} />
         {/* Hover hint */}
         <div className="absolute inset-0 bg-black/0 group-hover:bg-black/30 transition-all flex items-center justify-center opacity-0 group-hover:opacity-100">
           <ZoomIn size={size >= 56 ? 18 : 14} className="text-white drop-shadow" />

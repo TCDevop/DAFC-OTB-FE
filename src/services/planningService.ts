@@ -120,6 +120,24 @@ export const planningService = {
       console.error('[planningService.getHistorical]', err?.response?.status, err?.message);
       return null;
     }
+  },
+
+  // Get aggregated sales history from sales_history_agg
+  async getSalesHistory(params: {
+    brandId: string;
+    mode: 'baseline' | 'recent';
+    year?: number;
+    seasonName?: string;
+    seasonGroupName?: string;
+    limit?: number;
+  }) {
+    try {
+      const response = await api.get('/planning/sales-history', { params });
+      return extract(response);
+    } catch (err: any) {
+      console.error('[planningService.getSalesHistory]', err?.response?.status, err?.message);
+      return null;
+    }
   }
 };
 

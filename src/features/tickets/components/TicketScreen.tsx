@@ -1,11 +1,11 @@
 'use client';
 
-import React, { useState, useEffect, useMemo } from 'react';
-import { Eye, Loader2, Plus, X, LayoutList, LayoutGrid, Ticket, CircleCheckBig, DollarSign, Search } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Loader2, Plus, X, LayoutList, LayoutGrid, Ticket, CircleCheckBig, DollarSign, Search } from 'lucide-react';
 import TicketKanbanBoard from './TicketKanbanBoard';
-import { ExpandableStatCard, ErrorMessage } from '@/components/ui';
+import { ExpandableStatCard, ErrorMessage, EmptyState } from '@/components/ui';
 import { MobileList, FilterChips, FloatingActionButton, PullToRefresh, useBottomSheet, FilterBottomSheet } from '@/components/mobile';
-import { budgetService, masterDataService, planningService, proposalService, ticketService } from '@/services';
+import { budgetService, masterDataService, ticketService } from '@/services';
 import { invalidateCache } from '@/services/api';
 import toast from 'react-hot-toast';
 import { useAuth } from '@/contexts/AuthContext';
@@ -33,27 +33,7 @@ const getDisplayStatus = (status: any, t: any) => {
   return statusMap[status?.toUpperCase()] || status || (t ? t('ticket.statusUnknown') : 'Unknown');
 };
 
-// Get entity type label (uses t function)
-const getEntityTypeLabel = (type: any, t: any) => {
-  const labels: any = {
-    'budget': t ? t('ticket.entityBudget') : 'Budget',
-    'planning': t ? t('ticket.entityPlanning') : 'Planning',
-    'proposal': t ? t('ticket.entityProposal') : 'SKU Proposal',
-    'ticket': 'Ticket',
-  };
-  return labels[type] || type;
-};
-
 // (Season groups & seasons loaded from API via masterDataService.getSeasonGroups)
-
-
-const getStatusColor = (status: any) => {
-  const s = status?.toUpperCase();
-  if (['LEVEL2_APPROVED', 'APPROVED', 'FINAL'].includes(s)) return 'success';
-  if (['SUBMITTED', 'LEVEL1_APPROVED'].includes(s)) return 'warning';
-  if (['LEVEL1_REJECTED', 'LEVEL2_REJECTED', 'REJECTED'].includes(s)) return 'critical';
-  return 'neutral';
-};
 
 const TicketScreen = ({ onOpenTicketDetail }: any) => {
   const { t } = useLanguage();
@@ -72,7 +52,6 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
     try { return sessionStorage.getItem('ticket_view_mode') || 'table'; } catch { return 'table'; }
   });
   const setViewMode = (v: string) => { setViewModeRaw(v); try { sessionStorage.setItem('ticket_view_mode', v); } catch {} };
-  const [budgetOptions, setBudgetOptions] = useState<any[]>([]);
   const [seasonGroupOptions, setSeasonGroupOptions] = useState<{ id: string; label: string }[]>([]);
   const [seasonOptions, setSeasonOptions] = useState<{ id: string; label: string }[]>([]);
   const [budgetList, setBudgetList] = useState<any[]>([]);
@@ -118,87 +97,42 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
     }).catch(() => setBudgetList([]));
   }, []);
 
+  const formatDate = (dateStr: string | null | undefined) => {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    if (isNaN(d.getTime())) return '-';
+    const dd = String(d.getDate()).padStart(2, '0');
+    const mm = String(d.getMonth() + 1).padStart(2, '0');
+    const yyyy = d.getFullYear();
+    return `${dd}/${mm}/${yyyy}`;
+  };
+
   const fetchTickets = async () => {
     setLoading(true);
     setError(null);
     try {
-      const [budgetsRes, planningsRes, proposalsRes, ticketsRes] = await Promise.all([
-        budgetService.getAll().catch(() => []),
-        planningService.getAll().catch(() => []),
-        proposalService.getAll().catch(() => []),
-        ticketService.getAll().catch(() => []),
-      ]);
+      const res = await ticketService.getAll({ pageSize: 1000 });
+      const ticketList = Array.isArray(res) ? res : (res?.data || []);
 
-      const allTickets: any[] = [];
+      const mapped = ticketList.map((tk: any) => ({
+        id: tk.id,
+        fy: tk.budget?.fiscal_year ?? '-',
+        budgetName: tk.budget?.name || '-',
+        seasonGroup: tk.season_group?.name || '-',
+        season: tk.season?.name || '-',
+        createdBy: tk.creator?.name || 'System',
+        createdOn: formatDate(tk.created_at),
+        status: tk.status,
+        totalBudget: Number(tk.budget?.amount) || 0,
+        data: tk,
+      }));
 
-      (Array.isArray(budgetsRes) ? budgetsRes : []).forEach((b: any) => {
-        allTickets.push({
-          id: b.id,
-          entityType: 'budget',
-          name: `${b.groupBrand?.name || 'Budget'} - ${b.seasonGroupId || ''} ${b.seasonType || ''}`,
-          brand: b.groupBrand?.name || '-',
-          seasonGroup: b.seasonGroupId || '-',
-          season: b.seasonType || '-',
-          createdBy: b.createdBy?.name || 'System',
-          createdOn: b.createdAt ? new Date(b.createdAt).toISOString().split('T')[0] : '-',
-          status: b.status,
-          totalBudget: Number(b.totalBudget) || 0,
-          data: b
-        });
+      mapped.sort((a: any, b: any) => {
+        const da = a.data?.created_at ? new Date(a.data.created_at).getTime() : 0;
+        const db = b.data?.created_at ? new Date(b.data.created_at).getTime() : 0;
+        return db - da;
       });
-
-      (Array.isArray(planningsRes) ? planningsRes : []).forEach((p: any) => {
-        allTickets.push({
-          id: p.id,
-          entityType: 'planning',
-          name: p.planningCode || `Planning ${p.versionName || ''}`,
-          brand: p.budgetDetail?.budget?.groupBrand?.name || '-',
-          seasonGroup: p.budgetDetail?.budget?.seasonGroupId || '-',
-          season: p.budgetDetail?.budget?.seasonType || '-',
-          createdBy: p.createdBy?.name || 'System',
-          createdOn: p.createdAt ? new Date(p.createdAt).toISOString().split('T')[0] : '-',
-          status: p.status,
-          totalBudget: Number(p.budgetDetail?.budgetAmount) || 0,
-          data: p
-        });
-      });
-
-      (Array.isArray(proposalsRes) ? proposalsRes : []).forEach((pr: any) => {
-        allTickets.push({
-          id: pr.id,
-          entityType: 'proposal',
-          name: pr.ticketName || pr.proposalCode || `Proposal ${pr.versionName || ''}`,
-          brand: pr.budget?.groupBrand?.name || '-',
-          seasonGroup: pr.budget?.seasonGroupId || '-',
-          season: pr.budget?.seasonType || '-',
-          createdBy: pr.createdBy?.name || 'System',
-          createdOn: pr.createdAt ? new Date(pr.createdAt).toISOString().split('T')[0] : '-',
-          status: pr.status,
-          totalBudget: Number(pr.totalValue) || 0,
-          data: pr
-        });
-      });
-
-      // Add actual tickets from backend
-      (Array.isArray(ticketsRes) ? ticketsRes : []).forEach((tk: any) => {
-        const brands = (tk.budget?.allocate_headers || []).map((ah: any) => ah.brand?.name).filter(Boolean);
-        allTickets.push({
-          id: tk.id,
-          entityType: 'ticket',
-          name: `Ticket #${tk.id} - ${tk.budget?.name || 'Budget'}`,
-          brand: brands.join(', ') || '-',
-          seasonGroup: tk.season_group?.name || '-',
-          season: tk.season?.name || '-',
-          createdBy: tk.creator?.name || 'System',
-          createdOn: tk.created_at ? new Date(tk.created_at).toISOString().split('T')[0] : '-',
-          status: tk.status,
-          totalBudget: Number(tk.budget?.amount) || 0,
-          data: tk
-        });
-      });
-
-      allTickets.sort((a: any, b: any) => new Date(b.createdOn).getTime() - new Date(a.createdOn).getTime());
-      setTickets(allTickets);
+      setTickets(mapped);
     } catch (err: any) {
       console.error('Failed to fetch tickets:', err);
       setError(t('ticket.failedToLoadTickets'));
@@ -230,15 +164,13 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
       .filter((tk: any) => ['LEVEL2_APPROVED', 'APPROVED', 'FINAL'].includes(tk.status?.toUpperCase()))
       .reduce((sum: any, tk: any) => sum + (tk.totalBudget || 0), 0);
 
-    // By entity type
-    const byType: any = {};
-    tickets.forEach((tk: any) => {
-      const type = tk.entityType || 'other';
-      byType[type] = (byType[type] || 0) + 1;
-    });
-    const typeBreakdown = Object.entries(byType)
-      .map(([label, value]: any) => ({ label: label.charAt(0).toUpperCase() + label.slice(1), value, pct: total > 0 ? Math.round((value / total) * 100) : 0 }))
-      .sort((a: any, b: any) => b.value - a.value);
+    // By status
+    const statusBreakdown = [
+      { label: 'Approved', value: approved, pct: total > 0 ? Math.round((approved / total) * 100) : 0 },
+      { label: 'Pending', value: pending, pct: total > 0 ? Math.round((pending / total) * 100) : 0 },
+      { label: 'Draft', value: draft, pct: total > 0 ? Math.round((draft / total) * 100) : 0 },
+      { label: 'Rejected', value: rejected, pct: total > 0 ? Math.round((rejected / total) * 100) : 0 },
+    ].filter(s => s.value > 0);
 
     return {
       totalTickets: total,
@@ -248,7 +180,8 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
       rejectedTickets: rejected,
       totalSpending,
       approvedPct: total > 0 ? Math.round((approved / total) * 100) : 0,
-      typeBreakdown};
+      statusBreakdown,
+    };
   }, [tickets]);
 
   // Filter tickets by search term
@@ -256,13 +189,13 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
     if (!searchTerm.trim()) return tickets;
     const q = searchTerm.toLowerCase();
     return tickets.filter((tk: any) =>
-      (tk.name || '').toLowerCase().includes(q) ||
-      (tk.brand || '').toLowerCase().includes(q) ||
+      String(tk.fy || '').toLowerCase().includes(q) ||
+      (tk.budgetName || '').toLowerCase().includes(q) ||
       (tk.seasonGroup || '').toLowerCase().includes(q) ||
       (tk.season || '').toLowerCase().includes(q) ||
       (tk.createdBy || '').toLowerCase().includes(q) ||
-      getDisplayStatus(tk.status, t).toLowerCase().includes(q) ||
-      getEntityTypeLabel(tk.entityType, t).toLowerCase().includes(q)
+      (tk.createdOn || '').toLowerCase().includes(q) ||
+      getDisplayStatus(tk.status, t).toLowerCase().includes(q)
     );
   }, [tickets, searchTerm, t]);
 
@@ -286,16 +219,6 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
     }
     // Draft / unknown
     return 'bg-gray-100 text-gray-600';
-  };
-
-  // Entity type badge style
-  const getEntityTypeStyle = (type: any) => {
-    const styles: any = {
-      budget:'bg-[rgba(215,183,151,0.2)] text-[#6B4D30] border border-[rgba(215,183,151,0.4)]',
-      planning:'bg-blue-100 text-blue-700',
-      proposal:'bg-emerald-100 text-emerald-700',
-      ticket:'bg-amber-100 text-amber-700 border border-amber-300'};
-    return styles[type] || styles['budget'];
   };
 
   return (
@@ -370,8 +293,8 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
           value={ticketStats.totalTickets}
           icon={Ticket}
           accent="blue"
-          breakdown={ticketStats.typeBreakdown}
-          expandTitle={t('home.kpiDetail.byEntityType')}
+          breakdown={ticketStats.statusBreakdown}
+          expandTitle={t('common.status')}
           badges={[
             { label: 'Pending', value: ticketStats.pendingTickets, color: '#D29922' },
             { label: 'Draft', value: ticketStats.draftTickets, color: '#666666' },
@@ -419,7 +342,7 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
               <FilterChips
                 chips={[
                   { key: 'seasonGroup', label: mobileFilters.seasonGroup ? String(mobileFilters.seasonGroup) : t('ticket.seasonLabel'), icon: '📅' },
-                  { key: 'entityType', label: mobileFilters.entityType ? String(mobileFilters.entityType) : t('approvals.allTypes'), icon: '🏷️' },
+                  { key: 'status', label: mobileFilters.status ? String(mobileFilters.status) : t('common.status'), icon: '📋' },
                 ]}
                 activeValues={mobileFilters}
                 onChipPress={() => openFilter()}
@@ -430,11 +353,9 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
             <PullToRefresh onRefresh={fetchTickets}>
               <MobileList
                 items={filteredTickets.map((ticket) => ({
-                  id: `${ticket.entityType}-${ticket.id}`,
-                  avatar: ticket.entityType === 'budget' ? '💰' : ticket.entityType === 'planning' ? '📊' : '📦',
-                  title: ticket.name,
-                  subtitle: `${ticket.brand} • ${ticket.seasonGroup} ${ticket.season}`,
-                  value: ticket.totalBudget > 0 ? formatCurrency(ticket.totalBudget) : undefined,
+                  id: String(ticket.id),
+                  title: ticket.budgetName,
+                  subtitle: `FY${ticket.fy} • ${ticket.seasonGroup} • ${ticket.season}`,
                   status: {
                     text: getDisplayStatus(ticket.status, t),
                     variant: (['LEVEL2_APPROVED', 'APPROVED', 'FINAL'].includes(ticket.status?.toUpperCase()) ? 'success' :
@@ -443,10 +364,9 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
                   details: [
                     { label: t('budget.createdBy'), value: ticket.createdBy },
                     { label: t('budget.createdOn'), value: ticket.createdOn },
-                    { label: t('approvals.colType'), value: getEntityTypeLabel(ticket.entityType, t) },
                   ]}))}
                 onItemPress={(item) => {
-                  const ticket = filteredTickets.find((t: any) => `${t.entityType}-${t.id}` === item.id);
+                  const ticket = filteredTickets.find((t: any) => String(t.id) === item.id);
                   if (ticket) onOpenTicketDetail(ticket);
                 }}
                 expandable
@@ -474,14 +394,15 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
                   type: 'single',
                   options: seasonGroupOptions.map((sg) => ({ value: sg.id, label: sg.label }))},
                 {
-                  key: 'entityType',
-                  label: t('approvals.allTypes'),
-                  icon: '🏷️',
+                  key: 'status',
+                  label: t('common.status'),
+                  icon: '📋',
                   type: 'single',
                   options: [
-                    { value: 'budget', label: t('ticket.entityBudget') },
-                    { value: 'planning', label: t('ticket.entityPlanning') },
-                    { value: 'proposal', label: t('ticket.entityProposal') },
+                    { value: 'DRAFT', label: t('ticket.statusDraft') },
+                    { value: 'SUBMITTED', label: t('ticket.statusPending') },
+                    { value: 'APPROVED', label: t('ticket.statusApproved') },
+                    { value: 'REJECTED', label: t('ticket.statusRejected') },
                   ]},
               ]}
               values={mobileFilters}
@@ -497,7 +418,7 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
           <table className="w-full text-sm">
             <thead className={`sticky top-0 z-10 ${'bg-[#E8DDD1]'}`}>
               <tr>
-                {[t('common.name'), t('approval.brand'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status'), t('common.actions')].map((header: any, idx: any) => (
+                {['FY', t('ticket.budgetNameLabel'), t('ticket.seasonGroupLabel'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status')].map((header: any, idx: any) => (
                   <th
                     key={header}
                     className={`px-4 py-2 text-left font-semibold text-xs uppercase tracking-wider ${'text-[#4A3728]'} ${idx === 6 ? 'text-center' : ''}`}
@@ -511,17 +432,21 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
             <tbody className={`divide-y ${'divide-gray-200'}`}>
               {filteredTickets.map((ticket: any) => (
                 <tr
-                  key={`${ticket.entityType}-${ticket.id}`}
-                  className={`transition-all duration-150 border-l-2 border-transparent ${'hover:bg-[rgba(215,183,151,0.15)] hover:border-l-[#D7B797]'}`}
+                  key={ticket.id}
+                  onClick={() => onOpenTicketDetail(ticket)}
+                  className={`cursor-pointer transition-all duration-150 border-l-2 border-transparent ${'hover:bg-[rgba(215,183,151,0.15)] hover:border-l-[#D7B797]'}`}
                 >
+                  <td className={`px-4 py-3 font-['JetBrains_Mono'] font-medium ${'text-gray-800'}`}>
+                    {ticket.fy}
+                  </td>
                   <td className={`px-4 py-3 font-medium ${'text-gray-800'}`}>
-                    {ticket.name}
+                    {ticket.budgetName}
                   </td>
                   <td className={`px-4 py-3 ${'text-gray-600'}`}>
-                    {ticket.brand}
+                    {ticket.seasonGroup}
                   </td>
-                  <td className={`px-4 py-3 font-['JetBrains_Mono'] ${'text-gray-600'}`}>
-                    {ticket.seasonGroup} {ticket.season}
+                  <td className={`px-4 py-3 ${'text-gray-600'}`}>
+                    {ticket.season}
                   </td>
                   <td className={`px-4 py-3 ${'text-gray-600'}`}>
                     {ticket.createdBy}
@@ -529,19 +454,10 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
                   <td className={`px-4 py-3 font-['JetBrains_Mono'] ${'text-gray-700'}`}>
                     {ticket.createdOn}
                   </td>
-                  <td className="px-4 py-3">
+                  <td className="px-4 py-3 text-center">
                     <span className={`px-2 py-1 rounded text-xs font-semibold ${getStatusStyle(ticket.status)}`}>
                       {getDisplayStatus(ticket.status, t)}
                     </span>
-                  </td>
-                  <td className="px-4 py-3 text-center">
-                    <button
-                      onClick={() => onOpenTicketDetail(ticket)}
-                      className={`p-1.5 border rounded-lg transition-all duration-150 ${'text-[#6B4D30] border-[rgba(184,153,112,0.4)] hover:bg-[rgba(215,183,151,0.15)]'}`}
-                      title={t('common.view')}
-                    >
-                      <Eye size={14} />
-                    </button>
                   </td>
                 </tr>
               ))}
@@ -550,9 +466,13 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
           </div>
 
           {filteredTickets.length === 0 && (
-            <div className={`p-6 text-center text-sm ${'text-gray-700'}`}>
-              {t('ticket.noTicketsFound')}
-            </div>
+            <EmptyState
+              icon={Ticket}
+              title={searchTerm ? t('ticket.noMatchingTickets') : t('ticket.noTicketsYet')}
+              message={searchTerm ? t('ticket.tryAdjustingSearch') : t('ticket.createFirstTicket')}
+              actionLabel={searchTerm ? undefined : t('ticket.createTicket')}
+              onAction={searchTerm ? undefined : () => setShowCreatePopup(true)}
+            />
           )}
         </div>
         )}

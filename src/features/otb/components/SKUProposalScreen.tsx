@@ -33,8 +33,13 @@ const CARD_BG_CLASSES = [
   { light: 'bg-[rgba(215,183,151,0.08)] border-[rgba(215,183,151,0.25)]', dark: 'bg-[rgba(215,183,151,0.05)] border-[rgba(215,183,151,0.15)]' }
 ];
 
-const DEFAULT_SIZE_KEYS = ['s0002', 's0004', 's0006', 's0008'] as const;
-const EMPTY_SIZE_DATA: Record<string, number> = { s0002: 0, s0004: 0, s0006: 0, s0008: 0 };
+// Fallback size keys (used only when DB sizes haven't loaded yet)
+const FALLBACK_SIZE_KEYS = ['XS', 'S', 'M', 'L', 'XL'];
+const buildEmptySizeData = (sizeKeys: string[]): Record<string, number> => {
+  const empty: Record<string, number> = {};
+  sizeKeys.forEach(k => { empty[k] = 0; });
+  return empty;
+};
 
 // Build block key including brandId for per-brand section support
 const buildBlockKey = (block: any) =>
@@ -82,8 +87,11 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
     const orderQty = Object.values(storeQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
     const itemUnitCost = Number(sp.unit_cost ?? sp.unitCost ?? prod.unitCost) || 0;
 
+    // product_id is the FK to the product table — always prefer it over prod.id
+    // because when sp.product is null, prod falls back to sp and prod.id = sp.id (sku_proposal ID, not product ID)
+    const realProductId = sp.product_id || sp.productId || (sp.product ? prod.id : '') || '';
     block.items.push({
-      productId: String(prod.id || sp.product_id || sp.productId || ''),
+      productId: String(realProductId),
       skuProposalId: String(sp.id || ''),
       sku: prod.sku_code || prod.skuCode || prod.sku || '',
       name: prod.product_name || prod.productName || prod.name || '',
@@ -108,6 +116,7 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
       storeQty,
       ttlValue: orderQty * itemUnitCost,
       customerTarget: sp.customer_target || sp.customerTarget || prod.customerTarget || 'New',
+      imageUrl: prod.image_url || prod.imageUrl || '',
     });
   });
   return blocks;
@@ -128,34 +137,25 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Master data for filters (genders, categories, season groups, brands) and stores
   const [masterGenders, setMasterGenders] = useState<any[]>([]);
   const [masterCategories, setMasterCategories] = useState<any[]>([]);
+  // Subcategory sizes: subCatName (lowercase) → [{ id, name }]
+  const [subCategorySizesMap, setSubCategorySizesMap] = useState<Record<string, { id: string; name: string }[]>>({});
   const [stores, setStores] = useState<any[]>([]);
   const [apiSeasonGroups, setApiSeasonGroups] = useState<any[]>([]);
   const [apiBrands, setApiBrandsLocal] = useState<any[]>([]);
+  // Per-brand category structures: brandId → flat categories with genderName + sub_categories
+  const [brandCategoryMap, setBrandCategoryMap] = useState<Record<string, any[]>>({});
 
-  // Fetch master data for filters + stores
+  // Fetch master data for filters + stores (excluding categories — loaded per brand below)
   useEffect(() => {
     const fetchMasterData = async () => {
       try {
-        const [gendersRes, categoriesRes, storesRes, brandsRes] = await Promise.all([
+        const [gendersRes, storesRes, brandsRes] = await Promise.all([
           masterDataService.getGenders().catch(() => []),
-          masterDataService.getCategories().catch(() => []),
           masterDataService.getStores().catch(() => []),
           masterDataService.getBrands().catch(() => []),
         ]);
         const genders = Array.isArray(gendersRes) ? gendersRes : (gendersRes?.data || []);
         setMasterGenders(genders.map((g: any) => (g.name || g.code || '').toLowerCase()));
-        const rawCategories = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes?.data || []);
-        // Handle both gender-hierarchy format [{ name: "Female", categories: [...] }]
-        // and flat-list format [{ name: "Women's RTW", subCategories: [...] }]
-        const isGenderHierarchy = rawCategories.length > 0 && rawCategories[0]?.categories && Array.isArray(rawCategories[0].categories);
-        if (isGenderHierarchy) {
-          const flatCats = rawCategories.flatMap((g: any) => (g.categories || []).map((c: any) => ({
-            ...c,
-            genderName: g.name})));
-          setMasterCategories(flatCats);
-        } else {
-          setMasterCategories(rawCategories);
-        }
         const storeList = Array.isArray(storesRes) ? storesRes : (storesRes?.data || []);
         // Deduplicate by code
         const rawStores = storeList.length > 0 ? storeList : [{ code: 'REX', name: 'REX' }, { code: 'TTP', name: 'TTP' }];
@@ -184,36 +184,101 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     fetchMasterData();
   }, []);
 
-  // Fetch SKU catalog only (at mount)
+  // Load categories per brand (each brand gets its own category structure)
   useEffect(() => {
+    if (apiBrands.length === 0) return;
+    const loadPerBrand = async () => {
+      const map: Record<string, any[]> = {};
+      await Promise.all(apiBrands.map(async (brand: any) => {
+        const brandId = String(brand.id);
+        try {
+          const res = await masterDataService.getCategories({ brandId });
+          const raw = Array.isArray(res) ? res : (res?.data || []);
+          const isGenderHierarchy = raw.length > 0 && raw[0]?.categories && Array.isArray(raw[0].categories);
+          if (isGenderHierarchy) {
+            map[brandId] = raw.flatMap((g: any) => (g.categories || []).map((c: any) => ({ ...c, genderName: g.name })));
+          } else {
+            map[brandId] = raw;
+          }
+        } catch {
+          map[brandId] = [];
+        }
+      }));
+      setBrandCategoryMap(map);
+    };
+    loadPerBrand();
+  }, [apiBrands]);
+
+  // Load subcategory sizes after masterCategories are available
+  useEffect(() => {
+    if (masterCategories.length === 0) return;
+    const loadSizes = async () => {
+      const map: Record<string, { id: string; name: string }[]> = {};
+      const subCats: { id: string; name: string }[] = [];
+      masterCategories.forEach((cat: any) => {
+        (cat.sub_categories || cat.subCategories || []).forEach((sc: any) => {
+          if (sc.id) subCats.push({ id: String(sc.id), name: (sc.name || '').toLowerCase() });
+        });
+      });
+      await Promise.all(subCats.map(async (sc) => {
+        try {
+          const res = await masterDataService.getSubcategorySizes(sc.id);
+          const sizes = (Array.isArray(res) ? res : (res?.data || [])).map((s: any) => ({
+            id: String(s.id), name: s.name || '',
+          }));
+          if (sizes.length > 0) {
+            map[sc.name] = sizes;
+            // Also populate sizeKeyToIdRef for save payload
+            sizes.forEach((s: any) => { sizeKeyToIdRef.current[s.name] = s.id; });
+          }
+        } catch { /* ignore individual failures */ }
+      }));
+      setSubCategorySizesMap(map);
+    };
+    loadSizes();
+  }, [masterCategories]);
+
+  // Fetch SKU catalog only (at mount) — handles paginated BE response
+  useEffect(() => {
+    const mapProduct = (s: any) => ({
+      productId: String(s.id || ''),
+      sku: s.sku_code || s.skuCode || s.sku || s.code || s.id,
+      name: s.product_name || s.productName || s.name || '',
+      collectionName: s.collectionName || s.collection || s.family || '',
+      color: s.color || '',
+      colorCode: s.colorCode || '',
+      division: s.sub_category?.category?.name || s.division || s.category || '',
+      productType: s.sub_category?.name || s.productType || s.category || '',
+      departmentGroup: s.departmentGroup || s.department || '',
+      fsr: s.fsr || '',
+      carryForward: s.carryForward || s.carry || 'NEW',
+      composition: s.composition || '',
+      unitCost: Number(s.unitCost || s.srp) || 0,
+      importTaxPct: Number(s.importTaxPct || s.importTax) || 0,
+      srp: Number(s.srp) || 0,
+      wholesale: Number(s.wholesale) || 0,
+      rrp: Number(s.rrp) || 0,
+      regionalRrp: Number(s.regionalRrp) || 0,
+      theme: s.theme || '',
+      size: s.size || '',
+    });
     const fetchCatalog = async () => {
       setSkuDataLoading(true);
       try {
-        const catalogRes = await masterDataService.getSkuCatalog().catch(() => []);
-        const rawCatalog = Array.isArray(catalogRes) ? catalogRes : [];
-        const catalog = rawCatalog.map((s: any) => ({
-          productId: String(s.id || ''),
-          sku: s.skuCode || s.sku || s.code || s.id,
-          name: s.productName || s.name,
-          collectionName: s.collectionName || s.collection || '',
-          color: s.color || '',
-          colorCode: s.colorCode || '',
-          division: s.division || s.category || '',
-          productType: s.productType || s.category || '',
-          departmentGroup: s.departmentGroup || s.department || '',
-          fsr: s.fsr || '',
-          carryForward: s.carryForward || s.carry || 'NEW',
-          composition: s.composition || '',
-          unitCost: Number(s.unitCost) || 0,
-          importTaxPct: Number(s.importTaxPct || s.importTax) || 0,
-          srp: Number(s.srp) || 0,
-          wholesale: Number(s.wholesale) || 0,
-          rrp: Number(s.rrp) || 0,
-          regionalRrp: Number(s.regionalRrp) || 0,
-          theme: s.theme || '',
-          size: s.size || ''
-        }));
-        setSkuCatalog(catalog);
+        // Fetch all pages — BE returns { data: [...], meta: { page, pageSize, total, totalPages } }
+        const allItems: any[] = [];
+        let page = 1;
+        const pageSize = 200;
+        while (true) {
+          const res = await masterDataService.getSkuCatalog({ page, pageSize }).catch(() => null);
+          // Handle both paginated { data, meta } and flat array responses
+          const items = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+          allItems.push(...items);
+          const totalPages = res?.meta?.totalPages || 1;
+          if (page >= totalPages || items.length === 0) break;
+          page++;
+        }
+        setSkuCatalog(allItems.map(mapProduct));
       } catch (err: any) {
         console.error('Failed to fetch SKU catalog:', err);
       } finally {
@@ -282,21 +347,45 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const [subCategoryFilter, setSubCategoryFilter] = useState('all');
   const hasActiveSkuFilter = genderFilter !== 'all' || categoryFilter !== 'all' || subCategoryFilter !== 'all';
 
-  // Fetch season groups filtered by selected budget's fiscal year
+  // Load categories per selected brand (reload when brandFilter changes)
+  useEffect(() => {
+    const loadCategories = async () => {
+      try {
+        const params: any = {};
+        if (brandFilter !== 'all') params.brandId = brandFilter;
+        const categoriesRes = await masterDataService.getCategories(params);
+        const rawCategories = Array.isArray(categoriesRes) ? categoriesRes : (categoriesRes?.data || []);
+        const isGenderHierarchy = rawCategories.length > 0 && rawCategories[0]?.categories && Array.isArray(rawCategories[0].categories);
+        if (isGenderHierarchy) {
+          const flatCats = rawCategories.flatMap((g: any) => (g.categories || []).map((c: any) => ({
+            ...c,
+            genderName: g.name})));
+          setMasterCategories(flatCats);
+        } else {
+          setMasterCategories(rawCategories);
+        }
+      } catch {
+        setMasterCategories([]);
+      }
+    };
+    loadCategories();
+    // Reset category & subcategory filter when brand changes
+    setCategoryFilter('all');
+    setSubCategoryFilter('all');
+  }, [brandFilter]);
+
+  // Fetch all season groups (no year filter)
   useEffect(() => {
     const controller = new AbortController();
-    const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
-    const year = budget?.fiscalYear ? Number(budget.fiscalYear) : undefined;
-    masterDataService.getSeasonGroups(year ? { year } : undefined, { signal: controller.signal }).then(res => {
+    masterDataService.getSeasonGroups(undefined, { signal: controller.signal }).then(res => {
       const sgData = Array.isArray(res) ? res : [];
       setApiSeasonGroups(sgData);
     }).catch((err: any) => {
-      // Don't clear data on abort/cancel — keep previous season groups
       if (err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
       setApiSeasonGroups([]);
     });
     return () => { controller.abort(); };
-  }, [budgetFilter, apiBudgets]);
+  }, []);
 
   // Allocation/Planning validation — checks if budget + season filters are selected
   const filtersComplete = budgetFilter !== 'all' && seasonGroupFilter !== 'all' && seasonFilter !== 'all';
@@ -317,6 +406,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // preventing connection pool exhaustion and "Network Error" on other requests.
   const loadProposalsRef = useRef(0);
   const loadAbortRef = useRef<AbortController | null>(null);
+  // Map from UI size key (e.g. "s0002") to DB subcategory_size ID (BigInt string)
+  const sizeKeyToIdRef = useRef<Record<string, string>>({});
   useEffect(() => {
     // Cancel any in-flight requests from previous run
     if (loadAbortRef.current) {
@@ -404,22 +495,25 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             const seenSkus = new Set(skuCatalog.map((c: any) => c.sku));
             const supplementarySkus: any[] = [];
             proposals.forEach((p: any) => {
-              (p.products || []).forEach((prod: any) => {
-                const sku = prod.skuCode || prod.sku;
+              const items = p.sku_proposals || p.skuProposals || p.products || [];
+              items.forEach((sp: any) => {
+                const prod = sp.product || sp;
+                const sku = prod.sku_code || prod.skuCode || prod.sku;
                 if (sku && !seenSkus.has(sku)) {
                   seenSkus.add(sku);
                   supplementarySkus.push({
-                    sku, name: prod.productName || prod.name || '',
-                    collectionName: prod.collectionName || prod.collection || '',
+                    productId: String(sp.product_id || sp.productId || (sp.product ? prod.id : '') || ''),
+                    sku, name: prod.product_name || prod.productName || prod.name || '',
+                    collectionName: prod.collectionName || prod.collection || prod.family || '',
                     color: prod.color || '', colorCode: prod.colorCode || '',
-                    division: prod.division || prod.category || '',
-                    productType: prod.productType || prod.subCategory || '',
+                    division: prod.sub_category?.category?.name || prod.division || prod.category || '',
+                    productType: prod.sub_category?.name || prod.productType || prod.subCategory || '',
                     departmentGroup: prod.departmentGroup || prod.department || '',
                     fsr: prod.fsr || '', carryForward: prod.carryForward || 'NEW',
                     composition: prod.composition || '',
-                    unitCost: Number(prod.unitCost) || 0,
+                    unitCost: Number(prod.unitCost || sp.unit_cost || sp.unitCost) || 0,
                     importTaxPct: Number(prod.importTaxPct || prod.importTax) || 0,
-                    srp: Number(prod.srp) || 0, wholesale: Number(prod.wholesale) || 0,
+                    srp: Number(sp.srp ?? prod.srp) || 0, wholesale: Number(prod.wholesale) || 0,
                     rrp: Number(prod.rrp) || 0, regionalRrp: Number(prod.regionalRrp) || 0,
                     theme: prod.theme || '', size: prod.size || '',
                   });
@@ -493,6 +587,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
   const [brandPlanningHeaders, setBrandPlanningHeaders] = useState<Record<string, any[]>>({});
   const [brandLoadingPlanning, setBrandLoadingPlanning] = useState<Record<string, boolean>>({});
+  // OTB allocated amounts from final planning version's categories per brand
+  // brandId → "gender_category_subCategory" (lowercase) → otbProposedAmount
+  const [brandCategoryOtb, setBrandCategoryOtb] = useState<Record<string, Record<string, number>>>({});
 
   const [collapsed, setCollapsed] = useState<Record<string, any>>({});
   const [allCollapsed, setAllCollapsed] = useState(false);
@@ -621,15 +718,17 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
           const sizeName = ps.subcategory_size?.name || ps.subcategorySize?.name || '';
           if (!sizeName) return;
-          const sizeKey = sizeName.startsWith('s') ? sizeName : `s${sizeName}`;
+          // Store sizeName → DB ID mapping for save payload
+          const sizeDbId = String(ps.subcategory_size_id || ps.subcategorySizeId || ps.subcategory_size?.id || '');
+          if (sizeDbId && sizeDbId !== 'undefined') {
+            sizeKeyToIdRef.current[sizeName] = sizeDbId;
+          }
 
           if (!loaded[mapping.key]) loaded[mapping.key] = {};
           if (!loaded[mapping.key][choiceKey]) {
-            const empty: Record<string, number> = {};
-            DEFAULT_SIZE_KEYS.forEach(k => { empty[k] = 0; });
-            loaded[mapping.key][choiceKey] = empty;
+            loaded[mapping.key][choiceKey] = {};
           }
-          loaded[mapping.key][choiceKey][sizeKey] = Number(ps.proposal_quantity ?? ps.proposalQuantity) || 0;
+          loaded[mapping.key][choiceKey][sizeName] = Number(ps.proposal_quantity ?? ps.proposalQuantity) || 0;
         });
       });
     }
@@ -761,20 +860,29 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
   const [sizingData, setSizingData] = useState<Record<string, any>>({});
 
+  // Get size column names for a subcategory (from DB), fallback to FALLBACK_SIZE_KEYS
+  const getSizeKeysForSubCategory = useCallback((subCategoryName: string): string[] => {
+    const sizes = subCategorySizesMap[(subCategoryName || '').toLowerCase()];
+    if (sizes && sizes.length > 0) return sizes.map(s => s.name);
+    return FALLBACK_SIZE_KEYS;
+  }, [subCategorySizesMap]);
+
   // Helper: get sizing choices for a brand
   const getBrandSizingChoices = (brandId: string) => brandSizingHeaders[brandId] || [];
 
-  const getDefaultSizing = (brandId?: string) => {
+  const getDefaultSizing = (brandId?: string, subCategoryName?: string) => {
     const defaults: Record<string, any> = {};
+    const sizeKeys = getSizeKeysForSubCategory(subCategoryName || '');
+    const emptyData = buildEmptySizeData(sizeKeys);
     const choices = brandId ? getBrandSizingChoices(brandId) : [];
     choices.forEach((c: any) => {
-      defaults[String(c.id)] = { ...EMPTY_SIZE_DATA };
+      defaults[String(c.id)] = { ...emptyData };
     });
     // Fallback: always 3 choices (A, B, C) if no choices exist yet
     if (Object.keys(defaults).length === 0) {
-      defaults['choiceA'] = { ...EMPTY_SIZE_DATA };
-      defaults['choiceB'] = { ...EMPTY_SIZE_DATA };
-      defaults['choiceC'] = { ...EMPTY_SIZE_DATA };
+      defaults['choiceA'] = { ...emptyData };
+      defaults['choiceB'] = { ...emptyData };
+      defaults['choiceC'] = { ...emptyData };
     }
     return defaults;
   };
@@ -905,9 +1013,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   }, [apiBrands, brandFilter]);
 
   // Fetch planning headers per brand to check final PlanningHeader existence
+  // Also loads OTB category amounts from the final planning version
   useEffect(() => {
     if (displayBrands.length === 0 || !filtersComplete) {
       setBrandPlanningHeaders({});
+      setBrandCategoryOtb({});
       return;
     }
     displayBrands.forEach(async (brand: any) => {
@@ -923,6 +1033,32 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           status: v.status || 'DRAFT',
           isFinal: v.is_final_version || false}));
         setBrandPlanningHeaders(prev => ({ ...prev, [brandId]: mapped }));
+
+        // Load OTB amounts from final planning version's categories
+        const finalHeader = mapped.find((h: any) => h.isFinal);
+        if (finalHeader) {
+          try {
+            const detail = await planningService.getOne(finalHeader.id);
+            const planningCats = detail?.planning_categories || detail?.planningCategories || [];
+            const otbMap: Record<string, number> = {};
+            planningCats.forEach((pc: any) => {
+              const sc = pc.subcategory || pc.sub_category;
+              const cat = sc?.category;
+              const gender = cat?.gender;
+              const key = [
+                (gender?.name || '').toLowerCase(),
+                (cat?.name || '').toLowerCase(),
+                (sc?.name || '').toLowerCase(),
+              ].join('_');
+              if (key && key !== '__') {
+                otbMap[key] = Number(pc.otb_proposed_amount ?? pc.otbProposedAmount) || 0;
+              }
+            });
+            setBrandCategoryOtb(prev => ({ ...prev, [brandId]: otbMap }));
+          } catch (err: any) {
+            console.error(`[SKU] Failed to load planning categories for brand ${brandId}:`, err?.message);
+          }
+        }
       } catch (err: any) {
         console.error(`[SKU] Failed to fetch planning headers for brand ${brandId}:`, err?.response?.data || err?.message);
         setBrandPlanningHeaders(prev => ({ ...prev, [brandId]: [] }));
@@ -936,13 +1072,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // API returns snake_case (sub_categories) from Prisma
   const allSubcategoryPaths = useMemo(() => {
     const paths: { gender: string; category: string; subCategory: string }[] = [];
+    const seen = new Set<string>();
     masterCategories.forEach((cat: any) => {
       const gender = (cat.genderName || '').toLowerCase();
       const category = (cat.name || cat.code || '').toLowerCase();
       const subCats = cat.sub_categories || cat.subCategories || [];
       subCats.forEach((sc: any) => {
         const subCategory = (sc.name || sc.code || '').toLowerCase();
-        if (subCategory) {
+        const key = `${gender}_${category}_${subCategory}`;
+        if (subCategory && !seen.has(key)) {
+          seen.add(key);
           paths.push({ gender, category, subCategory });
         }
       });
@@ -987,8 +1126,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         && (categoryFilter === 'all' || s.category.toLowerCase() === categoryFilter.toLowerCase()))
       .map((s: any) => s.subCategory)
       .filter(Boolean);
-    // Also extract sub-categories from master data (API returns snake_case)
+    // Extract sub-categories from master data, filtered by selected category
     const fromMaster = masterCategories
+      .filter((c: any) => categoryFilter === 'all' || (c.name || c.code || '').toLowerCase() === categoryFilter.toLowerCase())
       .flatMap((c: any) => (c.sub_categories || c.subCategories || []).map((sc: any) => (sc.name || sc.code || '')))
       .filter(Boolean);
     const map = new Map<string, string>();
@@ -1012,41 +1152,46 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   }, [genderFilter, categoryFilter, subCategoryFilter, skuBlocks]);
 
   // Per-brand subcategory blocks: for each displayBrand, build subcategory rails
-  // Merges masterCategories paths with existing skuBlocks per brand
+  // Uses brandCategoryMap (per-brand categories) instead of global allSubcategoryPaths
   const brandSubcategoryBlocks = useMemo(() => {
     const result: Record<string, any[]> = {};
     displayBrands.forEach((brand: any) => {
       const brandId = String(brand.id);
       const blocks: any[] = [];
-      // Generate all subcategory paths from masterCategories
-      allSubcategoryPaths.forEach((path) => {
-        // Apply gender/category/subCategory filters
-        if (genderFilter !== 'all' && path.gender !== genderFilter.toLowerCase()) return;
-        if (categoryFilter !== 'all' && path.category !== categoryFilter.toLowerCase()) return;
-        if (subCategoryFilter !== 'all' && path.subCategory !== subCategoryFilter.toLowerCase()) return;
-        // Check if an existing skuBlock matches this brand + path
-        const existing = skuBlocks.find((b: any) =>
-          String(b.brandId || 'all') === brandId &&
-          b.gender.toLowerCase() === path.gender &&
-          b.category.toLowerCase() === path.category &&
-          b.subCategory.toLowerCase() === path.subCategory
-        );
-        if (existing) {
-          blocks.push(existing);
-        } else {
-          // Create empty block for this subcategory path
-          blocks.push({
-            brandId,
-            gender: path.gender,
-            category: path.category,
-            subCategory: path.subCategory,
-            items: []});
-        }
+      const addedKeys = new Set<string>();
+      // Build subcategory paths from this brand's own categories
+      const brandCategories = brandCategoryMap[brandId] || [];
+      brandCategories.forEach((cat: any) => {
+        const gender = (cat.genderName || '').toLowerCase();
+        const category = (cat.name || cat.code || '').toLowerCase();
+        const subCats = cat.sub_categories || cat.subCategories || [];
+        subCats.forEach((sc: any) => {
+          const subCategory = (sc.name || sc.code || '').toLowerCase();
+          if (!subCategory) return;
+          // Apply gender/category/subCategory filters
+          if (genderFilter !== 'all' && gender !== genderFilter.toLowerCase()) return;
+          if (categoryFilter !== 'all' && category !== categoryFilter.toLowerCase()) return;
+          if (subCategoryFilter !== 'all' && subCategory !== subCategoryFilter.toLowerCase()) return;
+          const pathKey = `${gender}_${category}_${subCategory}`;
+          if (addedKeys.has(pathKey)) return;
+          addedKeys.add(pathKey);
+          // Check if an existing skuBlock matches this brand + path
+          const existing = skuBlocks.find((b: any) =>
+            String(b.brandId || 'all') === brandId &&
+            b.gender.toLowerCase() === gender &&
+            b.category.toLowerCase() === category &&
+            b.subCategory.toLowerCase() === subCategory
+          );
+          if (existing) {
+            blocks.push(existing);
+          } else {
+            blocks.push({ brandId, gender, category, subCategory, items: [] });
+          }
+        });
       });
-      // Also include any skuBlocks for this brand that aren't covered by masterCategories
+      // Also include any skuBlocks for this brand that aren't covered by brandCategoryMap
       skuBlocks.forEach((block: any) => {
         if (String(block.brandId || 'all') !== brandId) return;
-        // Apply filters
         if (genderFilter !== 'all' && block.gender.toLowerCase() !== genderFilter.toLowerCase()) return;
         if (categoryFilter !== 'all' && block.category.toLowerCase() !== categoryFilter.toLowerCase()) return;
         if (subCategoryFilter !== 'all' && block.subCategory.toLowerCase() !== subCategoryFilter.toLowerCase()) return;
@@ -1060,32 +1205,37 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       result[brandId] = blocks;
     });
     return result;
-  }, [displayBrands, allSubcategoryPaths, skuBlocks, genderFilter, categoryFilter, subCategoryFilter]);
+  }, [displayBrands, brandCategoryMap, skuBlocks, genderFilter, categoryFilter, subCategoryFilter]);
 
-  // Build products payload from blocks for a brand (shared by save handlers)
+  // Build products payload from ALL blocks for a brand (ignoring active filters
+  // so that save-full doesn't delete products outside the current filter view)
   const buildProductsPayload = useCallback((brandId: string) => {
-    const blocks = (brandSubcategoryBlocks[brandId] || []).filter((b: any) => b.items?.length > 0);
+    const blocks = skuBlocks.filter((b: any) =>
+      String(b.brandId || 'all') === brandId && b.items?.length > 0
+    );
     return blocks.flatMap((block: any) =>
       block.items.map((item: any) => ({
-        productId: item.productId || '',
-        customerTarget: item.customerTarget || 'New',
-        unitCost: item.unitCost || 0,
-        srp: item.srp || 0,
+        productId: String(item.productId || ''),
+        customerTarget: String(item.customerTarget || 'New'),
+        unitCost: Number(item.unitCost) || 0,
+        srp: Number(item.srp) || 0,
         allocations: stores.map((store: any) => ({
           storeId: String(store.id),
-          quantity: item.storeQty?.[(store.code || '').toUpperCase()] || 0,
+          quantity: Number(item.storeQty?.[(store.code || '').toUpperCase()]) || 0,
         })).filter((a: any) => a.quantity > 0),
       }))
     ).filter((p: any) => p.productId);
-  }, [brandSubcategoryBlocks, stores]);
+  }, [skuBlocks, stores]);
 
   // Build header-level sizing payload from brandSizingHeaders + sizingData state
   const buildSizingsPayload = useCallback((brandId: string) => {
     const headers = brandSizingHeaders[brandId] || [];
     if (headers.length === 0) return undefined;
 
-    // Build productId → skuProposalId map from blocks
-    const blocks = (brandSubcategoryBlocks[brandId] || []).filter((b: any) => b.items?.length > 0);
+    // Use ALL blocks for the brand (unfiltered) so sizing data isn't lost
+    const blocks = skuBlocks.filter((b: any) =>
+      String(b.brandId || 'all') === brandId && b.items?.length > 0
+    );
 
     return headers.map((sh: any) => {
       const choiceKey = String(sh.id);
@@ -1098,14 +1248,15 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           const itemSizing = sizingData[key]?.[choiceKey];
           if (!itemSizing) return;
 
-          // For each size that has a quantity, create a sizing row
-          DEFAULT_SIZE_KEYS.forEach(sizeKey => {
-            const qty = Number(itemSizing[sizeKey]) || 0;
-            if (qty > 0) {
+          // For each size key in the sizing data, look up DB ID and create a row
+          Object.entries(itemSizing).forEach(([sizeName, qty]) => {
+            const numQty = Math.round(Number(qty) || 0);
+            const sizeDbId = sizeKeyToIdRef.current[sizeName];
+            if (numQty > 0 && sizeDbId) {
               rows.push({
-                skuProposalProductId: item.productId,
-                subcategorySizeId: sizeKey,
-                proposalQuantity: qty,
+                skuProposalProductId: String(item.productId),
+                subcategorySizeId: String(sizeDbId),
+                proposalQuantity: numQty,
               });
             }
           });
@@ -1113,12 +1264,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       });
 
       return {
-        version: sh.version ?? 1,
-        isFinal: sh.isFinal ?? false,
+        version: Math.round(Number(sh.version) || 1),
+        isFinal: Boolean(sh.isFinal),
         rows,
       };
     });
-  }, [brandSubcategoryBlocks, brandSizingHeaders, sizingData]);
+  }, [skuBlocks, brandSizingHeaders, sizingData]);
 
   // Save a single brand's proposal data
   const handleSaveBrand = useCallback(async (brandId: string, isNewVersion: boolean) => {
@@ -1143,6 +1294,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         if (newHeader) {
           const newId = String(newHeader.id);
           // Save full data with allocations + sizing at header level
+          console.log('[handleSaveBrand] create payload', JSON.stringify({ products, sizings }, null, 2));
           await proposalService.saveFullProposal(newId, { products, sizings });
           setBrandProposalHeaders(prev => ({
             ...prev,
@@ -1168,15 +1320,15 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         return;
       }
 
-      // Existing version → save products + sizing at header level
-      if (products.length > 0) {
-        await proposalService.saveFullProposal(headerId, { products, sizings });
-      }
       if (isNewVersion) {
+        // Save as new: copy header → save FE data to the NEW header (old header untouched)
         const result = await proposalService.copyProposal(headerId);
         const newHeader = result?.data || result;
         if (newHeader) {
           const newId = String(newHeader.id);
+          if (products.length > 0) {
+            await proposalService.saveFullProposal(newId, { products, sizings });
+          }
           setBrandProposalHeaders(prev => ({
             ...prev,
             [brandId]: [
@@ -1187,15 +1339,20 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         }
         toast.success('Saved as new version');
       } else {
+        // Normal save: update existing header (delete + recreate)
+        if (products.length > 0) {
+          await proposalService.saveFullProposal(headerId, { products, sizings });
+        }
         toast.success('Saved successfully');
       }
     } catch (err: any) {
-      console.error(`Failed to ${isNewVersion ? 'save as new version' : 'save'} proposal:`, err);
-      toast.error(isNewVersion ? 'Failed to save as new version' : 'Failed to save');
+      const serverMsg = err?.response?.data?.message || err?.userMessage || '';
+      console.error(`Failed to ${isNewVersion ? 'save as new version' : 'save'} proposal:`, err, '\n  → server:', serverMsg);
+      toast.error(`${isNewVersion ? 'Failed to save as new version' : 'Failed to save'}${serverMsg ? ': ' + serverMsg : ''}`);
     } finally {
       setBrandSaving(prev => ({ ...prev, [brandId]: false }));
     }
-  }, [buildProductsPayload, getBrandSkuVersion, matchedAllocateHeaders]);
+  }, [buildProductsPayload, buildSizingsPayload, getBrandSkuVersion, matchedAllocateHeaders]);
 
   // Save all brands (used by AppContext header button)
   const handleSave = useCallback(async () => {
@@ -1846,7 +2003,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               <div key={key} className={`rounded-2xl border p-4 ${getCardBgClass(cardIdx)}`}>
                 <div className="flex flex-wrap items-center gap-3 justify-between">
                   <div className="flex items-center gap-3">
-                    <ProductImage subCategory={block.subCategory} sku={item.sku} size={48} rounded="rounded-xl" />
+                    <ProductImage subCategory={block.subCategory} sku={item.sku} imageUrl={item.imageUrl} size={48} rounded="rounded-xl" />
                     <div>
                       <div className={`text-sm font-semibold ${'text-[#333333]'}`}>
                         <span className="font-['JetBrains_Mono']">{item.sku || 'New SKU'}</span> <span className={'text-[#666666]'}>•</span> {item.name || 'Select SKU'}
@@ -2197,6 +2354,15 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                                   <span className={`text-xs px-2 py-0.5 rounded-full ${'bg-[rgba(160,120,75,0.12)] text-[#6B5B4D]'}`}>
                                     {block.items?.length || 0} SKUs
                                   </span>
+                                  {(() => {
+                                    const otbKey = `${(block.gender || '').toLowerCase()}_${(block.category || '').toLowerCase()}_${(block.subCategory || '').toLowerCase()}`;
+                                    const otbAmount = brandCategoryOtb[brandId]?.[otbKey];
+                                    return otbAmount != null && otbAmount > 0 ? (
+                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(18,119,73,0.1)] text-[#127749] font-semibold font-['JetBrains_Mono']">
+                                        OTB {formatCurrency(otbAmount)}
+                                      </span>
+                                    ) : null;
+                                  })()}
                                   {!isEmpty && (() => {
                                     const { completed, total } = getSizingCount(key, block.items);
                                     return completed > 0 ? (
@@ -2310,7 +2476,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                                 <button type="button" onClick={() => handleDeleteSkuRow(key, idx)} className={`p-1 rounded-md transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.1)]'}`} title={t('proposal.deleteSku')}><Trash2 size={14} /></button>
                               </div>
                               <div className="mx-auto w-fit pt-3">
-                                <ProductImage subCategory={block.subCategory} sku={item.sku} size={64} />
+                                <ProductImage subCategory={block.subCategory} sku={item.sku} imageUrl={item.imageUrl} size={64} />
                               </div>
                             </td>
                           ))}
@@ -2571,7 +2737,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                               const choiceSizing = sizing[choiceKey] || {};
                               return { ...item, sizing: choiceSizing };
                             })}));
-                          onSubmitTicket({ budgetId: budgetFilter !== 'all' ? budgetFilter : '', skuBlocks: enrichedBlocks, grandTotals, stores });
+                          // Collect all proposal header IDs for the active brands
+                          const proposalHeaderIds = Object.entries(brandSkuVersion)
+                            .filter(([, hId]) => hId)
+                            .map(([, hId]) => hId);
+                          onSubmitTicket({ budgetId: budgetFilter !== 'all' ? budgetFilter : '', proposalHeaderIds, skuBlocks: enrichedBlocks, grandTotals, stores });
                         } else {
                           router.push(`/tickets?source=proposal&budgetId=${budgetFilter !== 'all' ? budgetFilter : ''}`);
                         }
@@ -2685,7 +2855,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             {/* Header */}
             <div className={`px-6 py-4 flex items-center justify-between ${'bg-[rgba(160,120,75,0.18)] border-b border-[rgba(215,183,151,0.3)]'}`}>
               <div className="flex items-center gap-3">
-                <ProductImage subCategory={lightbox.block?.subCategory || ''} sku={lightbox.item.sku} size={40} rounded="rounded-xl" />
+                <ProductImage subCategory={lightbox.block?.subCategory || ''} sku={lightbox.item.sku} imageUrl={lightbox.item.imageUrl} size={40} rounded="rounded-xl" />
                 <div>
                   <h3 className={`text-base font-bold font-['Montserrat'] ${'text-[#6B4D30]'}`}>
                     <span className="font-['JetBrains_Mono']">{lightbox.item.sku}</span> - {lightbox.item.name}
@@ -2817,28 +2987,26 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     <thead className="sticky top-0 z-10">
                       <tr className={'bg-[rgba(215,183,151,0.2)] text-[#6B4D30]'}>
                         <th className="px-4 py-2 text-left font-semibold font-['Montserrat']">{lightbox.item.productType}</th>
-                        <th className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">0002</th>
-                        <th className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">0004</th>
-                        <th className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">0006</th>
-                        <th className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">0008</th>
+                        {getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType).map((sz: string) => (
+                          <th key={sz} className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">{sz}</th>
+                        ))}
                         <th className={`px-4 py-2 text-center font-semibold font-['Montserrat'] ${'bg-[rgba(215,183,151,0.25)]'}`}>Sum</th>
                       </tr>
                     </thead>
                     <tbody className={'text-[#333333]'}>
+                      {/* % Sales mix and % ST rows — placeholder until real data is available */}
                       <tr className={'border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.08)]'}>
                         <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% Sales mix</td>
-                        <td className="px-4 py-2 text-center font-['JetBrains_Mono']">6%</td>
-                        <td className="px-4 py-2 text-center font-['JetBrains_Mono']">33%</td>
-                        <td className="px-4 py-2 text-center font-['JetBrains_Mono']">33%</td>
-                        <td className="px-4 py-2 text-center font-['JetBrains_Mono']">28%</td>
-                        <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${'bg-[rgba(160,120,75,0.12)]'}`}>100%</td>
+                        {getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType).map((sz: string) => (
+                          <td key={sz} className="px-4 py-2 text-center font-['JetBrains_Mono'] text-[#999]">-</td>
+                        ))}
+                        <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${'bg-[rgba(160,120,75,0.12)]'}`}>-</td>
                       </tr>
                       <tr className={'border-b border-[rgba(215,183,151,0.2)]'}>
                         <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% ST</td>
-                        <td className="px-4 py-2 text-center font-['JetBrains_Mono']">50%</td>
-                        <td className="px-4 py-2 text-center font-['JetBrains_Mono']">43%</td>
-                        <td className="px-4 py-2 text-center font-['JetBrains_Mono']">30%</td>
-                        <td className="px-4 py-2 text-center font-['JetBrains_Mono']">63%</td>
+                        {getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType).map((sz: string) => (
+                          <td key={sz} className="px-4 py-2 text-center font-['JetBrains_Mono'] text-[#999]">-</td>
+                        ))}
                         <td className={`px-4 py-2 text-center font-['JetBrains_Mono'] ${'text-[#999999] bg-[rgba(160,120,75,0.12)]'}`}>-</td>
                       </tr>
                       {(() => {
@@ -2858,7 +3026,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         const choiceKey = String(choice.id);
                         const lbBrandId = lightbox.blockKey.split('_')[0] || 'all';
                         const sizing = getSizing(lightbox.blockKey, lightbox.idx, lbBrandId);
-                        const choiceData = sizing[choiceKey] || { ...EMPTY_SIZE_DATA };
+                        const lbSizeKeys = getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType);
+                        const choiceData = sizing[choiceKey] || buildEmptySizeData(lbSizeKeys);
                         const isFirst = ci === 0;
                         return (
                           <tr key={choice.id} className={isFirst
@@ -2868,12 +3037,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                             <td className={`px-4 py-2 font-medium ${isFirst ? ('text-[#6B4D30]') : ('text-[#127749]')}`}>
                               Choice {choice.version === 1 ? 'A' : choice.version === 2 ? 'B' : 'C'}{choice.isFinal && <span className="ml-1 text-[10px] font-bold text-[#2A9E6A]">FINAL</span>}
                             </td>
-                            {['s0002', 's0004', 's0006', 's0008'].map((size: any) => (
+                            {lbSizeKeys.map((size: string) => (
                               <td key={size} className="px-2 py-2 text-center">
                                 <input
                                   type="number"
                                   min="0"
-                                  value={choiceData[size] ?? 0}
+                                  value={parseInt(String(choiceData[size] ?? 0)) || 0}
                                   onChange={(e) => updateSizing(lightbox.blockKey, lightbox.idx, choiceKey, size, e.target.value, lbBrandId)}
                                   className={`w-14 text-center font-['JetBrains_Mono'] text-sm rounded border py-0.5 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] ${
                                     isFirst

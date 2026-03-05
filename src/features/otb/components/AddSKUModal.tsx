@@ -57,21 +57,38 @@ const AddSKUModal = ({
   const { filteredCatalog, isUnfiltered } = useMemo(() => {
     let items = skuCatalog;
     let didFallback = false;
+    const bsc = (blockSubCategory || '').toLowerCase();
+    const bc = (blockCategory || '').toLowerCase();
 
-    if (blockSubCategory) {
-      const filtered = items.filter((s: any) =>
-        (s.productType || '').toLowerCase() === blockSubCategory.toLowerCase() ||
-        (s.division || '').toLowerCase() === blockSubCategory.toLowerCase()
-      );
-      if (filtered.length > 0) items = filtered;
-      else didFallback = true;
-    } else if (blockCategory) {
-      const filtered = items.filter((s: any) =>
-        (s.division || '').toLowerCase() === blockCategory.toLowerCase() ||
-        (s.productType || '').toLowerCase().includes(blockCategory.toLowerCase())
-      );
-      if (filtered.length > 0) items = filtered;
-      else didFallback = true;
+    if (bsc) {
+      // Strict filter by subcategory — match productType, division, or subCategory field
+      const filtered = items.filter((s: any) => {
+        const pt = (s.productType || '').toLowerCase();
+        const div = (s.division || '').toLowerCase();
+        const sc = (s.subCategory || '').toLowerCase();
+        return pt === bsc || div === bsc || sc === bsc;
+      });
+      // Only fall back to showing all if there are ZERO catalog items at all
+      if (filtered.length > 0) {
+        items = filtered;
+      } else if (items.length > 0) {
+        // No match — still apply filter (show empty), set fallback flag for message
+        items = filtered;
+        didFallback = true;
+      }
+    } else if (bc) {
+      const filtered = items.filter((s: any) => {
+        const div = (s.division || '').toLowerCase();
+        const pt = (s.productType || '').toLowerCase();
+        const cat = (s.category || '').toLowerCase();
+        return div === bc || cat === bc || pt.includes(bc);
+      });
+      if (filtered.length > 0) {
+        items = filtered;
+      } else if (items.length > 0) {
+        items = filtered;
+        didFallback = true;
+      }
     }
 
     items = items.filter((s: any) => !existingSkus.includes(s.sku));
@@ -158,14 +175,17 @@ const AddSKUModal = ({
   const handleAdd = () => {
     const skusToAdd = selectedSkuItems.map((sku: any) => {
       const fd = formData[sku.sku];
+      const storeQty = fd?.storeQty || {};
+      const totalStoreQty = Object.values(storeQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+      const unitCost = fd?.unitCost ?? sku.unitCost ?? 0;
       return {
         ...sku,
-        order: fd?.order || 0,
-        storeQty: fd?.storeQty || {},
+        order: totalStoreQty,
+        storeQty,
         customerTarget: fd?.customerTarget || 'New',
-        unitCost: fd?.unitCost ?? sku.unitCost ?? 0,
+        unitCost,
         composition: fd?.composition || sku.composition || '',
-        ttlValue: calcTtlValue(sku.sku)};
+        ttlValue: totalStoreQty * unitCost};
     });
     onAddSkus(skusToAdd);
     setSelectedSkus(new Set());
@@ -269,9 +289,9 @@ const AddSKUModal = ({
 
             {/* SKU List */}
             <div className="flex-1 overflow-y-auto px-2 py-2 min-h-0">
-              {isUnfiltered && filteredCatalog.length > 0 && (
+              {isUnfiltered && (
                 <div className={`text-center py-1.5 mb-1 text-[10px] rounded-lg ${'bg-amber-50 text-amber-600'}`}>
-                  {t('proposal.showingAllSkus') || 'Showing all available SKUs (no exact match for this block)'}
+                  {`No SKUs found for "${blockSubCategory || blockCategory}" — try importing products for this subcategory`}
                 </div>
               )}
               {skuCatalog.length === 0 ? (

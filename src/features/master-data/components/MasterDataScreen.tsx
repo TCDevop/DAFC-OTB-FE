@@ -12,6 +12,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { formatCurrency } from '@/utils';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { MobileList, MobileSearchBar, PullToRefresh, FilterBottomSheet, useBottomSheet } from '@/components/mobile';
+import { ProductImage } from '@/components/ui';
 
 // Config per master data type (takes t for i18n)
 const getTypeConfig = (t: any) => ({
@@ -35,6 +36,7 @@ const getTypeConfig = (t: any) => ({
       return Array.isArray(result) ? result : (result?.data || []);
     },
     columns: [
+      { key: 'image_url', label: '', width: '48px', isImage: true },
       { key: 'sku_code', label: t('masterData.colSkuCode'), width: '140px', mono: true },
       { key: 'product_name', label: t('masterData.colProductName') },
       { key: 'sub_category', label: t('masterData.colCategory'), width: '150px', render: (_v: any, item: any) => item?.sub_category?.category?.name || '-' },
@@ -43,6 +45,7 @@ const getTypeConfig = (t: any) => ({
       { key: 'srp', label: t('masterData.colSRP'), width: '120px', render: (v: any) => v ? formatCurrency(v) : '-', mono: true },
     ],
     searchFields: ['sku_code', 'product_name', 'color'],
+    clickable: true,
   },
   categories: {
     title: t('masterData.titleCategories'),
@@ -125,6 +128,7 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
   const [error, setError] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
+  const [selectedItem, setSelectedItem] = useState<any>(null);
   const pageSize = 20;
 
   const TYPE_CONFIG: any = useMemo(() => getTypeConfig(t), [t]);
@@ -343,12 +347,26 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
                     {paginatedData.map((item: any, index: any) => (
                       <tr
                         key={item.id || index}
-                        className={`border-t transition-colors ${'border-[#D4C8BB] hover:bg-[rgba(215,183,151,0.05)]'}`}
+                        onClick={() => config.clickable && setSelectedItem(item)}
+                        className={`border-t transition-colors ${'border-[#D4C8BB] hover:bg-[rgba(215,183,151,0.05)]'} ${config.clickable ? 'cursor-pointer' : ''}`}
                       >
                         <td className={`px-3 py-1.5 text-xs font-['JetBrains_Mono'] ${'text-[#BBBBBB]'}`}>
                           {(currentPage - 1) * pageSize + index + 1}
                         </td>
                         {config.columns.map((col: any) => {
+                          if (col.isImage) {
+                            return (
+                              <td key={col.key} className="px-2 py-1">
+                                <ProductImage
+                                  subCategory={item.sub_category?.name || ''}
+                                  sku={item.sku_code || ''}
+                                  imageUrl={item.image_url || ''}
+                                  size={40}
+                                  rounded="rounded-lg"
+                                />
+                              </td>
+                            );
+                          }
                           const rawValue = item[col.key];
                           const displayValue = col.render ? col.render(rawValue, item) : (rawValue || '-');
 
@@ -411,6 +429,74 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
         onApply={() => { closeSearch(); }}
         onReset={() => { setSearchTerm(''); setCurrentPage(1); closeSearch(); }}
       />
+
+      {/* SKU Detail Modal */}
+      {selectedItem && (
+        <div
+          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          onClick={(e) => { if (e.target === e.currentTarget) setSelectedItem(null); }}
+        >
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-[rgba(215,183,151,0.3)]"
+            style={{ maxHeight: '90vh' }}>
+            {/* Header */}
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.04)]">
+              <div className="flex items-center gap-3 min-w-0">
+                <Package size={18} className="text-[#6B4D30] shrink-0" />
+                <div className="min-w-0">
+                  <h3 className="text-sm font-bold font-['Montserrat'] text-[#0A0A0A] truncate">
+                    {selectedItem.product_name || selectedItem.sku_code || 'SKU Detail'}
+                  </h3>
+                  <p className="text-[11px] font-['JetBrains_Mono'] text-[#999999]">{selectedItem.sku_code || ''}</p>
+                </div>
+              </div>
+              <button onClick={() => setSelectedItem(null)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
+                <X size={18} className="text-[#999999]" />
+              </button>
+            </div>
+
+            {/* Body */}
+            <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 64px)' }}>
+              {/* Image */}
+              <div className="flex justify-center py-6 bg-[rgba(160,120,75,0.03)]">
+                <ProductImage
+                  subCategory={selectedItem.sub_category?.name || ''}
+                  sku={selectedItem.sku_code || ''}
+                  imageUrl={selectedItem.image_url || ''}
+                  size={140}
+                  rounded="rounded-xl"
+                />
+              </div>
+
+              {/* Info Grid */}
+              <div className="px-5 py-4 space-y-3">
+                {[
+                  { label: 'SKU Code', value: selectedItem.sku_code, mono: true },
+                  { label: 'Product Name', value: selectedItem.product_name },
+                  { label: 'Item Code', value: selectedItem.item_code, mono: true },
+                  { label: 'Brand', value: selectedItem.sub_category?.category?.brand?.name },
+                  { label: 'Gender', value: selectedItem.sub_category?.category?.gender?.name },
+                  { label: 'Category', value: selectedItem.sub_category?.category?.name },
+                  { label: 'Sub Category', value: selectedItem.sub_category?.name },
+                  { label: 'Rail', value: selectedItem.rail },
+                  { label: 'Theme', value: selectedItem.theme },
+                  { label: 'Color', value: selectedItem.color },
+                  { label: 'Composition', value: selectedItem.composition },
+                  { label: 'Unit Price', value: selectedItem.unit_price ? formatCurrency(Number(selectedItem.unit_price)) : null, mono: true },
+                  { label: 'Unit Cost', value: selectedItem.unit_cost ? formatCurrency(Number(selectedItem.unit_cost)) : null, mono: true },
+                ].filter(row => row.value).map((row) => (
+                  <div key={row.label} className="flex items-start gap-3">
+                    <span className="text-[11px] font-['Montserrat'] font-medium text-[#999999] w-28 shrink-0 pt-0.5">{row.label}</span>
+                    <span className={`text-xs ${row.mono ? "font-['JetBrains_Mono']" : "font-['Montserrat']"} text-[#0A0A0A] break-words`}>
+                      {row.value}
+                    </span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

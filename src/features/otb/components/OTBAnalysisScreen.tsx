@@ -74,11 +74,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const router = useRouter();
-  const { setAllocationData } = useAppContext();
+  const { setAllocationData, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew } = useAppContext();
   const { isOpen: filterOpen, open: openFilter, close: closeFilter } = useBottomSheet();
   const [mobileFilterValues, setMobileFilterValues] = useState<Record<string, string | string[]>>({});
 
   // API data states
+  const [brandCategoryMap, setBrandCategoryMap] = useState<Record<string, any[]>>({});
   const [categoryStructure, setCategoryStructure] = useState<any[]>([]);
   const [seasonTypeSections, setSeasonTypeSections] = useState<any[]>([]);
   const [apiSeasonGroups, setApiSeasonGroups] = useState<any[]>([]);
@@ -134,7 +135,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             seasonGroupName: ba.season_group?.name || ba.seasonGroup?.name || '',
             seasonId: String(ba.season_id || ba.season?.id || ba.seasonId || ''),
             seasonName: ba.season?.name || ba.season?.name || '',
-            storeId: String(ba.store_id || ba.store?.id || ba.storeId || '')}))}));
+            storeId: String(ba.store_id || ba.store?.id || ba.storeId || ''),
+            budgetAmount: Number(ba.budget_amount ?? ba.budgetAmount) || 0}))}));
         // Use first allocate header's brand as the primary brand for this budget (for backward compat)
         const primaryAH = allocateHeaders[0];
         return {
@@ -187,7 +189,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const [comparisonType, setComparisonType] = useState<'same' | 'different'>('same');
   const [seasonCount, setSeasonCount] = useState<number>(1);
   const [selectedBrandIds, setSelectedBrandIds] = useState<string[]>([]);
-  const [brandActiveTabs, setBrandActiveTabs] = useState<Record<string, 'category' | 'seasonType' | 'gender'>>({});
   const [collapsedBrands, setCollapsedBrands] = useState<Record<string, boolean>>({});
 
   // Season group and season options built from API data
@@ -280,6 +281,19 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     return result;
   }, [filtersComplete, selectedBudgetId, apiBudgets, selectedSeasonGroup, selectedSeason]);
 
+  // Per-brand total allocated budget (sum of budget_amount from matching allocates for selected season group + season)
+  const brandAllocatedTotal = useMemo<Record<string, number>>(() => {
+    const totals: Record<string, number> = {};
+    matchedAllocateHeaders.forEach((ah: any) => {
+      const brandId = ah.brandId;
+      const sum = (ah.budgetAllocates || [])
+        .filter((ba: any) => ba.seasonGroupName === selectedSeasonGroup && ba.seasonName === selectedSeason)
+        .reduce((acc: number, ba: any) => acc + (ba.budgetAmount || 0), 0);
+      totals[brandId] = (totals[brandId] || 0) + sum;
+    });
+    return totals;
+  }, [matchedAllocateHeaders, selectedSeasonGroup, selectedSeason]);
+
   // Fetch full planning data for each brand when their selected version changes
   useEffect(() => {
     Object.entries(brandSelectedVersion).forEach(async ([brandId, versionId]) => {
@@ -299,28 +313,21 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   // ─── Historical comparison logic ─────────────────────────────────────────
   const canEditComparison = filtersComplete && selectedYear !== 'all' && selectedBudgetId !== 'all';
 
+  // Historical periods derived from loaded sales history data (API-driven)
   const historicalPeriods = useMemo(() => {
-    if (!canEditComparison) return [];
-    const currentYear = selectedYear as number;
-    const currentSG = selectedSeasonGroup;
-    const currentS = selectedSeason;
-    const periods: { label: string; fiscalYear: number; seasonGroup: string; season: string }[] = [];
-
-    if (comparisonType === 'same') {
-      for (let i = 1; i <= seasonCount; i++) {
-        periods.push({ label: `${currentYear - i} ${currentSG} ${currentS}`, fiscalYear: currentYear - i, seasonGroup: currentSG, season: currentS });
-      }
-    } else {
-      // "different" — reverse chronological, alternating season groups
-      let year = currentYear;
-      let sg = currentSG;
-      for (let i = 0; i < seasonCount; i++) {
-        if (sg === 'SS') { sg = 'FW'; year = year - 1; } else { sg = 'SS'; }
-        periods.push({ label: `${year} ${sg} ${currentS}`, fiscalYear: year, seasonGroup: sg, season: currentS });
-      }
-    }
-    return periods;
-  }, [canEditComparison, comparisonType, seasonCount, selectedYear, selectedSeasonGroup, selectedSeason]);
+    const labels = Object.keys(historicalData);
+    if (labels.length === 0) return [];
+    return labels.map(label => {
+      // Get period info from any brand's data
+      const brandData = Object.values(historicalData[label] || {})[0] as any;
+      return {
+        label,
+        fiscalYear: brandData?.year || 0,
+        seasonGroup: brandData?.seasonGroupName || '',
+        season: brandData?.seasonName || '',
+      };
+    });
+  }, [historicalData]);
 
   // Baseline period: always the previous year's same-season data (independent of comparison settings)
   const baselinePeriod = useMemo(() => {
@@ -347,6 +354,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
   // Editable cell states
   const [editingCell, setEditingCell] = useState<any>(null);
+  const [editingBrandId, setEditingBrandId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [localData, setLocalData] = useState<Record<string, any>>({});
 
@@ -418,7 +426,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         }
 
         // Transform season types into sections
-        const seasonTypes = Array.isArray(seasonTypesRes) ? seasonTypesRes : (seasonTypesRes?.data || []);
+        const seasonTypes = (Array.isArray(seasonTypesRes) ? seasonTypesRes : (seasonTypesRes?.data || []));
         if (seasonTypes.length > 0) {
           setSeasonTypeSections(seasonTypes.map((c: any) => ({ id: c.id || c.code, name: c.name || c.seasonTypeName })));
         } else {
@@ -457,11 +465,49 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     fetchApiData();
   }, [otbContext?.budgetId]);
 
-  // Fetch season groups filtered by selected year
+  // Load categories per brand — each brand gets its own category structure
+  useEffect(() => {
+    if (apiBrands.length === 0) return;
+    let cancelled = false;
+    const loadAll = async () => {
+      const map: Record<string, any[]> = {};
+      await Promise.all(apiBrands.map(async (brand: any) => {
+        try {
+          const res = await masterDataService.getCategories({ brandId: String(brand.id) });
+          const raw = Array.isArray(res) ? res : (res?.data || []);
+          const isGenderHierarchy = raw.length > 0 && raw[0]?.categories && Array.isArray(raw[0].categories);
+          if (isGenderHierarchy) {
+            map[String(brand.id)] = raw.map((genderObj: any) => ({
+              gender: { id: genderObj.id, name: genderObj.name },
+              categories: (genderObj.categories || []).map((cat: any) => ({
+                id: cat.id, name: cat.name,
+                subCategories: (cat.sub_categories || cat.subCategories || []).map((sub: any) => ({
+                  id: sub.id || sub.subCategoryId, name: sub.name || sub.subCategoryName }))}))
+            }));
+          } else {
+            const genderMap2: Record<string, any> = {};
+            raw.forEach((cat: any) => {
+              const gId = (cat.gender?.id || cat.genderId || 'unknown').toString();
+              const gName = cat.gender?.name || cat.genderName || gId;
+              if (!genderMap2[gId]) genderMap2[gId] = { gender: { id: gId, name: gName }, categories: [] };
+              let existing = genderMap2[gId].categories.find((c: any) => c.id === (cat.id || cat.categoryId));
+              if (!existing) { existing = { id: cat.id || cat.categoryId, name: cat.name || cat.categoryName, subCategories: [] }; genderMap2[gId].categories.push(existing); }
+              (cat.subCategories || []).forEach((sub: any) => { if (!existing.subCategories.find((s: any) => s.id === (sub.id || sub.subCategoryId))) existing.subCategories.push({ id: sub.id || sub.subCategoryId, name: sub.name || sub.subCategoryName }); });
+            });
+            map[String(brand.id)] = Object.values(genderMap2);
+          }
+        } catch { map[String(brand.id)] = []; }
+      }));
+      if (!cancelled) setBrandCategoryMap(map);
+    };
+    loadAll();
+    return () => { cancelled = true; };
+  }, [apiBrands]);
+
+  // Fetch all season groups (no year filter)
   useEffect(() => {
     const controller = new AbortController();
-    const year = selectedYear !== 'all' ? Number(selectedYear) : undefined;
-    masterDataService.getSeasonGroups(year ? { year } : undefined, { signal: controller.signal }).then(res => {
+    masterDataService.getSeasonGroups(undefined, { signal: controller.signal }).then(res => {
       const sgData = Array.isArray(res) ? res : [];
       setApiSeasonGroups(sgData);
     }).catch((err: any) => {
@@ -469,7 +515,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       setApiSeasonGroups([]);
     });
     return () => { controller.abort(); };
-  }, [selectedYear]);
+  }, []);
 
   // Initialize local data for editable cells (zeros instead of random — will be populated by API)
   useEffect(() => {
@@ -646,11 +692,13 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       }
     }));
     setEditingCell(null);
+    setEditingBrandId(null);
     setEditValue('');
   };
 
   const handleCancelEdit = () => {
     setEditingCell(null);
+    setEditingBrandId(null);
     setEditValue('');
   };
 
@@ -696,6 +744,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       const matchedAH = matchedAllocateHeaders.find((ah: any) => ah.brandId === brandId);
       const allocateHeaderId = matchedAH?.id;
 
+      if (!allocateHeaderId) {
+        toast.error(`No allocate header found for ${brand.name || brandId}. Please select Budget, Season Group, and Season first.`);
+        return;
+      }
+
       // Rebuild planningDataBySubcatId from loaded planning data
       const planningDataBySubcatId: Record<string, any> = {};
       const planData = brandPlanningData[brandId];
@@ -717,6 +770,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       // Build baseline lookup for this brand to override actual values with previous year data
       const saveBaselineLookup = buildBaselineLookup(brandId);
 
+      const brandBudget = brandId ? (brandAllocatedTotal[brandId] || 0) : 0;
       const getRowData = (cellKey: string, subCatId?: string) => {
         let base;
         if (subCatId && planningDataBySubcatId[subCatId]) {
@@ -730,12 +784,17 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           const bl = saveBaselineLookup.bySub[subCatId];
           if (bl) base = { ...base, buyPct: bl.buyPct, salesPct: bl.salesPct, stPct: bl.stPct };
         }
+        // $OTB = %Proposed / 100 × totalBudgetAllocatePerBrand
+        if (brandBudget > 0) {
+          base = { ...base, otbProposed: Math.round((Number(base.buyProposed) || 0) / 100 * brandBudget) };
+        }
         return base;
       };
 
       // Build categories array (one entry per subcategory, averaged across genders)
+      const brandCatFirst = getBrandCategoryFirst(brandId);
       const categories: any[] = [];
-      categoryFirstStructure.forEach((catEntry: any) => {
+      brandCatFirst.forEach((catEntry: any) => {
         catEntry.subCategories.forEach((subCatEntry: any) => {
           const subCatId = String(subCatEntry.subCategory.id);
           let buyPct = 0, salesPct = 0, stPct = 0, buyProposed = 0, otbProposed = 0, varPct = 0, otbSubmitted = 0, buyActual = 0;
@@ -771,6 +830,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           const cellKey = `seasonType_${section.id}_${store.id}`;
           const d = localData[cellKey] || {};
           const colBl = saveBaselineLookup.bySeasonType[cellKey] || {};
+          const stOtb = brandBudget > 0 ? Math.round((Number(d.userBuyPct) || 0) / 100 * brandBudget) : (d.otbValue || 0);
           seasonTypes.push({
             seasonTypeId: String(section.id),
             storeId: String(store.id),
@@ -779,21 +839,23 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             actualStPct: colBl.stPct || d.stPct || 0,
             actualMoc: colBl.moc || d.moc || 0,
             proposedBuyPct: d.userBuyPct || 0,
-            otbProposedAmount: d.otbValue || 0,
+            otbProposedAmount: stOtb,
             pctVarVsLast: d.varPct || 0});
         });
       });
 
       // Build genders array (override with baseline data)
       const genders: any[] = [];
-      const genderList = categoryStructure.length > 0
-        ? categoryStructure.map((g: any) => g.gender)
+      const brandCatStruct = brandCategoryMap[brandId] || categoryStructure;
+      const genderList = brandCatStruct.length > 0
+        ? brandCatStruct.map((g: any) => g.gender)
         : GENDERS;
       genderList.forEach((gender: any) => {
         activeStores.forEach((store: any) => {
           const cellKey = `gender_${gender.id}_${store.id}`;
           const d = localData[cellKey] || {};
           const genBl = saveBaselineLookup.byGender[cellKey] || {};
+          const genOtb = brandBudget > 0 ? Math.round((Number(d.userBuyPct) || 0) / 100 * brandBudget) : (d.otbValue || 0);
           genders.push({
             genderId: String(gender.id),
             storeId: String(store.id),
@@ -801,7 +863,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             actualSalesPct: genBl.salesPct || d.salesPct || 0,
             actualStPct: genBl.stPct || d.stPct || 0,
             proposedBuyPct: d.userBuyPct || 0,
-            otbProposedAmount: d.otbValue || 0,
+            otbProposedAmount: genOtb,
             pctVarVsLast: d.varPct || 0});
         });
       });
@@ -1016,29 +1078,58 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     return apiBrands.filter((b: any) => selectedBrandIds.includes(String(b.id)));
   }, [apiBrands, selectedBrandIds]);
 
-  // Fetch historical planning data when periods or brands change
+  // Register header Save / Save As New buttons for OTB Analysis
+  const saveBrandRef = useRef(handleSaveBrand);
+  saveBrandRef.current = handleSaveBrand;
+  const displayBrandsRef = useRef(displayBrands);
+  displayBrandsRef.current = displayBrands;
+
   useEffect(() => {
-    if (historicalPeriods.length === 0 || displayBrands.length === 0) { setHistoricalData({}); return; }
+    registerSave(async () => {
+      for (const brand of displayBrandsRef.current) {
+        await saveBrandRef.current(brand, false);
+      }
+    });
+    registerSaveAsNew(async () => {
+      for (const brand of displayBrandsRef.current) {
+        await saveBrandRef.current(brand, true);
+      }
+    });
+    return () => {
+      unregisterSave();
+      unregisterSaveAsNew();
+    };
+  }, [registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew]);
+
+  // Fetch historical sales history data (recent seasons) when comparison settings or brands change
+  useEffect(() => {
+    if (!canEditComparison || displayBrands.length === 0 || seasonCount <= 0) { setHistoricalData({}); return; }
     let cancelled = false;
     const fetchAll = async () => {
       setLoadingHistorical(true);
       const result: Record<string, Record<string, any>> = {};
-      const promises = historicalPeriods.flatMap(period =>
-        displayBrands.map(async (brand: any) => {
-          const brandId = String(brand.id);
-          const data = await planningService.getHistorical({ fiscalYear: period.fiscalYear, seasonGroupName: period.seasonGroup, seasonName: period.season, brandId });
-          if (!result[period.label]) result[period.label] = {};
-          result[period.label][brandId] = data;
-        })
-      );
-      await Promise.all(promises);
+      await Promise.all(displayBrands.map(async (brand: any) => {
+        const brandId = String(brand.id);
+        const resp = await planningService.getSalesHistory({
+          brandId,
+          mode: 'recent',
+          limit: seasonCount,
+        });
+        if (resp?.periods) {
+          resp.periods.forEach((period: any) => {
+            const label = period.label || `${period.year} ${period.seasonGroupName} ${period.seasonName}`;
+            if (!result[label]) result[label] = {};
+            result[label][brandId] = period;
+          });
+        }
+      }));
       if (!cancelled) { setHistoricalData(result); setLoadingHistorical(false); }
     };
     fetchAll();
     return () => { cancelled = true; };
-  }, [historicalPeriods, displayBrands]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [canEditComparison, seasonCount, displayBrands]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch baseline (previous year) planning data for all displayed brands
+  // Fetch baseline (previous year) sales history data for all displayed brands
   useEffect(() => {
     if (!baselinePeriod || displayBrands.length === 0) { setBaselineData({}); return; }
     let cancelled = false;
@@ -1046,11 +1137,13 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       const result: Record<string, any> = {};
       await Promise.all(displayBrands.map(async (brand: any) => {
         const brandId = String(brand.id);
-        result[brandId] = await planningService.getHistorical({
-          fiscalYear: baselinePeriod.fiscalYear,
-          seasonGroupName: baselinePeriod.seasonGroup,
+        result[brandId] = await planningService.getSalesHistory({
+          brandId,
+          mode: 'baseline',
+          year: baselinePeriod.fiscalYear,
           seasonName: baselinePeriod.season,
-          brandId});
+          seasonGroupName: baselinePeriod.seasonGroup,
+        });
       }));
       if (!cancelled) setBaselineData(result);
     };
@@ -1147,34 +1240,24 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const groupRowClass ="bg-gradient-to-r from-[rgba(215,183,151,0.15)] to-[rgba(215,183,151,0.08)] border-l-2 border-[#D7B797]";
   const sumRowClass ="bg-gradient-to-r from-[rgba(215,183,151,0.25)] to-[rgba(215,183,151,0.2)] text-[#5C4A32] font-semibold";
 
-  // Transform categoryStructure (Gender->Cat->SubCat) into categoryFirstStructure (Cat->SubCat->Gender)
-  const categoryFirstStructure = useMemo(() => {
+  // Helper: build categoryFirstStructure from a given category structure array
+  const buildCategoryFirst = useCallback((structure: any[]) => {
     const catMap: Record<string, { category: any; subCategories: Record<string, { subCategory: any; genders: { gender: any; dataKey: string }[] }> }> = {};
-
-    categoryStructure.forEach((genderGroup: any) => {
+    structure.forEach((genderGroup: any) => {
       genderGroup.categories.forEach((cat: any) => {
-        if (!catMap[cat.id]) {
-          catMap[cat.id] = { category: { id: cat.id, name: cat.name }, subCategories: {} };
-        }
+        if (!catMap[cat.id]) catMap[cat.id] = { category: { id: cat.id, name: cat.name }, subCategories: {} };
         cat.subCategories.forEach((subCat: any) => {
-          if (!catMap[cat.id].subCategories[subCat.id]) {
-            catMap[cat.id].subCategories[subCat.id] = { subCategory: { id: subCat.id, name: subCat.name }, genders: [] };
-          }
-          catMap[cat.id].subCategories[subCat.id].genders.push({
-            gender: genderGroup.gender,
-            dataKey: `${genderGroup.gender.id}_${cat.id}_${subCat.id}`});
+          if (!catMap[cat.id].subCategories[subCat.id]) catMap[cat.id].subCategories[subCat.id] = { subCategory: { id: subCat.id, name: subCat.name }, genders: [] };
+          catMap[cat.id].subCategories[subCat.id].genders.push({ gender: genderGroup.gender, dataKey: `${genderGroup.gender.id}_${cat.id}_${subCat.id}` });
         });
       });
     });
+    return Object.values(catMap).map(entry => ({ ...entry.category, subCategories: Object.values(entry.subCategories) }));
+  }, []);
 
-    return Object.values(catMap).map(entry => ({
-      ...entry.category,
-      subCategories: Object.values(entry.subCategories)}));
-  }, [categoryStructure]);
-
-  // Transform categoryStructure (Gender->Cat->SubCat) into genderFirstStructure (Gender->Cat->SubCat with dataKeys)
-  const genderFirstStructure = useMemo(() => {
-    return categoryStructure.map((genderGroup: any) => ({
+  // Helper: build genderFirstStructure from a given category structure array
+  const buildGenderFirst = useCallback((structure: any[]) => {
+    return structure.map((genderGroup: any) => ({
       gender: genderGroup.gender,
       categories: (genderGroup.categories || []).map((cat: any) => ({
         category: { id: cat.id, name: cat.name },
@@ -1184,61 +1267,43 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         })),
       })),
     }));
-  }, [categoryStructure]);
+  }, []);
+
+  // Global fallback structures (used for filters, initial data, gender tab)
+  const categoryFirstStructure = useMemo(() => buildCategoryFirst(categoryStructure), [categoryStructure, buildCategoryFirst]);
+  const genderFirstStructure = useMemo(() => buildGenderFirst(categoryStructure), [categoryStructure, buildGenderFirst]);
+
+  // Per-brand structures
+  const getBrandCategoryFirst = useCallback((brandId: string) => buildCategoryFirst(brandCategoryMap[brandId] || categoryStructure), [brandCategoryMap, categoryStructure, buildCategoryFirst]);
+  const getBrandGenderFirst = useCallback((brandId: string) => buildGenderFirst(brandCategoryMap[brandId] || categoryStructure), [brandCategoryMap, categoryStructure, buildGenderFirst]);
 
   // Build historical data lookups per period, keyed the same way as table data
   // Category: keyed by subcategory_id → { buyPct, salesPct, stPct }
   // Season Type: keyed by `seasonType_${seasonTypeId}_${storeId}`
   // Gender: keyed by `gender_${genderId}_${storeId}`
   const buildHistoricalLookup = useCallback((brandId: string, periodLabel: string) => {
-    const plan = historicalData[periodLabel]?.[brandId];
-    if (!plan) return { bySub: {} as Record<string, any>, bySeasonType: {} as Record<string, any>, byGender: {} as Record<string, any> };
+    const data = historicalData[periodLabel]?.[brandId];
+    if (!data) return { bySub: {} as Record<string, any>, bySeasonType: {} as Record<string, any>, byGender: {} as Record<string, any> };
 
-    const bySub: Record<string, any> = {};
-    (plan.planning_categories || []).forEach((pc: any) => {
-      const subId = String(pc.subcategory_id || pc.subcategory?.id || '');
-      if (subId) bySub[subId] = { buyPct: Number(pc.actual_buy_pct) || 0, salesPct: Number(pc.actual_sales_pct) || 0, stPct: Number(pc.actual_st_pct) || 0 };
-    });
-
-    const bySeasonType: Record<string, any> = {};
-    (plan.planning_collections || []).forEach((pc: any) => {
-      const key = `seasonType_${pc.season_type_id || pc.season_type?.id}_${pc.store_id || pc.store?.id}`;
-      bySeasonType[key] = { buyPct: Number(pc.actual_buy_pct) || 0, salesPct: Number(pc.actual_sales_pct) || 0, stPct: Number(pc.actual_st_pct) || 0, moc: Number(pc.actual_moc) || 0 };
-    });
-
-    const byGender: Record<string, any> = {};
-    (plan.planning_genders || []).forEach((pg: any) => {
-      const key = `gender_${pg.gender_id || pg.gender?.id}_${pg.store_id || pg.store?.id}`;
-      byGender[key] = { buyPct: Number(pg.actual_buy_pct) || 0, salesPct: Number(pg.actual_sales_pct) || 0, stPct: Number(pg.actual_st_pct) || 0 };
-    });
-
-    return { bySub, bySeasonType, byGender };
+    // Sales history API returns { bySubCategory, byGenderStore } directly
+    return {
+      bySub: (data.bySubCategory || {}) as Record<string, any>,
+      bySeasonType: {} as Record<string, any>,  // Collection tab keeps existing logic
+      byGender: (data.byGenderStore || {}) as Record<string, any>,
+    };
   }, [historicalData]);
 
-  // Build baseline lookup for a brand (previous year's data for %Buy, %Sales, %ST columns)
+  // Build baseline lookup for a brand (from sales_history_agg data)
   const buildBaselineLookup = useCallback((brandId: string) => {
-    const plan = baselineData[brandId];
-    if (!plan) return { bySub: {} as Record<string, any>, bySeasonType: {} as Record<string, any>, byGender: {} as Record<string, any> };
+    const data = baselineData[brandId];
+    if (!data) return { bySub: {} as Record<string, any>, bySeasonType: {} as Record<string, any>, byGender: {} as Record<string, any> };
 
-    const bySub: Record<string, any> = {};
-    (plan.planning_categories || []).forEach((pc: any) => {
-      const subId = String(pc.subcategory_id || pc.subcategory?.id || '');
-      if (subId) bySub[subId] = { buyPct: Number(pc.actual_buy_pct) || 0, salesPct: Number(pc.actual_sales_pct) || 0, stPct: Number(pc.actual_st_pct) || 0 };
-    });
-
-    const bySeasonType: Record<string, any> = {};
-    (plan.planning_collections || []).forEach((pc: any) => {
-      const key = `seasonType_${pc.season_type_id || pc.season_type?.id}_${pc.store_id || pc.store?.id}`;
-      bySeasonType[key] = { buyPct: Number(pc.actual_buy_pct) || 0, salesPct: Number(pc.actual_sales_pct) || 0, stPct: Number(pc.actual_st_pct) || 0, moc: Number(pc.actual_moc) || 0 };
-    });
-
-    const byGender: Record<string, any> = {};
-    (plan.planning_genders || []).forEach((pg: any) => {
-      const key = `gender_${pg.gender_id || pg.gender?.id}_${pg.store_id || pg.store?.id}`;
-      byGender[key] = { buyPct: Number(pg.actual_buy_pct) || 0, salesPct: Number(pg.actual_sales_pct) || 0, stPct: Number(pg.actual_st_pct) || 0 };
-    });
-
-    return { bySub, bySeasonType, byGender };
+    // Sales history API returns { bySubCategory: { [subCatId]: {buyPct,salesPct,stPct} }, byGenderStore: { [gender_X_Y]: {buyPct,salesPct,stPct} } }
+    return {
+      bySub: (data.bySubCategory || {}) as Record<string, any>,
+      bySeasonType: {} as Record<string, any>,  // Collection tab keeps existing logic, no data from sales_history_agg
+      byGender: (data.byGenderStore || {}) as Record<string, any>,
+    };
   }, [baselineData]);
 
   // Render Category Tab - Hierarchical Collapsible (Gender -> Category -> SubCategory)
@@ -1269,6 +1334,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     const catBaselineLookup = brandId ? buildBaselineLookup(brandId) : null;
 
     // cellKey = `${genderId}_${catId}_${subCatId}`, subCatId passed explicitly for planning lookup
+    const brandBudget = brandId ? (brandAllocatedTotal[brandId] || 0) : 0;
     const getRowData = (cellKey: string, subCatId?: string) => {
       let base;
       if (subCatId && planningDataBySubcatId[subCatId]) {
@@ -1281,6 +1347,10 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       if (catBaselineLookup && subCatId) {
         const bl = catBaselineLookup.bySub[subCatId];
         if (bl) base = { ...base, buyPct: bl.buyPct, salesPct: bl.salesPct, stPct: bl.stPct };
+      }
+      // $OTB = %Proposed / 100 × totalBudgetAllocatePerBrand
+      if (brandBudget > 0) {
+        base = { ...base, otbProposed: Math.round((Number(base.buyProposed) || 0) / 100 * brandBudget) };
       }
       return base;
     };
@@ -1321,8 +1391,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       return totals;
     };
 
+    // Use brand-specific category structure if available
+    const brandGenderFirst = brandId ? getBrandGenderFirst(brandId) : genderFirstStructure;
+
     // Filter: L1=gender, L2=category, L3=subCategory
-    const filteredData = genderFirstStructure
+    const filteredData = brandGenderFirst
       .filter((gEntry: any) => genderFilter === 'all' || gEntry.gender.id === genderFilter)
       .map((gEntry: any) => ({
         ...gEntry,
@@ -1477,7 +1550,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                   const cellKey = subEntry.dataKey;
                                   const subCatId = String(subEntry.subCategory.id);
                                   const rowData = getRowData(cellKey, subCatId);
-                                  const isEditing = editingCell === cellKey;
+                                  const isEditing = editingCell === cellKey && editingBrandId === brandId;
 
                                   return (
                                     <tr
@@ -1512,7 +1585,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                           value={rowData.buyProposed || 0}
                                           isEditing={isEditing}
                                           editValue={editValue}
-                                          onStartEdit={handleStartEdit}
+                                          onStartEdit={(ck: any, val: any) => { setEditingBrandId(brandId); handleStartEdit(ck, val); }}
                                           onSaveEdit={handleSaveEdit}
                                           onChangeValue={setEditValue}
                                           onKeyDown={handleKeyDown}
@@ -1622,6 +1695,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const renderSeasonTypeTab = (brand?: any) => {
     const colBrandId = brand ? String(brand.id) : null;
     const colBaselineLookup = colBrandId ? buildBaselineLookup(colBrandId) : null;
+    const colBrandBudget = colBrandId ? (brandAllocatedTotal[colBrandId] || 0) : 0;
 
     const calculateSeasonTypeTotals = (sectionId: string) => {
       let totals = { buyPct: 0, salesPct: 0, stPct: 0, moc: 0, userBuyPct: 0, otbValue: 0, varPct: 0 };
@@ -1634,7 +1708,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         totals.salesPct += Number(bl?.salesPct) || 0;
         totals.moc += Number(bl?.moc) || 0;
         totals.userBuyPct += Number(data.userBuyPct) || 0;
-        totals.otbValue += Number(data.otbValue) || 0;
+        const rowOtb = colBrandBudget > 0 ? Math.round((Number(data.userBuyPct) || 0) / 100 * colBrandBudget) : (Number(data.otbValue) || 0);
+        totals.otbValue += rowOtb;
         totals.varPct += Number(data.varPct) || 0;
         count++;
       });
@@ -1716,9 +1791,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     <tbody>
                       {activeStores.map((store: any, sIdx: number) => {
                         const cellKey = `seasonType_${section.id}_${store.id}`;
-                        const rowData = localData[cellKey] || {};
+                        const rawData = localData[cellKey] || {};
+                        const computedOtb = colBrandBudget > 0 ? Math.round((Number(rawData.userBuyPct) || 0) / 100 * colBrandBudget) : (rawData.otbValue || 0);
+                        const rowData = { ...rawData, otbValue: computedOtb };
                         const colBl = colBaselineLookup?.bySeasonType[cellKey] || {};
-                        const isEditing = editingCell === cellKey;
+                        const isEditing = editingCell === cellKey && editingBrandId === colBrandId;
 
                         return (
                           <tr
@@ -1755,7 +1832,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                 value={rowData.userBuyPct || 0}
                                 isEditing={isEditing}
                                 editValue={editValue}
-                                onStartEdit={handleStartEdit}
+                                onStartEdit={(ck: any, val: any) => { setEditingBrandId(colBrandId); handleStartEdit(ck, val); }}
                                 onSaveEdit={handleSaveEdit}
                                 onChangeValue={setEditValue}
                                 onKeyDown={handleKeyDown}
@@ -1819,8 +1896,10 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const renderGenderTab = (brand?: any) => {
     const genBrandId = brand ? String(brand.id) : null;
     const genBaselineLookup = genBrandId ? buildBaselineLookup(genBrandId) : null;
-    const genderList = categoryStructure.length > 0
-      ? categoryStructure.map((g: any) => g.gender)
+    const genBrandBudget = genBrandId ? (brandAllocatedTotal[genBrandId] || 0) : 0;
+    const genCatStruct = genBrandId ? (brandCategoryMap[genBrandId] || categoryStructure) : categoryStructure;
+    const genderList = genCatStruct.length > 0
+      ? genCatStruct.map((g: any) => g.gender)
       : GENDERS;
 
     const calculateGenderTotals = (genderId: string) => {
@@ -1832,7 +1911,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         totals.buyPct += Number(bl?.buyPct) || 0;
         totals.salesPct += Number(bl?.salesPct) || 0;
         totals.userBuyPct += Number(data.userBuyPct) || 0;
-        totals.otbValue += Number(data.otbValue) || 0;
+        const rowOtb = genBrandBudget > 0 ? Math.round((Number(data.userBuyPct) || 0) / 100 * genBrandBudget) : (Number(data.otbValue) || 0);
+        totals.otbValue += rowOtb;
         totals.varPct += Number(data.varPct) || 0;
       });
       totals.stPct = totals.salesPct > 0 ? Math.round((totals.salesPct / (totals.buyPct || 1)) * 100) : 0;
@@ -1910,9 +1990,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     <tbody>
                       {activeStores.map((store: any, sIdx: number) => {
                         const cellKey = `gender_${gender.id}_${store.id}`;
-                        const rowData = localData[cellKey] || {};
+                        const rawGData = localData[cellKey] || {};
+                        const computedGenOtb = genBrandBudget > 0 ? Math.round((Number(rawGData.userBuyPct) || 0) / 100 * genBrandBudget) : (rawGData.otbValue || 0);
+                        const rowData = { ...rawGData, otbValue: computedGenOtb };
                         const genBl = genBaselineLookup?.byGender[cellKey] || {};
-                        const isEditing = editingCell === cellKey;
+                        const isEditing = editingCell === cellKey && editingBrandId === genBrandId;
 
                         return (
                           <tr
@@ -1947,7 +2029,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                 value={rowData.userBuyPct || 0}
                                 isEditing={isEditing}
                                 editValue={editValue}
-                                onStartEdit={handleStartEdit}
+                                onStartEdit={(ck: any, val: any) => { setEditingBrandId(genBrandId); handleStartEdit(ck, val); }}
                                 onSaveEdit={handleSaveEdit}
                                 onChangeValue={setEditValue}
                                 onKeyDown={handleKeyDown}
@@ -2036,7 +2118,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const renderBrandSection = (brand: any) => {
     const brandId = String(brand.id);
     const isCollapsed = collapsedBrands[brandId] === true;
-    const activeBrandTab = brandActiveTabs[brandId] || 'category';
 
     return (
       <div key={brandId} className={`rounded-xl shadow-sm border overflow-hidden animate-cardEntrance ${'bg-white border-[#C4B5A5]'}`}>
@@ -2062,6 +2143,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
               {brand.name || brand.code || `Brand ${brand.id}`}
             </span>
           </div>
+          {filtersComplete && brandAllocatedTotal[brandId] > 0 && (
+            <span className={`px-3 py-1 rounded-lg border font-['JetBrains_Mono'] text-sm font-semibold ${'bg-[rgba(18,119,73,0.08)] border-[rgba(18,119,73,0.25)] text-[#127749]'}`}>
+              {formatCurrency(brandAllocatedTotal[brandId])}
+            </span>
+          )}
           <div className="ml-auto flex items-center gap-2" onClick={e => e.stopPropagation()}>
             {(() => {
               const bVersions = brandPlanningVersions[brandId] || [];
@@ -2125,60 +2211,11 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
         {!isCollapsed && filtersComplete && (
           <div className="animate-expandSection">
-            {/* Tab Navigation: Category | Season Type | Gender */}
-            <div className={`border-b ${'border-[#C4B5A5]'}`}>
-              <div className="flex">
-                {(['category', 'seasonType', 'gender'] as const).map((tab) => {
-                  const isActive = activeBrandTab === tab;
-                  const labels: Record<string, string> = { category: 'Category', seasonType: 'Collection', gender: 'Gender' };
-                  const icons: Record<string, React.ReactNode> = {
-                    category: <Tag size={13} />,
-                    seasonType: <Bookmark size={13} />,
-                    gender: <Users size={13} />};
-                  return (
-                    <button
-                      key={tab}
-                      onClick={(e) => { e.stopPropagation(); setBrandActiveTabs(prev => ({ ...prev, [brandId]: tab })); }}
-                      className={`flex items-center gap-1.5 px-4 md:px-6 py-2.5 text-xs md:text-sm font-semibold font-['Montserrat'] uppercase tracking-wide border-b-2 -mb-px transition-all ${
-                        isActive
-                          ?'border-[#6B4D30] text-[#6B4D30] bg-[rgba(215,183,151,0.08)]':'border-transparent text-[#999999] hover:text-[#6B4D30] hover:bg-[rgba(215,183,151,0.04)]'}`}
-                    >
-                      {icons[tab]}
-                      {labels[tab]}
-                    </button>
-                  );
-                })}
-              </div>
-            </div>
-
-            {/* Category sub-filters (category tab only) */}
-            {activeBrandTab === 'category' && (
-              <div className={`border-b px-3 py-2 ${'border-[#C4B5A5]'}`}>
-                <div className="flex items-end gap-2 flex-wrap">
-                  <FilterSelect icon={Tag} label={t('common.category') || 'Category'} value={categoryFilter} options={[{ value: 'all', label: t('common.allCategories') || 'All Categories' }, ...filterOptions.categories.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleCategoryFilterChange} placeholder={t('common.allCategories') || 'All Categories'} />
-                  <FilterSelect icon={Tag} label={t('common.subCategory') || 'Sub Category'} value={subCategoryFilter} options={[{ value: 'all', label: t('common.allSubCategories') || 'All SubCategories' }, ...filteredSubCategoryOptions.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleSubCategoryFilterChange} placeholder={t('common.allSubCategories') || 'All SubCategories'} />
-                  <FilterSelect icon={Users} label={t('common.gender') || 'Gender'} value={genderFilter} options={[{ value: 'all', label: t('common.allGenders') || 'All Genders' }, ...filterOptions.genders.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleGenderFilterChange} placeholder={t('common.allGenders') || 'All Genders'} />
-                  {(genderFilter !== 'all' || categoryFilter !== 'all' || subCategoryFilter !== 'all') && (
-                    <button onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); }} className={`shrink-0 p-1 rounded transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-red-50'}`} title={t('common.clearAll')}><X size={14} /></button>
-                  )}
-                  <div className="flex-1" />
-                  <button
-                    type="button"
-                    onClick={() => handleToggleAll(brandId)}
-                    className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors border-[#C4B5A5] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] shrink-0"
-                  >
-                    <ChevronDown size={12} className={`transition-transform ${allCollapsedPerBrand[brandId] ? '-rotate-90' : ''}`} />
-                    {allCollapsedPerBrand[brandId] ? 'Expand' : 'Collapse'}
-                  </button>
-                </div>
-              </div>
-            )}
-
             {/* Tab Content */}
             <div className="overflow-y-auto">
-              {activeBrandTab === 'category' && renderCategoryTab(brand)}
-              {activeBrandTab === 'seasonType' && renderSeasonTypeTab(brand)}
-              {activeBrandTab === 'gender' && renderGenderTab(brand)}
+              {activeTab === 'category' && renderCategoryTab(brand)}
+              {activeTab === 'seasonType' && renderSeasonTypeTab(brand)}
+              {activeTab === 'gender' && renderGenderTab(brand)}
             </div>
 
             {/* Save / Save as New Version footer — or warning if no final AllocateHeader */}
@@ -2744,25 +2781,66 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         </div>
       )}
 
-      {/* Per-Brand Sections — each brand is a collapsible section with Category/Season Type/Gender tabs */}
-      {selectedBudget && displayBrands.length > 0 && (
-        <div className="space-y-3">
-          {displayBrands.map((brand: any) => renderBrandSection(brand))}
-
-          {/* Allocate All Footer */}
-          {filtersComplete && displayBrands.length > 0 && (
-            <div className={`mt-3 rounded-xl border overflow-hidden ${'border-[rgba(215,183,151,0.3)] bg-white'}`}>
-              <div className="flex items-center justify-end gap-3 px-4 py-2.5">
-                <button
-                  onClick={handleAllocateAll}
-                  className={`shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] transition-all ${'bg-[rgba(18,119,73,0.12)] border border-[#127749] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]'}`}
-                >
-                  <ChevronRight size={14} />
-                  Allocate All
-                </button>
+      {/* Top-level Tab Navigation: Category | Collection | Gender */}
+      {selectedBudget && displayBrands.length > 0 && filtersComplete && (
+        <div className={`rounded-xl shadow-sm border ${'bg-white border-[#C4B5A5]'}`}>
+          <div className={`border-b ${'border-[#C4B5A5]'}`}>
+            <div className="flex">
+              {(['category', 'seasonType', 'gender'] as const).map((tab) => {
+                const isActive = activeTab === tab;
+                const labels: Record<string, string> = { category: 'Category', seasonType: 'Collection', gender: 'Gender' };
+                const icons: Record<string, React.ReactNode> = {
+                  category: <Tag size={13} />,
+                  seasonType: <Bookmark size={13} />,
+                  gender: <Users size={13} />};
+                return (
+                  <button
+                    key={tab}
+                    onClick={() => setActiveTab(tab)}
+                    className={`flex items-center gap-1.5 px-4 md:px-6 py-2.5 text-xs md:text-sm font-semibold font-['Montserrat'] uppercase tracking-wide border-b-2 -mb-px transition-all ${
+                      isActive
+                        ?'border-[#6B4D30] text-[#6B4D30] bg-[rgba(215,183,151,0.08)]':'border-transparent text-[#999999] hover:text-[#6B4D30] hover:bg-[rgba(215,183,151,0.04)]'}`}
+                  >
+                    {icons[tab]}
+                    {labels[tab]}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+          {/* Category sub-filters (category tab only) */}
+          {activeTab === 'category' && (
+            <div className={`px-3 py-2`}>
+              <div className="flex items-end gap-2 flex-wrap">
+                <FilterSelect icon={Tag} label={t('common.category') || 'Category'} value={categoryFilter} options={[{ value: 'all', label: t('common.allCategories') || 'All Categories' }, ...filterOptions.categories.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleCategoryFilterChange} placeholder={t('common.allCategories') || 'All Categories'} />
+                <FilterSelect icon={Tag} label={t('common.subCategory') || 'Sub Category'} value={subCategoryFilter} options={[{ value: 'all', label: t('common.allSubCategories') || 'All SubCategories' }, ...filteredSubCategoryOptions.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleSubCategoryFilterChange} placeholder={t('common.allSubCategories') || 'All SubCategories'} />
+                <FilterSelect icon={Users} label={t('common.gender') || 'Gender'} value={genderFilter} options={[{ value: 'all', label: t('common.allGenders') || 'All Genders' }, ...filterOptions.genders.filter((c: any) => c.id !== 'all').map((c: any) => ({ value: c.id, label: c.name }))]} onChange={handleGenderFilterChange} placeholder={t('common.allGenders') || 'All Genders'} />
+                {(genderFilter !== 'all' || categoryFilter !== 'all' || subCategoryFilter !== 'all') && (
+                  <button onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); }} className={`shrink-0 p-1 rounded transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-red-50'}`} title={t('common.clearAll')}><X size={14} /></button>
+                )}
               </div>
             </div>
           )}
+
+          {/* Per-Brand Sections inside tab container */}
+          <div className="p-3 space-y-3">
+            {displayBrands.map((brand: any) => renderBrandSection(brand))}
+
+            {/* Allocate All Footer */}
+            {filtersComplete && displayBrands.length > 0 && (
+              <div className={`rounded-xl border overflow-hidden ${'border-[rgba(215,183,151,0.3)] bg-white'}`}>
+                <div className="flex items-center justify-end gap-3 px-4 py-2.5">
+                  <button
+                    onClick={handleAllocateAll}
+                    className={`shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] transition-all ${'bg-[rgba(18,119,73,0.12)] border border-[#127749] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]'}`}
+                  >
+                    <ChevronRight size={14} />
+                    Allocate All
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 

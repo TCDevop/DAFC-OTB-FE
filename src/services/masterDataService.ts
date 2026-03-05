@@ -61,7 +61,7 @@ export const masterDataService = {
   },
 
   // Get all categories (with hierarchy)
-  async getCategories(params?: { genderId?: string }) {
+  async getCategories(params?: { genderId?: string; brandId?: string }) {
     try {
       const response = await api.get('/master/categories', { params });
       return extract(response);
@@ -134,6 +134,17 @@ export const masterDataService = {
       return extract(response);
     } catch (err: any) {
       console.error('[masterDataService.getSubCategoriesDirect]', err?.response?.status, err?.message);
+      throw err;
+    }
+  },
+
+  // Get sizes for a specific subcategory (e.g. XS, S, M, L, XL)
+  async getSubcategorySizes(subCategoryId: string) {
+    try {
+      const response = await api.get(`/master/subcategory-sizes/${subCategoryId}`);
+      return extract(response);
+    } catch (err: any) {
+      console.error('[masterDataService.getSubcategorySizes]', err?.response?.status, err?.message);
       throw err;
     }
   }

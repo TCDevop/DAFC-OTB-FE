@@ -603,7 +603,7 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
                   onChange={(e) => setNewForm({ ...newForm, fiscalYear: parseInt(e.target.value) })}
                   className="w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] bg-white border-[#C4B5A5] text-[#0A0A0A]"
                 >
-                  {[...new Set([...availableYears, new Date().getFullYear(), new Date().getFullYear() + 1])].sort((a, b) => b - a).map((year) => <option key={year} value={year}>{year}</option>)}
+                  {[...new Set([...availableYears, new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1])].sort((a, b) => b - a).map((year) => <option key={year} value={year}>{year}</option>)}
                 </select>
               </div>
 
