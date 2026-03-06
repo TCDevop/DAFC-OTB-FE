@@ -297,7 +297,7 @@ const BudgetAllocateScreen = ({
   const seasonDropdownRef = useRef<any>(null);
   const subSeasonDropdownRef = useRef<any>(null);
   const prevBrandVersionMapRef = useRef<Record<string, any>>({});
-  const pendingMarkCleanRef = useRef(false);
+  const loadedValuesRef = useRef<Record<string, any> | null>(null);
   // Always-current ref for brandVersionMap — read inside effects without adding to deps
   const brandVersionMapRef = useRef<Record<string, any>>({});
 
@@ -473,17 +473,19 @@ const BudgetAllocateScreen = ({
           });
         });
 
+        // Capture the reference that will become the new allocationValues state.
+        // Effect (484) uses this reference to confirm the change came from DB load, not user edit.
+        loadedValuesRef.current = updated;
         return updated;
       });
     });
-    // After loading DB data, mark state as clean so isDirty only reflects user edits
-    pendingMarkCleanRef.current = true;
   }, [brandVersionMap, allocateHeaders]);
 
-  // When allocationValues changes and a DB load just happened, mark state as clean
+  // When allocationValues changes, mark state as clean only if this exact change came from a DB load.
+  // Reference equality ensures user edits (which produce a different object) do NOT trigger markClean.
   useEffect(() => {
-    if (pendingMarkCleanRef.current) {
-      pendingMarkCleanRef.current = false;
+    if (loadedValuesRef.current !== null && allocationValues === loadedValuesRef.current) {
+      loadedValuesRef.current = null;
       markClean();
     }
   }, [allocationValues, markClean]);
@@ -988,17 +990,12 @@ const BudgetAllocateScreen = ({
     e.stopPropagation();
     try {
       await budgetService.setFinalAllocateVersion(String(headerId));
-      // Update locally: flip is_final_version for the brand that owns this header
-      setAllocateHeaders(prev => {
-        const target = prev.find((h: any) => Number(h.id) === Number(headerId));
-        if (!target) return prev;
-        const brandId = Number(target.brand_id ?? target.brandId);
-        return prev.map((h: any) => ({
-          ...h,
-          is_final_version: Number(h.brand_id ?? h.brandId) === brandId
-            ? Number(h.id) === Number(headerId)
-            : (h.is_final_version ?? false)}));
-      });
+      invalidateCache('/budgets');
+      // Refetch allocate headers from server to get authoritative state
+      if (selectedBudgetId) {
+        const budget = await budgetService.getOne(String(selectedBudgetId));
+        setAllocateHeaders(Array.isArray(budget?.allocate_headers) ? budget.allocate_headers : []);
+      }
       toast.success('Final version set successfully.');
     } catch (err: any) {
       console.error('Failed to set final version:', err);
@@ -1919,14 +1916,14 @@ const BudgetAllocateScreen = ({
           } else {
             clearBudgetSelection();
           }
-          setSelectedYear(mobileFilterValues.year ? Number(mobileFilterValues.year) : 2025);
+          setSelectedYear(mobileFilterValues.year ? Number(mobileFilterValues.year) : new Date().getFullYear());
           setSelectedSeasonGroup((mobileFilterValues.seasonGroup as string) || null);
           if (mobileFilterValues.version) setSelectedVersionId(mobileFilterValues.version as string);
         }}
         onReset={() => {
           setMobileFilterValues({});
           clearBudgetSelection();
-          setSelectedYear(2025);
+          setSelectedYear(new Date().getFullYear());
           setSelectedSeasonGroup(null);
           setSelectedVersionId(null);
           setVersions([]);

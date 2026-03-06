@@ -708,6 +708,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     try {
       await planningService.finalize(String(versionId));
       invalidateCache('/planning');
+      invalidateCache('/planning/sales-history');
+      invalidateCache('/planning/historical');
       toast.success('Final version set successfully.');
       // Update per-brand versions — mark only the target as final
       setBrandPlanningVersions(prev => {
@@ -906,6 +908,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         }
       }
       invalidateCache('/planning');
+      invalidateCache('/planning/sales-history');
+      invalidateCache('/planning/historical');
     } catch (err: any) {
       console.error('Failed to save planning:', err?.response?.data || err?.message || err);
       const msg = err?.response?.data?.message || err?.message || 'Unknown error';
@@ -1192,35 +1196,42 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       setBrandSelectedVersion({});
       return;
     }
-    displayBrands.forEach(async (brand: any) => {
-      const brandId = String(brand.id);
-      if (!brandId) return;
-      // Find the matching allocateHeader for this brand + season filter
-      const matchedAH = matchedAllocateHeaders.find((ah: any) => String(ah.brandId) === brandId);
-      const filterParams: any = { brandId, pageSize: 50 };
-      if (matchedAH?.id) filterParams.allocateHeaderId = matchedAH.id;
-      setBrandLoadingVersions(prev => ({ ...prev, [brandId]: true }));
-      try {
-        const list = await planningService.getAll(filterParams);
-        const mapped = (Array.isArray(list) ? list : []).map((v: any) => ({
-          id: String(v.id),
-          label: `V${v.version}${v.is_final_version ? ' ★' : ''}`,
-          status: v.status || 'DRAFT',
-          isFinal: v.is_final_version || false,
-          version: v.version}));
-        setBrandPlanningVersions(prev => ({ ...prev, [brandId]: mapped }));
-        setBrandSelectedVersion(prev => {
-          if (prev[brandId] !== undefined) return prev;
-          const finalV = mapped.find((v: any) => v.isFinal);
-          return { ...prev, [brandId]: finalV ? finalV.id : (mapped[0]?.id || null) };
-        });
-      } catch (err: any) {
-        console.error(`[OTB] Failed to fetch planning versions for brand ${brandId}:`, err?.response?.data || err?.message);
-        setBrandPlanningVersions(prev => ({ ...prev, [brandId]: [] }));
-      } finally {
-        setBrandLoadingVersions(prev => ({ ...prev, [brandId]: false }));
-      }
-    });
+    let cancelled = false;
+    const fetchVersions = async () => {
+      await Promise.all(displayBrands.map(async (brand: any) => {
+        const brandId = String(brand.id);
+        if (!brandId) return;
+        // Find the matching allocateHeader for this brand + season filter
+        const matchedAH = matchedAllocateHeaders.find((ah: any) => String(ah.brandId) === brandId);
+        const filterParams: any = { brandId, pageSize: 50 };
+        if (matchedAH?.id) filterParams.allocateHeaderId = matchedAH.id;
+        setBrandLoadingVersions(prev => ({ ...prev, [brandId]: true }));
+        try {
+          const list = await planningService.getAll(filterParams);
+          if (cancelled) return;
+          const mapped = (Array.isArray(list) ? list : []).map((v: any) => ({
+            id: String(v.id),
+            label: `V${v.version}${v.is_final_version ? ' ★' : ''}`,
+            status: v.status || 'DRAFT',
+            isFinal: v.is_final_version || false,
+            version: v.version}));
+          setBrandPlanningVersions(prev => ({ ...prev, [brandId]: mapped }));
+          setBrandSelectedVersion(prev => {
+            if (prev[brandId] !== undefined) return prev;
+            const finalV = mapped.find((v: any) => v.isFinal);
+            return { ...prev, [brandId]: finalV ? finalV.id : (mapped[0]?.id || null) };
+          });
+        } catch (err: any) {
+          if (cancelled) return;
+          console.error(`[OTB] Failed to fetch planning versions for brand ${brandId}:`, err?.response?.data || err?.message);
+          setBrandPlanningVersions(prev => ({ ...prev, [brandId]: [] }));
+        } finally {
+          if (!cancelled) setBrandLoadingVersions(prev => ({ ...prev, [brandId]: false }));
+        }
+      }));
+    };
+    fetchVersions();
+    return () => { cancelled = true; };
   }, [displayBrands, filtersComplete, matchedAllocateHeaders]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Allocate All: validate season + final planning versions, then navigate to SKU Proposal

@@ -67,7 +67,7 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   // Derive available FY list from fetched budgets
   const availableYears = useMemo(() => {

@@ -11,6 +11,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '@/utils';
 import { budgetService, masterDataService, proposalService, planningService } from '@/services';
+import { invalidateCache } from '@/services/api';
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAppContext } from '@/contexts/AppContext';
@@ -537,7 +538,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             if (signal.aborted) return;
             const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
             const currentFY = budget?.fiscalYear;
-            if (currentFY) {
+            if (currentFY && seasonGroupFilter !== 'all' && seasonFilter !== 'all') {
               const historical = await proposalService.getHistorical({
                 fiscalYear: currentFY - 1,
                 seasonGroupName: seasonGroupFilter,
@@ -1375,6 +1376,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           }
           headerId = newId;
         }
+        invalidateCache('/proposals');
         toast.success('Created new version');
         return;
       }
@@ -1396,12 +1398,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             ]}));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
         }
+        invalidateCache('/proposals');
         toast.success('Saved as new version');
       } else {
         // Normal save: update existing header (delete + recreate)
         if (products.length > 0) {
           await proposalService.saveFullProposal(headerId, { products, sizings });
         }
+        invalidateCache('/proposals');
         toast.success('Saved successfully');
       }
     } catch (err: any) {

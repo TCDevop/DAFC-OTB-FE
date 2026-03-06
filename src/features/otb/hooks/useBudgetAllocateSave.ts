@@ -3,6 +3,7 @@
 import { useState, useCallback } from 'react';
 import toast from 'react-hot-toast';
 import { budgetService } from '@/services';
+import { invalidateCache } from '@/services/api';
 
 // ═══════════════════════════════════════════════════════════════════════════
 // useBudgetAllocateSave
@@ -208,6 +209,7 @@ export function useBudgetAllocateSave({
       if (results.length === 0) {
         toast('No allocation data to save. Enter values in the table first.', { icon: 'ℹ️', duration: 4000 });
       } else {
+        invalidateCache('/budgets');
         toast.success(`Saved ${results.length} brand${results.length > 1 ? 's' : ''} successfully`);
         onSaved?.(results);
       }
@@ -252,6 +254,7 @@ export function useBudgetAllocateSave({
       if (results.length === 0) {
         toast('No allocation data to save as new version. Enter values first.', { icon: 'ℹ️', duration: 4000 });
       } else {
+        invalidateCache('/budgets');
         toast.success(`Saved as new version for ${results.length} brand${results.length > 1 ? 's' : ''}`);
         onSaved?.(results);
       }
