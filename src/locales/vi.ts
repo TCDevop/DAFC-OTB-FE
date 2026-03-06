@@ -1080,6 +1080,7 @@ const vi = {
   // Xác nhận đơn hàng
   // ──────────────────────────────────────────────
   orderConfirm: {
+    title: 'Xác nhận đơn hàng',
     subtitle: 'Quản lý và xác nhận đơn đặt hàng',
     totalOrders: 'Tổng đơn hàng',
     pendingConfirm: 'Chờ xác nhận',

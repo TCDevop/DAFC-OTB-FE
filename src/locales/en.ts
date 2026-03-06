@@ -1080,6 +1080,7 @@ const en = {
   // Order Confirmation
   // ──────────────────────────────────────────────
   orderConfirm: {
+    title: 'Order Confirmation',
     subtitle: 'Manage and confirm purchase orders',
     totalOrders: 'Total Orders',
     pendingConfirm: 'Pending Confirm',
