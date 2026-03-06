@@ -222,9 +222,9 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
   };
 
   return (
-    <div className="flex flex-col gap-2 md:gap-4 h-[calc(100vh-140px)]">
+    <div className="flex flex-col gap-2 md:gap-4 flex-1 min-h-0 overflow-hidden">
       {/* ===== PAGE TITLE ===== */}
-      <div className="flex flex-wrap items-center justify-between gap-1.5">
+      <div className="flex flex-wrap items-center justify-between gap-1.5 shrink-0">
         <div>
           <h1 className={`text-sm font-semibold font-['Montserrat'] ${'text-gray-800'}`}>
             {t('ticket.title')}
@@ -287,7 +287,7 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
       </div>
 
       {/* ===== KPI HEADER ===== */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2">
+      <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-2 shrink-0">
         <ExpandableStatCard
           title={t('ticket.totalTickets')}
           value={ticketStats.totalTickets}

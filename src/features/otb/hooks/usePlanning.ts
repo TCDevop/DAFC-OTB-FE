@@ -39,7 +39,7 @@ export const usePlanning = () => {
       } catch (err: any) {
         if (err?.name === 'AbortError' || controller.signal.aborted) return;
         console.error('Failed to fetch master data:', err);
-        toast.error('Không thể tải dữ liệu. Vui lòng thử lại.');
+        toast.error('Failed to load data. Please try again.');
       }
     };
     fetchMasterData();
@@ -85,7 +85,7 @@ export const usePlanning = () => {
       setPlannings(transformedPlannings);
     } catch (err: any) {
       console.error('Failed to fetch plannings:', err);
-      toast.error('Không thể tải danh sách kế hoạch.');
+      toast.error('Failed to load planning list.');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -126,7 +126,7 @@ export const usePlanning = () => {
         })));
       } catch (err: any) {
         console.error('Failed to load planning:', err);
-        toast.error('Không thể tải chi tiết kế hoạch.');
+        toast.error('Failed to load planning details.');
         setPlanningDetailData(existingPlanning.details);
         setCurrentPlanningId(existingPlanning.id);
       }
@@ -213,7 +213,7 @@ export const usePlanning = () => {
       setCurrentPlanningId(null);
     } catch (err: any) {
       console.error('Failed to save planning:', err);
-      toast.error('Lưu kế hoạch thất bại.');
+      toast.error('Failed to save planning.');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -244,7 +244,7 @@ export const usePlanning = () => {
       await fetchPlannings();
     } catch (err: any) {
       console.error('Failed to submit planning:', err);
-      toast.error('Gửi duyệt kế hoạch thất bại.');
+      toast.error('Failed to submit planning.');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -271,7 +271,7 @@ export const usePlanning = () => {
       await fetchPlannings();
     } catch (err: any) {
       console.error('Failed to approve planning:', err);
-      toast.error('Phê duyệt kế hoạch thất bại.');
+      toast.error('Failed to approve planning.');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -286,7 +286,7 @@ export const usePlanning = () => {
       await fetchPlannings();
     } catch (err: any) {
       console.error('Failed to mark planning as final:', err);
-      toast.error('Đánh dấu phiên bản cuối thất bại.');
+      toast.error('Failed to mark final version.');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -301,7 +301,7 @@ export const usePlanning = () => {
       await fetchPlannings();
     } catch (err: any) {
       console.error('Failed to copy planning:', err);
-      toast.error('Sao chép kế hoạch thất bại.');
+      toast.error('Failed to copy planning.');
       setError(err.message);
     } finally {
       setLoading(false);

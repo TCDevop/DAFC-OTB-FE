@@ -85,7 +85,7 @@ const TicketKanbanBoard = ({ tickets = [], onTicketClick }: any) => {
   }, {} as any);
 
   return (
-    <div className="flex gap-4 overflow-x-auto pb-4" style={{ minHeight: '400px' }}>
+    <div className="flex gap-4 overflow-x-auto pb-4 flex-1 min-h-0">
       {COLUMNS.map((column: any) => {
         const colors = COLUMN_COLORS[column.id] || COLUMN_COLORS.DRAFT;
         const columnTickets = ticketsByStatus[column.id] || [];

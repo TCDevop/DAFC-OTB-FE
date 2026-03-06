@@ -238,16 +238,16 @@ const HomeScreen = () => {
     fetchSeasonOptions();
   }, []);
 
-  // Format VND amount for display (e.g. 12500000000 → "12,5 T đ")
+  // Format VND amount for display (e.g. 12500000000 → "12.5B")
   const formatVND = (amount: number): string => {
-    if (!amount || amount === 0) return '0 đ';
+    if (!amount || amount === 0) return '0';
     const trillion = 1_000_000_000_000;
     const billion = 1_000_000_000;
     const million = 1_000_000;
-    if (amount >= trillion) return `${(amount / trillion).toFixed(1).replace('.', ',')} T đ`;
-    if (amount >= billion) return `${(amount / billion).toFixed(1).replace('.', ',')} tỷ đ`;
-    if (amount >= million) return `${(amount / million).toFixed(0)} tr đ`;
-    return `${amount.toLocaleString('vi-VN')} đ`;
+    if (amount >= trillion) return `${(amount / trillion).toFixed(1)}T`;
+    if (amount >= billion) return `${(amount / billion).toFixed(1)}B`;
+    if (amount >= million) return `${(amount / million).toFixed(0)}M`;
+    return amount.toLocaleString('en-US');
   };
 
   const fetchStats = async () => {
@@ -285,7 +285,7 @@ const HomeScreen = () => {
       }
     } catch (err) {
       console.error('Failed to fetch dashboard stats:', err);
-      toast.error('Không thể tải dữ liệu tổng quan.');
+      toast.error('Failed to load overview data.');
     } finally {
       setStatsLoading(false);
     }
@@ -660,10 +660,10 @@ const HomeScreen = () => {
                 const billion = 1_000_000_000;
                 const million = 1_000_000;
                 let label: string;
-                if (niceMax >= trillion) label = `${(val / trillion).toFixed(1).replace('.', ',')}T`;
-                else if (niceMax >= billion) label = `${(val / billion).toFixed(1).replace('.', ',')}tỷ`;
-                else if (niceMax >= million) label = `${(val / million).toFixed(0)}tr`;
-                else label = val.toLocaleString('vi-VN');
+                if (niceMax >= trillion) label = `${(val / trillion).toFixed(1)}T`;
+                else if (niceMax >= billion) label = `${(val / billion).toFixed(1)}B`;
+                else if (niceMax >= million) label = `${(val / million).toFixed(0)}M`;
+                else label = val.toLocaleString('en-US');
                 return { y, label };
               });
 
@@ -740,10 +740,10 @@ const HomeScreen = () => {
                     const billion = 1_000_000_000;
                     const million = 1_000_000;
                     let label: string;
-                    if (d.actual >= trillion) label = `${(d.actual / trillion).toFixed(1).replace('.', ',')}T`;
-                    else if (d.actual >= billion) label = `${(d.actual / billion).toFixed(1).replace('.', ',')}tỷ`;
-                    else if (d.actual >= million) label = `${(d.actual / million).toFixed(0)}tr`;
-                    else label = d.actual > 0 ? d.actual.toLocaleString('vi-VN') : '0';
+                    if (d.actual >= trillion) label = `${(d.actual / trillion).toFixed(1)}T`;
+                    else if (d.actual >= billion) label = `${(d.actual / billion).toFixed(1)}B`;
+                    else if (d.actual >= million) label = `${(d.actual / million).toFixed(0)}M`;
+                    else label = d.actual > 0 ? d.actual.toLocaleString('en-US') : '0';
                     return (
                       <g key={`val-${i}`} filter="url(#labelShadow)">
                         <rect x={x - 22} y={y - 24} width="44" height="17" rx="5"
@@ -786,7 +786,7 @@ const HomeScreen = () => {
           </div>
           <div className="flex items-center gap-2 text-xs">
             {Number(stats.pendingApprovals) > 0 && (
-              <span className="px-2 py-1 rounded-md bg-[rgba(248,81,73,0.15)] text-[#FF7B72] font-semibold font-['Montserrat']">{stats.pendingApprovals} {t('home.pending') || 'Chờ duyệt'}</span>
+              <span className="px-2 py-1 rounded-md bg-[rgba(248,81,73,0.15)] text-[#FF7B72] font-semibold font-['Montserrat']">{stats.pendingApprovals} {t('home.pending')}</span>
             )}
             {Number((stats as any)._totalAmount) > 0 && (
               <span className="px-2 py-1 rounded-md bg-[rgba(210,153,34,0.15)] text-[#E3B341] font-semibold font-['Montserrat']">{stats.budgetUtilization}</span>
@@ -816,13 +816,13 @@ const HomeScreen = () => {
                 bgColor: 'bg-[rgba(248,81,73,0.08)]',
                 accentColor: '#FF7B72',
                 accentHover: '#F85149',
-                title: t('home.pendingApprovalsAlert') || `${pendingCount} mục chờ duyệt`,
-                time: t('home.now') || 'Hiện tại',
-                message: t('home.pendingApprovalsMessage') || `Có ${pendingCount} ngân sách/kế hoạch đang chờ phê duyệt.`,
+                title: t('home.pendingApprovalsAlert', { count: pendingCount }),
+                time: t('home.now'),
+                message: t('home.pendingApprovalsMessage', { count: pendingCount }),
                 route: '/approvals',
                 detailItems: [
-                  { label: t('home.pending') || 'Chờ duyệt', value: String(pendingCount) },
-                  { label: t('home.totalBudgets') || 'Tổng ngân sách', value: String(s._totalBudgets || 0) },
+                  { label: t('home.pending'), value: String(pendingCount) },
+                  { label: t('home.totalBudgets'), value: String(s._totalBudgets || 0) },
                 ]});
             }
 
@@ -838,14 +838,14 @@ const HomeScreen = () => {
                 bgColor: 'bg-[rgba(210,153,34,0.08)]',
                 accentColor: '#E3B341',
                 accentHover: '#D29922',
-                title: t('home.budgetThresholdWarning') || 'Ngân sách gần đạt ngưỡng',
+                title: t('home.budgetThresholdWarning'),
                 time: `${utilPct}%`,
-                message: t('home.budgetThresholdMessage') || `Đã sử dụng ${utilPct}% tổng ngân sách. Còn lại: ${formatVND(totalAmt - approvedAmt)}.`,
+                message: t('home.budgetThresholdMessage', { pct: utilPct, remaining: formatVND(totalAmt - approvedAmt) }),
                 route: '/budget-management',
                 detailItems: [
-                  { label: t('home.used') || 'Đã sử dụng', value: `${utilPct}%` },
-                  { label: t('home.remaining') || 'Còn lại', value: formatVND(totalAmt - approvedAmt) },
-                  { label: t('home.totalBudget') || 'Tổng ngân sách', value: formatVND(totalAmt) },
+                  { label: t('home.used'), value: `${utilPct}%` },
+                  { label: t('home.remaining'), value: formatVND(totalAmt - approvedAmt) },
+                  { label: t('home.totalBudget'), value: formatVND(totalAmt) },
                 ]});
             }
 
@@ -862,13 +862,13 @@ const HomeScreen = () => {
                 bgColor: 'bg-[rgba(88,166,255,0.08)]',
                 accentColor: '#79C0FF',
                 accentHover: '#58A6FF',
-                title: t('home.activePlansAlert') || `${activePlans} kế hoạch đang hoạt động`,
-                time: t('home.now') || 'Hiện tại',
-                message: t('home.activePlansMessage') || `Có ${activePlans} kế hoạch/đề xuất đang trong quy trình xử lý.`,
+                title: t('home.activePlansAlert', { count: activePlans }),
+                time: t('home.now'),
+                message: t('home.activePlansMessage', { count: activePlans }),
                 route: '/otb-analysis',
                 detailItems: [
-                  { label: t('home.activePlans') || 'Kế hoạch', value: String(activePlans) },
-                  { label: t('home.brands') || 'Thương hiệu', value: String(s.totalBrands || 0) },
+                  { label: t('home.activePlans'), value: String(activePlans) },
+                  { label: t('home.brands'), value: String(s.totalBrands || 0) },
                 ]});
             }
 
@@ -884,9 +884,9 @@ const HomeScreen = () => {
                 bgColor: 'bg-[rgba(42,158,106,0.08)]',
                 accentColor: '#2A9E6A',
                 accentHover: '#1E7A4F',
-                title: t('home.noAlerts') || 'Không có cảnh báo',
+                title: t('home.noAlerts'),
                 time: '',
-                message: t('home.noAlertsMessage') || 'Tất cả các chỉ số đều trong giới hạn bình thường.',
+                message: t('home.noAlertsMessage'),
                 route: '/budget-management',
                 detailItems: []});
             }
@@ -948,7 +948,7 @@ const HomeScreen = () => {
                       onMouseLeave={(e) => { e.currentTarget.style.backgroundColor = `${alert.accentColor}20`; }}
                     >
                       <ArrowUpRight size={14} />
-                      {t('home.goToPage') || 'Đi đến trang chi tiết'}
+                      {t('home.goToPage')}
                     </button>
                   </div>
                 </div>

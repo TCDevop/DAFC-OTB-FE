@@ -129,7 +129,7 @@ export const formatCurrency = (value: string | number | null | undefined, option
   // VND formatting
   // If full format requested, show full number
   if (full) {
-    return new Intl.NumberFormat('vi-VN', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'VND',
       minimumFractionDigits: 0,
@@ -142,27 +142,27 @@ export const formatCurrency = (value: string | number | null | undefined, option
   const absNum = Math.abs(num);
   const prefix = isNegative ? '-' : '';
 
-  // Abbreviated format: tỷ (billion), triệu (million)
+  // Abbreviated format: B (billion), M (million), K (thousand)
   if (absNum >= 1e9) {
     const val = absNum / 1e9;
     const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
-    return `${prefix}${formatted} tỷ`;
+    return `${prefix}${formatted}B`;
   }
 
   if (absNum >= 1e6) {
     const val = absNum / 1e6;
     const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
-    return `${prefix}${formatted} tr`;
+    return `${prefix}${formatted}M`;
   }
 
   if (absNum >= 1e3) {
     const val = absNum / 1e3;
     const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
-    return `${prefix}${formatted}K đ`;
+    return `${prefix}${formatted}K`;
   }
 
   // For smaller numbers
-  return new Intl.NumberFormat('vi-VN').format(num) + ' đ';
+  return new Intl.NumberFormat('en-US').format(num);
 };
 
 export interface Season {

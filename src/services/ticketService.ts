@@ -39,12 +39,14 @@ export const ticketService = {
   },
 
   // Create ticket (runs validation + builds snapshot atomically)
-  async create(data: { budgetId: string; seasonGroupId: string; seasonId: string }) {
+  async create(data: { budgetId: string; seasonGroupId: string; seasonId: string; force?: boolean }) {
     try {
       const response = await api.post('/tickets', data);
       return extract(response);
     } catch (err: any) {
-      console.error('[ticketService.create]', err?.response?.status, err?.message);
+      console.error('[ticketService.create]', err?.response?.status, err?.message,
+        '\n  → serverMessage:', err?.response?.data?.message || 'N/A',
+        '\n  → fullResponse:', JSON.stringify(err?.response?.data));
       throw err;
     }
   },

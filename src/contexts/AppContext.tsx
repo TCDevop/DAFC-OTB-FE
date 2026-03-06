@@ -84,12 +84,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const triggerSave = useCallback(async () => {
     if (saveHandlerRef.current) {
-      setLoading({ visible: true, message: undefined });
-      try {
-        await saveHandlerRef.current();
-      } finally {
-        setLoading({ visible: false, message: undefined });
-      }
+      await saveHandlerRef.current();
     }
   }, []);
 
@@ -109,12 +104,7 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
 
   const triggerSaveAsNew = useCallback(async () => {
     if (saveAsNewHandlerRef.current) {
-      setLoading({ visible: true, message: undefined });
-      try {
-        await saveAsNewHandlerRef.current();
-      } finally {
-        setLoading({ visible: false, message: undefined });
-      }
+      await saveAsNewHandlerRef.current();
     }
   }, []);
 

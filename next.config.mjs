@@ -8,8 +8,14 @@ const nextConfig = {
     unoptimized: true,
   },
 
-  // Transpile packages if needed for Node 22/24
-  transpilePackages: [],
+  // Compress responses
+  compress: true,
+
+  // Reduce dev server memory usage
+  onDemandEntries: {
+    maxInactiveAge: 60 * 1000,
+    pagesBufferLength: 3,
+  },
 
   // Logging
   logging: {

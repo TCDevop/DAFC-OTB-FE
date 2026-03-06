@@ -106,8 +106,8 @@ const LoginScreen = () => {
       const isNetwork = err.message?.includes('Network Error') || err.message?.includes('ERR_NETWORK');
 
       if (isTimeout || isNetwork) {
-        setLocalError('Máy chủ đang khởi động, vui lòng thử lại sau vài giây...');
-        toast.error('Máy chủ đang khởi động...');
+        setLocalError(t('login.serverStarting'));
+        toast.error(t('login.serverStarting'));
       } else {
         setLocalError(err.message || t('login.loginFailed'));
         toast.error(err.message || t('login.loginFailed'));
@@ -119,9 +119,9 @@ const LoginScreen = () => {
     setLocalError('');
     try {
       await loginWithMicrosoft();
-      toast.success('Đăng nhập Microsoft thành công!');
+      toast.success(t('login.microsoftSuccess'));
     } catch (err: any) {
-      if (err.message?.includes('hủy')) return;
+      if (err.message?.includes('cancelled')) return;
       setLocalError(err.message || 'Microsoft login failed');
       toast.error(err.message || 'Microsoft login failed');
     }
@@ -164,11 +164,11 @@ const LoginScreen = () => {
           <img src="/dafc-logo.png" alt="DAFC" className="h-16 mx-auto mb-2 object-contain" />
           <p className="text-[15px] font-semibold tracking-[0.08em] text-[#5C4A3A] mb-1"
             style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}>
-            Hệ Thống Quản Lý OTB
+            {t('login.title')}
           </p>
           <p className="text-[12px] font-light tracking-[0.03em] text-[#7A6655]"
             style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}>
-            Quản lý kế hoạch Open-to-Buy
+            {t('login.subtitle')}
           </p>
         </div>
 
@@ -268,7 +268,7 @@ const LoginScreen = () => {
                     </svg>
                   )}
                 </div>
-                <span>Ghi nhớ đăng nhập</span>
+                <span>{t('login.rememberMe')}</span>
               </label>
               <button type="button" onClick={() => toast(t('login.contactAdmin') || 'Contact your administrator to reset your password', { icon: 'ℹ️' })} className="text-[#6B5744] hover:text-[#3D2E22] font-light transition-colors no-underline bg-transparent border-none cursor-pointer text-[13px]">
                 Forgot password?
@@ -290,7 +290,7 @@ const LoginScreen = () => {
               {loading ? (
                 <span className="flex items-center justify-center gap-2">
                   <span className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />
-                  {authLoginStatus || 'Đang đăng nhập...'}
+                  {authLoginStatus || t('login.signingIn')}
                 </span>
               ) : (
                 <span>Sign In</span>

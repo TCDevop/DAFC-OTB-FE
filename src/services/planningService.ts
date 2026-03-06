@@ -123,19 +123,20 @@ export const planningService = {
   },
 
   // Get aggregated sales history from sales_history_agg
+  // mode=same: year-N same season; mode=diff: go back N seasons by season.no
   async getSalesHistory(params: {
     brandId: string;
-    mode: 'baseline' | 'recent';
-    year?: number;
-    seasonName?: string;
-    seasonGroupName?: string;
-    limit?: number;
+    mode: 'same' | 'diff';
+    year: number;
+    seasonId: string;
+    count?: number;
+    tab?: 'category' | 'collection' | 'gender';
   }) {
     try {
       const response = await api.get('/planning/sales-history', { params });
       return extract(response);
     } catch (err: any) {
-      console.error('[planningService.getSalesHistory]', err?.response?.status, err?.message);
+      console.error('[planningService.getSalesHistory]', err?.response?.status, err?.message, 'body:', JSON.stringify(err?.response?.data));
       return null;
     }
   }

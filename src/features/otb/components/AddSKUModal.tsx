@@ -1,17 +1,18 @@
 'use client';
 
-import { useState, useMemo, memo, useCallback } from 'react';
+import { useState, useMemo, useEffect, memo, useCallback } from 'react';
 import { createPortal } from 'react-dom';
-import { X, Search, Check, Package, ArrowLeft, ArrowRight, ShoppingCart } from 'lucide-react';
+import { X, Search, Check, Package, ArrowLeft, ArrowRight, ShoppingCart, Loader2 } from 'lucide-react';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { formatNumber } from '@/utils';
 import { ProductImage } from '@/components/ui';
 import CreatableSelect from '@/components/ui/CreatableSelect';
+import masterDataService from '@/services/masterDataService';
 
 interface AddSKUModalProps {
   isOpen: boolean;
   onClose: () => void;
-  skuCatalog: any[];
+  subCategoryId?: string;
   blockGender?: string;
   blockCategory?: string;
   blockSubCategory?: string;
@@ -33,7 +34,7 @@ interface SkuFormData {
 const AddSKUModal = ({
   isOpen,
   onClose,
-  skuCatalog,
+  subCategoryId,
   blockGender = '',
   blockCategory = '',
   blockSubCategory = '',
@@ -49,49 +50,72 @@ const AddSKUModal = ({
   const [formData, setFormData] = useState<Record<string, SkuFormData>>({});
   const [activeSkuIndex, setActiveSkuIndex] = useState(0);
 
+  // Fetch SKU catalog filtered by subCategoryId from API
+  const [skuCatalog, setSkuCatalog] = useState<any[]>([]);
+  const [catalogLoading, setCatalogLoading] = useState(false);
+
+  useEffect(() => {
+    if (!isOpen || !subCategoryId) {
+      setSkuCatalog([]);
+      return;
+    }
+    let cancelled = false;
+    const fetchSkus = async () => {
+      setCatalogLoading(true);
+      try {
+        const allItems: any[] = [];
+        let page = 1;
+        const pageSize = 200;
+        while (true) {
+          const res = await masterDataService.getSkuCatalog({ subCategoryId, page, pageSize }).catch(() => null);
+          const items = Array.isArray(res) ? res : (Array.isArray(res?.data) ? res.data : []);
+          allItems.push(...items);
+          const totalPages = res?.meta?.totalPages || 1;
+          if (page >= totalPages || items.length === 0) break;
+          page++;
+        }
+        if (!cancelled) {
+          setSkuCatalog(allItems.map((s: any) => ({
+            productId: String(s.id || ''),
+            sku: s.sku_code || s.skuCode || s.sku || s.code || s.id,
+            name: s.product_name || s.productName || s.name || '',
+            collectionName: s.collectionName || s.collection || s.family || '',
+            color: s.color || '',
+            colorCode: s.colorCode || '',
+            division: s.sub_category?.category?.name || s.division || s.category || '',
+            productType: s.sub_category?.name || s.productType || s.category || '',
+            departmentGroup: s.departmentGroup || s.department || '',
+            fsr: s.fsr || '',
+            carryForward: s.carryForward || s.carry || 'NEW',
+            composition: s.composition || '',
+            unitCost: Number(s.unit_cost ?? s.unitCost) || 0,
+            importTaxPct: Number(s.importTaxPct || s.importTax) || 0,
+            srp: Number(s.unit_price ?? s.unitPrice ?? s.srp) || 0,
+            wholesale: Number(s.wholesale) || 0,
+            rrp: Number(s.rrp) || 0,
+            regionalRrp: Number(s.regionalRrp) || 0,
+            theme: s.theme || '',
+            size: s.size || '',
+            imageUrl: s.image_url || s.imageUrl || '',
+          })));
+        }
+      } catch (err) {
+        console.error('Failed to fetch SKU catalog for subcategory:', err);
+      } finally {
+        if (!cancelled) setCatalogLoading(false);
+      }
+    };
+    fetchSkus();
+    return () => { cancelled = true; };
+  }, [isOpen, subCategoryId]);
+
   const storeList = propStores && propStores.length > 0
     ? propStores
     : [{ code: 'REX', name: 'REX' }, { code: 'TTP', name: 'TTP' }];
 
-  // Pre-filter catalog by block's gender/category/subCategory, then by search
-  const { filteredCatalog, isUnfiltered } = useMemo(() => {
-    let items = skuCatalog;
-    let didFallback = false;
-    const bsc = (blockSubCategory || '').toLowerCase();
-    const bc = (blockCategory || '').toLowerCase();
-
-    if (bsc) {
-      // Strict filter by subcategory — match productType, division, or subCategory field
-      const filtered = items.filter((s: any) => {
-        const pt = (s.productType || '').toLowerCase();
-        const div = (s.division || '').toLowerCase();
-        const sc = (s.subCategory || '').toLowerCase();
-        return pt === bsc || div === bsc || sc === bsc;
-      });
-      // Only fall back to showing all if there are ZERO catalog items at all
-      if (filtered.length > 0) {
-        items = filtered;
-      } else if (items.length > 0) {
-        // No match — still apply filter (show empty), set fallback flag for message
-        items = filtered;
-        didFallback = true;
-      }
-    } else if (bc) {
-      const filtered = items.filter((s: any) => {
-        const div = (s.division || '').toLowerCase();
-        const pt = (s.productType || '').toLowerCase();
-        const cat = (s.category || '').toLowerCase();
-        return div === bc || cat === bc || pt.includes(bc);
-      });
-      if (filtered.length > 0) {
-        items = filtered;
-      } else if (items.length > 0) {
-        items = filtered;
-        didFallback = true;
-      }
-    }
-
-    items = items.filter((s: any) => !existingSkus.includes(s.sku));
+  // Filter by search query and exclude existing SKUs
+  const filteredCatalog = useMemo(() => {
+    let items = skuCatalog.filter((s: any) => !existingSkus.includes(s.sku));
 
     if (searchQuery.trim()) {
       const q = searchQuery.toLowerCase();
@@ -103,8 +127,8 @@ const AddSKUModal = ({
       );
     }
 
-    return { filteredCatalog: items, isUnfiltered: didFallback };
-  }, [skuCatalog, blockGender, blockCategory, blockSubCategory, existingSkus, searchQuery]);
+    return items;
+  }, [skuCatalog, existingSkus, searchQuery]);
 
   const selectedSkuItems = useMemo(() => {
     return skuCatalog.filter((s: any) => selectedSkus.has(s.sku));
@@ -289,12 +313,17 @@ const AddSKUModal = ({
 
             {/* SKU List */}
             <div className="flex-1 overflow-y-auto px-2 py-2 min-h-0">
-              {isUnfiltered && (
-                <div className={`text-center py-1.5 mb-1 text-[10px] rounded-lg ${'bg-amber-50 text-amber-600'}`}>
-                  {`No SKUs found for "${blockSubCategory || blockCategory}" — try importing products for this subcategory`}
+              {catalogLoading ? (
+                <div className={`text-center py-8 ${textMuted}`}>
+                  <Loader2 size={32} className="mx-auto mb-2 opacity-40 animate-spin" />
+                  <p className="text-xs">Loading SKUs...</p>
                 </div>
-              )}
-              {skuCatalog.length === 0 ? (
+              ) : !subCategoryId ? (
+                <div className={`text-center py-8 ${textMuted}`}>
+                  <Package size={32} className="mx-auto mb-2 opacity-40" />
+                  <p className="text-xs font-semibold mb-1">No subcategory selected</p>
+                </div>
+              ) : skuCatalog.length === 0 ? (
                 <div className={`text-center py-8 ${textMuted}`}>
                   <Package size={32} className="mx-auto mb-2 opacity-40" />
                   <p className="text-xs font-semibold mb-1">{t('proposal.noCatalogData') || 'No SKU catalog data'}</p>
@@ -324,7 +353,7 @@ const AddSKUModal = ({
                             :'border-[#C4B5A5] bg-transparent'}`}>
                           {isSelected && <Check size={10} className="text-white" />}
                         </div>
-                        <ProductImage subCategory={sku.productType || blockSubCategory} sku={sku.sku} size={40} rounded="rounded-lg" />
+                        <ProductImage subCategory={sku.productType || blockSubCategory} sku={sku.sku} imageUrl={sku.imageUrl} size={40} rounded="rounded-lg" />
                         <div className="flex-1 min-w-0">
                           <div className={`text-xs font-semibold truncate ${'text-[#333]'}`}>
                             <span className="font-['JetBrains_Mono']">{sku.sku}</span>
@@ -390,7 +419,7 @@ const AddSKUModal = ({
               <div className="flex-1 overflow-y-auto px-4 py-3 min-h-0 space-y-3">
                 {/* SKU Header Card — Image + Info + Customer Target */}
                 <div className="flex items-start gap-3">
-                  <ProductImage subCategory={activeSku.productType || blockSubCategory} sku={activeSku.sku} size={56} rounded="rounded-xl" />
+                  <ProductImage subCategory={activeSku.productType || blockSubCategory} sku={activeSku.sku} imageUrl={activeSku.imageUrl} size={56} rounded="rounded-xl" />
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
                       <span className={`text-xs font-bold font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{activeSku.sku}</span>

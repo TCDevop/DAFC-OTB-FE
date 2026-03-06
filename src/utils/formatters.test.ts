@@ -5,24 +5,24 @@ describe('formatters', () => {
     describe('formatCurrency', () => {
         it('formats VND correctly for large numbers', () => {
             // 10 billion
-            expect(formatCurrency(10_000_000_000)).toBe('10 tỷ');
+            expect(formatCurrency(10_000_000_000)).toBe('10B');
             // 2.5 billion
-            expect(formatCurrency(2_500_000_000)).toBe('2.5 tỷ');
+            expect(formatCurrency(2_500_000_000)).toBe('2.5B');
         });
 
         it('formats VND correctly for millions', () => {
             // 500 million
-            expect(formatCurrency(500_000_000)).toBe('500 tr');
+            expect(formatCurrency(500_000_000)).toBe('500M');
         });
 
         it('formats VND correctly for thousands', () => {
             // 500k
-            expect(formatCurrency(500_000)).toBe('500K đ');
+            expect(formatCurrency(500_000)).toBe('500K');
         });
 
         it('formats small numbers correctly', () => {
             // 100
-            expect(formatCurrency(100)).toBe('100 đ');
+            expect(formatCurrency(100)).toBe('100');
         });
 
         it('formats USD correctly when requested', () => {
@@ -34,9 +34,9 @@ describe('formatters', () => {
         });
 
         it('handles null/undefined/string inputs', () => {
-            expect(formatCurrency(null)).toBe('0 đ');
-            expect(formatCurrency(undefined)).toBe('0 đ');
-            expect(formatCurrency('100000')).toBe('100K đ');
+            expect(formatCurrency(null)).toBe('0');
+            expect(formatCurrency(undefined)).toBe('0');
+            expect(formatCurrency('100000')).toBe('100K');
         });
     });
 

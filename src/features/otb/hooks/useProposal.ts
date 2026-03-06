@@ -61,7 +61,7 @@ export const useProposal = () => {
       setProposals(transformedProposals);
     } catch (err: any) {
       console.error('Failed to fetch proposals:', err);
-      toast.error('Không thể tải danh sách đề xuất.');
+      toast.error('Failed to load proposal list.');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -77,7 +77,7 @@ export const useProposal = () => {
       setSkuCatalog(data);
     } catch (err: any) {
       console.error('Failed to fetch SKU catalog:', err);
-      toast.error('Không thể tải danh mục SKU.');
+      toast.error('Failed to load SKU catalog.');
     } finally {
       setSkuLoading(false);
     }
@@ -93,7 +93,7 @@ export const useProposal = () => {
       return result;
     } catch (err: any) {
       console.error('Failed to create proposal:', err);
-      toast.error('Tạo đề xuất thất bại.');
+      toast.error('Failed to create proposal.');
       setError(err.message);
       throw err;
     } finally {
@@ -110,7 +110,7 @@ export const useProposal = () => {
       await fetchProposals();
     } catch (err: any) {
       console.error('Failed to add product:', err);
-      toast.error('Thêm sản phẩm thất bại.');
+      toast.error('Failed to add product.');
       setError(err.message);
       throw err;
     } finally {
@@ -127,7 +127,7 @@ export const useProposal = () => {
       await fetchProposals();
     } catch (err: any) {
       console.error('Failed to bulk add products:', err);
-      toast.error('Thêm hàng loạt sản phẩm thất bại.');
+      toast.error('Failed to bulk add products.');
       setError(err.message);
       throw err;
     } finally {
@@ -144,7 +144,7 @@ export const useProposal = () => {
       await fetchProposals();
     } catch (err: any) {
       console.error('Failed to update product:', err);
-      toast.error('Cập nhật sản phẩm thất bại.');
+      toast.error('Failed to update product.');
       setError(err.message);
       throw err;
     } finally {
@@ -161,7 +161,7 @@ export const useProposal = () => {
       await fetchProposals();
     } catch (err: any) {
       console.error('Failed to remove product:', err);
-      toast.error('Xoá sản phẩm thất bại.');
+      toast.error('Failed to delete product.');
       setError(err.message);
       throw err;
     } finally {
@@ -178,7 +178,7 @@ export const useProposal = () => {
       await fetchProposals();
     } catch (err: any) {
       console.error('Failed to submit proposal:', err);
-      toast.error('Gửi duyệt đề xuất thất bại.');
+      toast.error('Failed to submit proposal.');
       setError(err.message);
       throw err;
     } finally {
@@ -200,7 +200,7 @@ export const useProposal = () => {
       await fetchProposals();
     } catch (err: any) {
       console.error('Failed to approve proposal:', err);
-      toast.error('Phê duyệt đề xuất thất bại.');
+      toast.error('Failed to approve proposal.');
       setError(err.message);
       throw err;
     } finally {
@@ -217,7 +217,7 @@ export const useProposal = () => {
       await fetchProposals();
     } catch (err: any) {
       console.error('Failed to delete proposal:', err);
-      toast.error('Xoá đề xuất thất bại.');
+      toast.error('Failed to delete proposal.');
       setError(err.message);
       throw err;
     } finally {
@@ -234,7 +234,7 @@ export const useProposal = () => {
         setCurrentProposalId(proposal.id);
       } catch (err: any) {
         console.error('Failed to load proposal:', err);
-        toast.error('Không thể tải chi tiết đề xuất.');
+        toast.error('Failed to load proposal details.');
         setSelectedProposal(proposal);
         setCurrentProposalId(proposal.id);
       }

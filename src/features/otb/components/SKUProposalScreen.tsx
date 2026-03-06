@@ -17,7 +17,7 @@ import { useAppContext } from '@/contexts/AppContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { useSmartScrollState } from '@/hooks/useSmartScrollState';
 import { FilterBottomSheet, useBottomSheet } from '@/components/mobile';
-import { ProductImage, ConfirmDialog, FilterSelect } from '@/components/ui';
+import { ProductImage, ConfirmDialog, FilterSelect, ScrollToHeader } from '@/components/ui';
 import CreatableSelect from '@/components/ui/CreatableSelect';
 import AddSKUModal from './AddSKUModal';
 
@@ -62,6 +62,7 @@ const extractBrandId = (p: any): string => {
 const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
   if (!proposal) return [];
   const blocks: any[] = [];
+  const proposalHeaderId = String(proposal.id || '');
   const items = proposal.sku_proposals || proposal.skuProposals || proposal.products || [];
 
   items.forEach((sp: any) => {
@@ -72,7 +73,7 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
 
     let block = blocks.find((b: any) => b.gender === gender && b.category === category && b.subCategory === subCategory);
     if (!block) {
-      block = { brandId, gender, category, subCategory, items: [] };
+      block = { brandId, proposalHeaderId, gender, category, subCategory, items: [] };
       blocks.push(block);
     }
 
@@ -85,7 +86,7 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
     }
 
     const orderQty = Object.values(storeQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
-    const itemUnitCost = Number(sp.unit_cost ?? sp.unitCost ?? prod.unitCost) || 0;
+    const itemUnitCost = Number(sp.unit_cost ?? sp.unitCost ?? prod.unit_cost ?? prod.unitCost) || 0;
 
     // product_id is the FK to the product table — always prefer it over prod.id
     // because when sp.product is null, prod falls back to sp and prod.id = sp.id (sku_proposal ID, not product ID)
@@ -106,7 +107,7 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
       composition: prod.composition || '',
       unitCost: itemUnitCost,
       importTaxPct: Number(prod.importTaxPct || prod.importTax) || 0,
-      srp: Number(sp.srp ?? prod.srp) || 0,
+      srp: Number(sp.srp ?? prod.unit_price ?? prod.unitPrice ?? prod.srp) || 0,
       wholesale: Number(prod.wholesale) || 0,
       rrp: Number(prod.rrp) || 0,
       regionalRrp: Number(prod.regionalRrp) || 0,
@@ -126,7 +127,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const router = useRouter();
-  const { setAllocationData, setOtbAnalysisContext, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, registerExport, unregisterExport } = useAppContext();
+  const { setAllocationData, setOtbAnalysisContext, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, registerExport, unregisterExport, showLoading, hideLoading } = useAppContext();
   const { dialogProps, confirm } = useConfirmDialog();
   const { isOpen: filterOpen, open: openFilter, close: closeFilter } = useBottomSheet();
   const [mobileFilterValues, setMobileFilterValues] = useState<Record<string, string | string[]>>({});
@@ -253,14 +254,15 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       fsr: s.fsr || '',
       carryForward: s.carryForward || s.carry || 'NEW',
       composition: s.composition || '',
-      unitCost: Number(s.unitCost || s.srp) || 0,
+      unitCost: Number(s.unit_cost ?? s.unitCost) || 0,
       importTaxPct: Number(s.importTaxPct || s.importTax) || 0,
-      srp: Number(s.srp) || 0,
+      srp: Number(s.unit_price ?? s.unitPrice ?? s.srp) || 0,
       wholesale: Number(s.wholesale) || 0,
       rrp: Number(s.rrp) || 0,
       regionalRrp: Number(s.regionalRrp) || 0,
       theme: s.theme || '',
       size: s.size || '',
+      imageUrl: s.image_url || s.imageUrl || '',
     });
     const fetchCatalog = async () => {
       setSkuDataLoading(true);
@@ -307,7 +309,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           isFinal: ah.is_final_version || ah.isFinalVersion || false,
           budgetAllocates: (ah.budget_allocates || ah.budgetAllocates || []).map((ba: any) => ({
             seasonGroupName: ba.season_group?.name || ba.seasonGroup?.name || '',
-            seasonName: ba.season?.name || ba.season?.name || ''}))}));
+            seasonName: ba.season?.name || ba.season?.name || '',
+            budgetAmount: Number(ba.budget_amount ?? ba.budgetAmount) || 0,
+            storeCode: ba.store?.code || ba.storeCode || ''}))}));
         return {
           id: budget.id,
           fiscalYear: Number(budget.fiscal_year ?? budget.fiscalYear) || undefined,
@@ -465,17 +469,21 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             );
             const proposals = detailResults.map((r: any) => r?.data || r).filter(Boolean);
 
-            // Build blocks
-            proposals.forEach((p: any) => {
-              const brandBlocks = buildBlocksFromProposal(p, brandId);
+            // Build blocks — only from final version (or latest if no final)
+            const finalHeader = newHeadersByBrand[brandId]?.find((h: any) => h.isFinal) || newHeadersByBrand[brandId]?.[0];
+            const activeProposal = finalHeader
+              ? proposals.find((p: any) => String(p.id) === String(finalHeader.id))
+              : proposals[0];
+            if (activeProposal) {
+              const brandBlocks = buildBlocksFromProposal(activeProposal, brandId);
               allBlocks.push(...brandBlocks);
-            });
+            }
 
-            // Build sizing headers (now at proposal header level, not per-SKU)
+            // Build sizing headers from the active (final) proposal only
             seenSizingVersions[brandId] = new Set();
             newSizingByBrand[brandId] = [];
-            proposals.forEach((p: any) => {
-              const headerSizings = p.proposal_sizing_headers || p.proposalSizingHeaders || [];
+            if (activeProposal) {
+              const headerSizings = activeProposal.proposal_sizing_headers || activeProposal.proposalSizingHeaders || [];
               headerSizings.forEach((sh: any) => {
                 const ver = sh.version ?? 0;
                 if (!seenSizingVersions[brandId].has(ver)) {
@@ -488,7 +496,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   });
                 }
               });
-            });
+            }
             newSizingByBrand[brandId]?.sort((a: any, b: any) => a.version - b.version);
 
             // Enrich catalog with unique SKUs from proposal products
@@ -511,11 +519,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     departmentGroup: prod.departmentGroup || prod.department || '',
                     fsr: prod.fsr || '', carryForward: prod.carryForward || 'NEW',
                     composition: prod.composition || '',
-                    unitCost: Number(prod.unitCost || sp.unit_cost || sp.unitCost) || 0,
+                    unitCost: Number(prod.unit_cost ?? prod.unitCost ?? sp.unit_cost ?? sp.unitCost) || 0,
                     importTaxPct: Number(prod.importTaxPct || prod.importTax) || 0,
-                    srp: Number(sp.srp ?? prod.srp) || 0, wholesale: Number(prod.wholesale) || 0,
+                    srp: Number(prod.unit_price ?? prod.unitPrice ?? sp.srp ?? prod.srp) || 0, wholesale: Number(prod.wholesale) || 0,
                     rrp: Number(prod.rrp) || 0, regionalRrp: Number(prod.regionalRrp) || 0,
                     theme: prod.theme || '', size: prod.size || '',
+                    imageUrl: prod.image_url || prod.imageUrl || '',
                   });
                 }
               });
@@ -604,6 +613,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const [brandSkuVersion, setBrandSkuVersion] = useState<Record<string, string>>({});
   const [brandSizingChoice, setBrandSizingChoice] = useState<Record<string, string>>({});
   const [brandSaving, setBrandSaving] = useState<Record<string, boolean>>({});
+  // Sizing history data: keyed by `${brandId}_${subCategoryId}` → { size, salesMixPct, stPct }[]
+  const [sizingHistoryMap, setSizingHistoryMap] = useState<Record<string, { size: string; salesMixPct: number; stPct: number | null }[]>>({});
   // Portal dropdown state for version & choice
   const [openDropdown, setOpenDropdown] = useState<{ type: 'version' | 'choice'; brandId: string } | null>(null);
   const [dropdownAnchorEl, setDropdownAnchorEl] = useState<HTMLElement | null>(null);
@@ -749,11 +760,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         const other = prev.filter((b: any) => String(b.brandId) !== brandId);
         return [...other, ...newBrandBlocks];
       });
-      // Hydrate sizing data from header-level sizing headers
+      // Update sizing headers and hydrate sizing data from new proposal version
       const headerSizings = (p.proposal_sizing_headers || p.proposalSizingHeaders || []).map((sh: any) => ({
-        id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? false,
+        id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false,
         proposalSizings: sh.proposal_sizings || sh.proposalSizings || [],
       }));
+      setBrandSizingHeaders(prev => ({ ...prev, [brandId]: headerSizings.sort((a: any, b: any) => a.version - b.version) }));
       hydrateSizingData(newBrandBlocks, headerSizings);
     } catch (err: any) {
       console.error('Failed to load proposal version:', err);
@@ -909,6 +921,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     }));
   };
 
+  const choiceLetter = (v: number) => String.fromCharCode(64 + v); // 1→A, 2→B, 3→C
+
   const calculateSum = (choiceData: any): number => {
     return Object.values(choiceData).reduce((sum: any, val: any) => sum + (parseInt(val) || 0), 0) as number;
   };
@@ -937,6 +951,41 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const handleOpenLightbox = (key: string, tab: 'details' | 'storeOrder' | 'sizing', item: any, blockKey: string, idx: number, block: any) => {
     setLightbox({ open: true, key, tab, item, blockKey, idx, block });
   };
+
+  // Fetch sizing history when lightbox sizing tab is shown
+  useEffect(() => {
+    if (!lightbox || lightbox.tab !== 'sizing') return;
+    const brandId = lightbox.blockKey.split('_')[0] || '';
+    const subCatName = (lightbox.block?.subCategory || '').toLowerCase();
+    // Resolve subCategoryId
+    let subCategoryId = '';
+    const cats = brandCategoryMap[brandId] || [];
+    for (const cat of cats) {
+      const subs = cat.sub_categories || cat.subCategories || [];
+      const found = subs.find((sc: any) => (sc.name || '').toLowerCase() === subCatName);
+      if (found) { subCategoryId = String(found.id); break; }
+    }
+    if (!brandId || !subCategoryId) return;
+    // Resolve year from fyFilter - 1 (lấy data năm trước)
+    const year = fyFilter !== 'all' ? Number(fyFilter) - 1 : undefined;
+    // Resolve seasonId from seasonFilter name
+    let seasonId: string | undefined;
+    if (seasonFilter !== 'all') {
+      for (const sg of apiSeasonGroups) {
+        const found = (sg.seasons || []).find((s: any) => (s.name || s.code) === seasonFilter);
+        if (found) { seasonId = String(found.id); break; }
+      }
+    }
+    const cacheKey = `${brandId}_${subCategoryId}_${year || 'all'}_${seasonId || 'all'}`;
+    if (sizingHistoryMap[cacheKey]) return; // already cached
+    proposalService.getSizingHistory({ brandId, subCategoryId, year, seasonId })
+      .then((data: any) => {
+        if (Array.isArray(data)) {
+          setSizingHistoryMap(prev => ({ ...prev, [cacheKey]: data }));
+        }
+      })
+      .catch((err: any) => console.error('[sizingHistory]', err));
+  }, [lightbox?.tab, lightbox?.blockKey, fyFilter, seasonFilter]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleCloseLightbox = () => {
     setLightbox(null);
@@ -1011,6 +1060,15 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     if (brandFilter === 'all') return apiBrands;
     return apiBrands.filter((b: any) => String(b.id) === brandFilter);
   }, [apiBrands, brandFilter]);
+
+  // Auto-collapse all brand sections when brand filter is "all"
+  useEffect(() => {
+    if (brandFilter === 'all' && displayBrands.length > 0) {
+      const next: Record<string, boolean> = {};
+      displayBrands.forEach((b: any) => { next[String(b.id)] = true; });
+      setCollapsedBrands(next);
+    }
+  }, [brandFilter, displayBrands]);
 
   // Fetch planning headers per brand to check final PlanningHeader existence
   // Also loads OTB category amounts from the final planning version
@@ -1275,6 +1333,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const handleSaveBrand = useCallback(async (brandId: string, isNewVersion: boolean) => {
     let headerId = getBrandSkuVersion(brandId);
     setBrandSaving(prev => ({ ...prev, [brandId]: true }));
+    showLoading(isNewVersion ? 'Saving as new version...' : 'Saving...');
     try {
       const products = buildProductsPayload(brandId);
       const sizings = buildSizingsPayload(brandId);
@@ -1351,8 +1410,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       toast.error(`${isNewVersion ? 'Failed to save as new version' : 'Failed to save'}${serverMsg ? ': ' + serverMsg : ''}`);
     } finally {
       setBrandSaving(prev => ({ ...prev, [brandId]: false }));
+      hideLoading();
     }
-  }, [buildProductsPayload, buildSizingsPayload, getBrandSkuVersion, matchedAllocateHeaders]);
+  }, [buildProductsPayload, buildSizingsPayload, getBrandSkuVersion, matchedAllocateHeaders, showLoading, hideLoading]);
 
   // Save all brands (used by AppContext header button)
   const handleSave = useCallback(async () => {
@@ -1397,6 +1457,17 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
   // Card view available when there's data to show
   const canShowCardView = filteredSkuBlocks.length > 0 && filteredSkuBlocks.some((b: any) => b.items.length > 0);
+
+  // Submit validation: all brands must have final version + final sizing choice
+  const canSubmitTicket = useMemo(() => {
+    if (grandTotals.order === 0) return false;
+    return displayBrands.every((b: any) => {
+      const bId = String(b.id);
+      const hasFinalVersion = (brandProposalHeaders[bId] || []).some((h: any) => h.isFinal);
+      const hasFinalChoice = (brandSizingHeaders[bId] || []).some((h: any) => h.isFinal);
+      return hasFinalVersion && hasFinalChoice;
+    });
+  }, [grandTotals.order, displayBrands, brandProposalHeaders, brandSizingHeaders]);
 
   // Export filtered SKU data to CSV
   const handleExportCSV = useCallback(() => {
@@ -1633,6 +1704,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           regionalRrp: skuData.regionalRrp,
           theme: skuData.theme,
           size: skuData.size,
+          imageUrl: skuData.imageUrl || '',
           isNew: false
         };
       });
@@ -1666,6 +1738,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       storeQty: sku.storeQty || {},
       ttlValue: sku.ttlValue || 0,
       customerTarget: sku.customerTarget || 'New',
+      imageUrl: sku.imageUrl || '',
       isNew: false}));
     setSkuBlocks((prev: any) => {
       const existingBlock = prev.find((block: any) => buildBlockKey(block) === blockKey);
@@ -1922,9 +1995,18 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               type="button"
               onClick={() => {
                 const allCollapsedNow = displayBrands.every((b: any) => collapsedBrands[String(b.id)] === true);
+                const shouldCollapse = !allCollapsedNow;
+                // Collapse/expand brand sections
                 const next: Record<string, boolean> = {};
-                displayBrands.forEach((b: any) => { next[String(b.id)] = !allCollapsedNow; });
+                displayBrands.forEach((b: any) => { next[String(b.id)] = shouldCollapse; });
                 setCollapsedBrands(next);
+                // Also collapse/expand all block (subcategory) sections
+                const blockState: Record<string, boolean> = {};
+                filteredSkuBlocks.forEach((block: any) => {
+                  blockState[buildBlockKey(block)] = shouldCollapse;
+                });
+                setCollapsed(prev => ({ ...prev, ...blockState }));
+                setAllCollapsed(shouldCollapse);
               }}
               className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-[#C4B5A5] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] transition-colors shrink-0"
             >
@@ -2191,7 +2273,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                           {curChoice ? (
                             <>
                               {isFinal && <Star size={11} className="shrink-0 fill-current" />}
-                              <span className="whitespace-nowrap">Choice {curChoice.version}</span>
+                              <span className="whitespace-nowrap">Choice {choiceLetter(curChoice.version)}</span>
                               {isFinal && <span className="px-1 text-[9px] font-bold rounded bg-[#D7B797] text-[#0A0A0A]">FINAL</span>}
                             </>
                           ) : (
@@ -2203,6 +2285,23 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         </button>
                       );
                     })()}
+                    {/* Collapse Rails button */}
+                    {brandBlocks.length > 1 && (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          const allRailsCollapsed = brandBlocks.every((b: any) => collapsed[buildBlockKey(b)]);
+                          const next: Record<string, boolean> = {};
+                          brandBlocks.forEach((b: any) => { next[buildBlockKey(b)] = !allRailsCollapsed; });
+                          setCollapsed(prev => ({ ...prev, ...next }));
+                        }}
+                        className="flex items-center gap-1 px-2 py-1 text-[10px] font-medium rounded border border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.1)] transition-colors"
+                      >
+                        <ChevronDown size={10} className={`transition-transform ${brandBlocks.every((b: any) => collapsed[buildBlockKey(b)]) ? '-rotate-90' : ''}`} />
+                        {brandBlocks.every((b: any) => collapsed[buildBlockKey(b)]) ? 'Expand' : 'Collapse'}
+                      </button>
+                    )}
                   </div>}
                 </div>
 
@@ -2341,12 +2440,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         <div key={key} data-rail-card className={`rounded-xl border ${'bg-white border-[rgba(215,183,151,0.2)]'}`} style={{ overflow: 'clip' }}>
                           <button
                             type="button"
-                            onClick={() => !isEmpty && handleToggle(key)}
+                            onClick={() => handleToggle(key)}
                             className={`w-full flex items-center gap-0 ${'bg-[rgba(215,183,151,0.18)] border-b border-[rgba(215,183,151,0.3)]'}`}
                           >
                             <div className={`w-1.5 self-stretch rounded-l-xl ${'bg-[#8A6340]'}`} />
                             <div className="flex items-center gap-3 px-4 py-2 flex-1">
-                              {!isEmpty && <ChevronDown size={14} className={`transition-transform ${isCollapsed ? '-rotate-90' : ''} ${'text-[#6B4D30]'}`} />}
+                              {<ChevronDown size={14} className={`transition-transform ${isCollapsed ? '-rotate-90' : ''} ${'text-[#6B4D30]'}`} />}
                               <div className="text-left flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className={`text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#8A6340]'}`}>RAIL</span>
@@ -2381,19 +2480,19 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                                 </div>
                               </div>
                               {!isEmpty && (
-                                <div className={`hidden md:flex items-center gap-4 text-xs font-['JetBrains_Mono'] ${'text-[#6B5B4D]'}`}>
-                                  <div className="flex flex-col items-center">
+                                <div className={`hidden md:flex items-center text-xs font-['JetBrains_Mono'] ${'text-[#6B5B4D]'}`}>
+                                  <div className="flex flex-col items-center w-[50px]">
                                     <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>Order</span>
                                     <span className={`font-semibold ${'text-[#6B4D30]'}`}>{block.items.reduce((s: number, i: any) => s + (i.order || 0), 0)}</span>
                                   </div>
                                   {stores.map((st: any) => (
-                                    <div key={st.code} className="flex flex-col items-center">
+                                    <div key={st.code} className="flex flex-col items-center w-[50px]">
                                       <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>{st.code}</span>
                                       <span className="font-semibold">{block.items.reduce((s: number, i: any) => s + ((i.storeQty || {})[st.code] || 0), 0)}</span>
                                     </div>
                                   ))}
-                                  <div className={`h-6 w-px ${'bg-[rgba(215,183,151,0.4)]'}`} />
-                                  <div className="flex flex-col items-center">
+                                  <div className={`h-6 w-px mx-1 ${'bg-[rgba(215,183,151,0.4)]'}`} />
+                                  <div className="flex flex-col items-center min-w-[70px]">
                                     <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>Value</span>
                                     <span className={`font-semibold ${'text-[#127749]'}`}>{formatCurrency(block.items.reduce((s: number, i: any) => s + ((i.order || 0) * (i.unitCost || 0)), 0))}</span>
                                   </div>
@@ -2403,7 +2502,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                           </button>
 
                 {/* Empty block — show row headers + Add New column */}
-                {isEmpty && (
+                {isEmpty && !isCollapsed && (
                   <div className="overflow-x-auto" style={{ overflowY: 'clip' }}>
                     {(() => {
                       const labelCls = `px-3 py-1.5 font-semibold font-['Montserrat'] whitespace-nowrap sticky left-0 z-10 ${'bg-white text-[#6B4D30] !border-r-[rgba(160,120,75,0.4)]'}`;
@@ -2724,8 +2823,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     <button
                       onClick={() => {
                         if (onSubmitTicket) {
+                          // Only include blocks from the final (selected) version per brand
+                          const finalBlocks = filteredSkuBlocks.filter((block: any) => {
+                            const bId = block.brandId || 'all';
+                            const finalHeaderId = getBrandSkuVersion(bId);
+                            return !block.proposalHeaderId || block.proposalHeaderId === finalHeaderId;
+                          });
                           // Enrich items with sizing data for each brand's selected choice
-                          const enrichedBlocks = filteredSkuBlocks.map((block: any) => ({
+                          const enrichedBlocks = finalBlocks.map((block: any) => ({
                             ...block,
                             items: (block.items || []).map((item: any, idx: number) => {
                               const blockKey = buildBlockKey(block);
@@ -2741,14 +2846,45 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                           const proposalHeaderIds = Object.entries(brandSkuVersion)
                             .filter(([, hId]) => hId)
                             .map(([, hId]) => hId);
-                          onSubmitTicket({ budgetId: budgetFilter !== 'all' ? budgetFilter : '', proposalHeaderIds, skuBlocks: enrichedBlocks, grandTotals, stores });
+                          // Build brand allocations from final allocate headers
+                          const brandAllocations = matchedAllocateHeaders
+                            .filter((ah: any) => ah.isFinal)
+                            .map((ah: any) => {
+                              const total = (ah.budgetAllocates || [])
+                                .filter((ba: any) => ba.seasonGroupName === seasonGroupFilter && ba.seasonName === seasonFilter)
+                                .reduce((sum: number, ba: any) => sum + (ba.budgetAmount || 0), 0);
+                              return { brandId: ah.brandId, brandName: ah.brandName, totalAllocation: total };
+                            });
+                          // Resolve season group / season DB IDs
+                          const matchedSG = apiSeasonGroups.find((sg: any) => (sg.name || sg.code) === seasonGroupFilter);
+                          let resolvedSeasonId = '';
+                          if (matchedSG) {
+                            const matchedS = (matchedSG.seasons || []).find((s: any) => (s.name || s.code) === seasonFilter);
+                            if (matchedS) resolvedSeasonId = String(matchedS.id);
+                          }
+                          onSubmitTicket({
+                            budgetId: budgetFilter !== 'all' ? budgetFilter : '',
+                            proposalHeaderIds,
+                            skuBlocks: enrichedBlocks,
+                            grandTotals,
+                            stores,
+                            fiscalYear: fyFilter !== 'all' ? fyFilter : '',
+                            budgetName: selectedBudget?.budgetName || '',
+                            budgetAmount: selectedBudget?.totalBudget || 0,
+                            seasonGroup: seasonGroupFilter !== 'all' ? seasonGroupFilter : '',
+                            season: seasonFilter !== 'all' ? seasonFilter : '',
+                            seasonGroupId: matchedSG ? String(matchedSG.id) : '',
+                            seasonId: resolvedSeasonId,
+                            brandAllocations,
+                          });
                         } else {
                           router.push(`/tickets?source=proposal&budgetId=${budgetFilter !== 'all' ? budgetFilter : ''}`);
                         }
                       }}
-                      disabled={grandTotals.order === 0}
+                      disabled={!canSubmitTicket}
+                      title={!canSubmitTicket ? 'All brands must have a final version and final sizing choice' : ''}
                       className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold font-['Montserrat'] transition-colors ${
-                        grandTotals.order > 0
+                        canSubmitTicket
                           ?'bg-[#C4A77D] text-white hover:bg-[#B8956D]':'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
                     >
                       <Send size={16} />
@@ -2811,7 +2947,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     >
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         {isFinal && <Star size={11} className={'text-[#6B4D30] fill-[#6B4D30] shrink-0'} />}
-                        <span className="font-medium truncate">{isVersion ? `Version ${item.version}` : `Choice ${item.version}`}</span>
+                        <span className="font-medium truncate">{isVersion ? `Version ${item.version}` : `Choice ${choiceLetter(item.version)}`}</span>
                         {isVersion && item.status && (
                           <span className={`text-[9px] px-1 rounded ${
                             item.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' :
@@ -2994,21 +3130,55 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       </tr>
                     </thead>
                     <tbody className={'text-[#333333]'}>
-                      {/* % Sales mix and % ST rows — placeholder until real data is available */}
-                      <tr className={'border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.08)]'}>
-                        <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% Sales mix</td>
-                        {getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType).map((sz: string) => (
-                          <td key={sz} className="px-4 py-2 text-center font-['JetBrains_Mono'] text-[#999]">-</td>
-                        ))}
-                        <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${'bg-[rgba(160,120,75,0.12)]'}`}>-</td>
-                      </tr>
-                      <tr className={'border-b border-[rgba(215,183,151,0.2)]'}>
-                        <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% ST</td>
-                        {getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType).map((sz: string) => (
-                          <td key={sz} className="px-4 py-2 text-center font-['JetBrains_Mono'] text-[#999]">-</td>
-                        ))}
-                        <td className={`px-4 py-2 text-center font-['JetBrains_Mono'] ${'text-[#999999] bg-[rgba(160,120,75,0.12)]'}`}>-</td>
-                      </tr>
+                      {/* % Sales mix and % ST rows from sales_sub_category_size_history_agg */}
+                      {(() => {
+                        const shBrandId = lightbox.blockKey.split('_')[0] || '';
+                        const shSubCatName = (lightbox.block?.subCategory || '').toLowerCase();
+                        let shSubCatId = '';
+                        const shCats = brandCategoryMap[shBrandId] || [];
+                        for (const cat of shCats) {
+                          const subs = cat.sub_categories || cat.subCategories || [];
+                          const f = subs.find((sc: any) => (sc.name || '').toLowerCase() === shSubCatName);
+                          if (f) { shSubCatId = String(f.id); break; }
+                        }
+                        const shYear = fyFilter !== 'all' ? fyFilter : 'all';
+                        let shSeasonId = 'all';
+                        if (seasonFilter !== 'all') {
+                          for (const sg of apiSeasonGroups) {
+                            const f2 = (sg.seasons || []).find((s: any) => (s.name || s.code) === seasonFilter);
+                            if (f2) { shSeasonId = String(f2.id); break; }
+                          }
+                        }
+                        const histData = sizingHistoryMap[`${shBrandId}_${shSubCatId}_${shYear}_${shSeasonId}`] || [];
+                        const histBySize: Record<string, { salesMixPct: number; stPct: number | null }> = {};
+                        histData.forEach((h: any) => { histBySize[h.size] = { salesMixPct: h.salesMixPct, stPct: h.stPct }; });
+                        const lbSizes = getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType);
+                        const salesMixSum = lbSizes.reduce((sum, sz) => sum + (histBySize[sz]?.salesMixPct || 0), 0);
+                        return (
+                          <>
+                            <tr className={'border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.08)]'}>
+                              <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% Sales mix</td>
+                              {lbSizes.map((sz: string) => (
+                                <td key={sz} className="px-4 py-2 text-center font-['JetBrains_Mono'] text-[#666]">
+                                  {`${(histBySize[sz]?.salesMixPct || 0).toFixed(1)}%`}
+                                </td>
+                              ))}
+                              <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${'bg-[rgba(160,120,75,0.12)]'}`}>
+                                {`${salesMixSum.toFixed(1)}%`}
+                              </td>
+                            </tr>
+                            <tr className={'border-b border-[rgba(215,183,151,0.2)]'}>
+                              <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% ST</td>
+                              {lbSizes.map((sz: string) => (
+                                <td key={sz} className="px-4 py-2 text-center font-['JetBrains_Mono'] text-[#666]">
+                                  {`${(histBySize[sz]?.stPct ?? 0).toFixed(1)}%`}
+                                </td>
+                              ))}
+                              <td className={`px-4 py-2 text-center font-['JetBrains_Mono'] ${'text-[#999999] bg-[rgba(160,120,75,0.12)]'}`}>0.0%</td>
+                            </tr>
+                          </>
+                        );
+                      })()}
                       {(() => {
                         // Sizing headers are now at the proposal header level (A/B/C shared across all SKUs)
                         const lbBrandId = lightbox.blockKey.split('_')[0] || 'all';
@@ -3035,16 +3205,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                             : ('border-b border-[rgba(215,183,151,0.2)] bg-[rgba(18,119,73,0.03)]')
                           }>
                             <td className={`px-4 py-2 font-medium ${isFirst ? ('text-[#6B4D30]') : ('text-[#127749]')}`}>
-                              Choice {choice.version === 1 ? 'A' : choice.version === 2 ? 'B' : 'C'}{choice.isFinal && <span className="ml-1 text-[10px] font-bold text-[#2A9E6A]">FINAL</span>}
+                              Choice {choiceLetter(choice.version)}{choice.isFinal && <span className="ml-1 text-[10px] font-bold text-[#2A9E6A]">FINAL</span>}
                             </td>
                             {lbSizeKeys.map((size: string) => (
-                              <td key={size} className="px-2 py-2 text-center">
+                              <td key={size} className="px-1 py-2">
                                 <input
                                   type="number"
                                   min="0"
                                   value={parseInt(String(choiceData[size] ?? 0)) || 0}
                                   onChange={(e) => updateSizing(lightbox.blockKey, lightbox.idx, choiceKey, size, e.target.value, lbBrandId)}
-                                  className={`w-14 text-center font-['JetBrains_Mono'] text-sm rounded border py-0.5 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] ${
+                                  className={`w-full text-center font-['JetBrains_Mono'] text-sm rounded border py-1 px-1 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
                                     isFirst
                                       ? ('bg-emerald-50 border-emerald-200 text-[#6B4D30]')
                                       : ('bg-emerald-50 border-emerald-200 text-[#127749]')
@@ -3134,25 +3304,37 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       <ConfirmDialog {...dialogProps} />
 
       {/* Add SKU Modal */}
-      {addSkuModal && (
-        <AddSKUModal
-          isOpen={addSkuModal.open}
-          onClose={() => setAddSkuModal(null)}
-          skuCatalog={skuCatalog}
-          blockGender={addSkuModal.block?.gender}
-          blockCategory={addSkuModal.block?.category}
-          blockSubCategory={addSkuModal.block?.subCategory}
-          existingSkus={
-            skuBlocks
-              .find((b: any) => buildBlockKey(b) === addSkuModal.blockKey)
-              ?.items.map((i: any) => i.sku).filter(Boolean) || []
-          }
-          onAddSkus={(skus) => handleAddSkusFromModal(addSkuModal.blockKey, skus, addSkuModal.block)}
-          stores={stores}
-          customerTargetOptions={customerTargetOptions}
-          onCreateCustomerTarget={(val) => setCustomerTargetOptions(prev => [...prev, val])}
-        />
-      )}
+      {addSkuModal && (() => {
+        // Resolve subCategoryId from block's subCategory name
+        const modalBrandId = addSkuModal.block?.brandId || 'all';
+        const modalSubCatName = (addSkuModal.block?.subCategory || '').toLowerCase();
+        let resolvedSubCategoryId: string | undefined;
+        const cats = brandCategoryMap[modalBrandId] || [];
+        for (const cat of cats) {
+          const subCats = cat.sub_categories || cat.subCategories || [];
+          const found = subCats.find((sc: any) => (sc.name || '').toLowerCase() === modalSubCatName);
+          if (found) { resolvedSubCategoryId = String(found.id); break; }
+        }
+        return (
+          <AddSKUModal
+            isOpen={addSkuModal.open}
+            onClose={() => setAddSkuModal(null)}
+            subCategoryId={resolvedSubCategoryId}
+            blockGender={addSkuModal.block?.gender}
+            blockCategory={addSkuModal.block?.category}
+            blockSubCategory={addSkuModal.block?.subCategory}
+            existingSkus={
+              skuBlocks
+                .find((b: any) => buildBlockKey(b) === addSkuModal.blockKey)
+                ?.items.map((i: any) => i.sku).filter(Boolean) || []
+            }
+            onAddSkus={(skus) => handleAddSkusFromModal(addSkuModal.blockKey, skus, addSkuModal.block)}
+            stores={stores}
+            customerTargetOptions={customerTargetOptions}
+            onCreateCustomerTarget={(val) => setCustomerTargetOptions(prev => [...prev, val])}
+          />
+        );
+      })()}
 
       {/* Comment popup — portal */}
       {commentPopup && createPortal(
@@ -3178,6 +3360,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         </div>,
         document.body
       )}
+      <ScrollToHeader />
     </div>
   );
 };

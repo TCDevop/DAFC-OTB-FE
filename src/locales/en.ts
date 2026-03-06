@@ -210,6 +210,9 @@ const en = {
     emptyFieldError: 'Please enter email and password',
     quickLogin: 'Quick login (Demo accounts):',
     footer: 'DAFC Vietnam \u00A9 2025. All rights reserved.',
+    serverStarting: 'Server is starting, please try again...',
+    microsoftSuccess: 'Microsoft login successful!',
+    rememberMe: 'Remember me',
   },
 
   // ──────────────────────────────────────────────

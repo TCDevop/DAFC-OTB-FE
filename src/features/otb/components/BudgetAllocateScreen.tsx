@@ -17,7 +17,7 @@ import { useUnsavedChanges } from '@/hooks/useUnsavedChanges';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { FilterBottomSheet, useBottomSheet } from '@/components/mobile';
-import { TableSkeleton } from '@/components/ui';
+import { TableSkeleton, ScrollToHeader } from '@/components/ui';
 import { useAllocationState, BRAND_BUDGET_CAP_PCT } from '../hooks/useAllocationState';
 import { useBudgetAllocateSave } from '../hooks/useBudgetAllocateSave';
 import { useClipboardPaste } from '../hooks/useClipboardPaste';
@@ -47,7 +47,7 @@ const BudgetAllocateScreen = ({
 }: any) => {
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
-  const { kpiData, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, setHeaderSubtitle } = useAppContext();
+  const { kpiData, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, setHeaderSubtitle, showLoading, hideLoading } = useAppContext();
 
   const { isOpen: filterOpen, open: openFilter, close: closeFilter } = useBottomSheet();
   const [mobileFilterValues, setMobileFilterValues] = useState<Record<string, string | string[]>>({});
@@ -882,11 +882,11 @@ const BudgetAllocateScreen = ({
   // (must be after displayBrands, allocateHeaders, brandNames are initialized)
   const handleAllocateAll = useCallback(() => {
     if (!selectedSeasonGroup) {
-      toast('Vui lòng chọn Season Group trước khi tiếp tục', { icon: '⚠️' });
+      toast('Please select a Season Group before proceeding', { icon: '⚠️' });
       return;
     }
     if (!selectedSeason) {
-      toast('Vui lòng chọn Season trước khi tiếp tục', { icon: '⚠️' });
+      toast('Please select a Season before proceeding', { icon: '⚠️' });
       return;
     }
     // Check that all displayed brands have a final version
@@ -898,7 +898,7 @@ const BudgetAllocateScreen = ({
     });
     if (brandsWithoutFinal.length > 0) {
       const names = brandsWithoutFinal.map((b: any) => brandNames[b.id] || b.name || String(b.id)).join(', ');
-      toast(`Các brand sau chưa có final version: ${names}. Vui lòng set final version trước khi tiếp tục.`, { icon: '⚠️', duration: 5000 });
+      toast(`The following brands have no final version: ${names}. Please set a final version before proceeding.`, { icon: '⚠️', duration: 5000 });
       return;
     }
     // Navigate to OTB Analysis, passing budget + season context
@@ -999,10 +999,10 @@ const BudgetAllocateScreen = ({
             ? Number(h.id) === Number(headerId)
             : (h.is_final_version ?? false)}));
       });
-      toast.success('Đã đặt phiên bản final.');
+      toast.success('Final version set successfully.');
     } catch (err: any) {
       console.error('Failed to set final version:', err);
-      toast.error('Đặt final thất bại.');
+      toast.error('Failed to set final version.');
     }
   };
 
@@ -1058,15 +1058,25 @@ const BudgetAllocateScreen = ({
     });
   }, [allocationValues, totalBudget, brandNames, t]);
 
-  const handleSaveDraft = useCallback(() => {
+  const handleSaveDraft = useCallback(async () => {
     checkBrandCapAndWarn();
-    saveAllocation();
-  }, [checkBrandCapAndWarn, saveAllocation]);
+    showLoading('Saving...');
+    try {
+      await saveAllocation();
+    } finally {
+      hideLoading();
+    }
+  }, [checkBrandCapAndWarn, saveAllocation, showLoading, hideLoading]);
 
-  const handleSaveAsNew = useCallback(() => {
+  const handleSaveAsNew = useCallback(async () => {
     checkBrandCapAndWarn();
-    saveAsNewAllocation();
-  }, [checkBrandCapAndWarn, saveAsNewAllocation]);
+    showLoading('Saving as new version...');
+    try {
+      await saveAsNewAllocation();
+    } finally {
+      hideLoading();
+    }
+  }, [checkBrandCapAndWarn, saveAsNewAllocation, showLoading, hideLoading]);
 
   // Register save handlers in AppHeader — unregister on unmount
   useEffect(() => {
@@ -1981,6 +1991,7 @@ const BudgetAllocateScreen = ({
           document.body
         );
       })()}
+      <ScrollToHeader />
     </>
   );
 };

@@ -13,3 +13,4 @@ export { default as FilterSelect } from './FilterSelect';
 export { default as ErrorBoundary } from './ErrorBoundary';
 export { default as PrintButton } from './PrintButton';
 export { default as GlobalLoadingOverlay } from './GlobalLoadingOverlay';
+export { default as ScrollToHeader } from './ScrollToHeader';

@@ -66,7 +66,7 @@ export const useBudget = () => {
       } catch (err: any) {
         if (err?.name === 'AbortError' || controller.signal.aborted) return;
         console.error('Failed to fetch master data:', err);
-        toast.error('Không thể tải dữ liệu. Vui lòng thử lại.');
+        toast.error('Failed to load data. Please try again.');
       }
     };
     fetchMasterData();
@@ -108,7 +108,7 @@ export const useBudget = () => {
       setBudgets(transformedBudgets);
     } catch (err: any) {
       console.error('Failed to fetch budgets:', err);
-      toast.error('Không thể tải danh sách ngân sách.');
+      toast.error('Failed to load budget list.');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -228,7 +228,7 @@ export const useBudget = () => {
       setSelectedCell(null);
     } catch (err: any) {
       console.error('Failed to save budget:', err);
-      toast.error('Lưu ngân sách thất bại.');
+      toast.error('Failed to save budget.');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -243,7 +243,7 @@ export const useBudget = () => {
       await fetchBudgets();
     } catch (err: any) {
       console.error('Failed to submit budget:', err);
-      toast.error('Gửi duyệt ngân sách thất bại.');
+      toast.error('Failed to submit budget.');
       setError(err.message);
     } finally {
       setLoading(false);
@@ -270,7 +270,7 @@ export const useBudget = () => {
       await fetchBudgets();
     } catch (err: any) {
       console.error('Failed to approve budget:', err);
-      toast.error('Phê duyệt ngân sách thất bại.');
+      toast.error('Failed to approve budget.');
       setError(err.message);
     } finally {
       setLoading(false);

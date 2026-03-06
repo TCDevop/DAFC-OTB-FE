@@ -56,10 +56,10 @@ class ErrorBoundary extends Component<Props, State> {
                 <AlertTriangle className="w-8 h-8 text-white" />
               </div>
               <h1 className="text-2xl font-bold text-white font-['Montserrat'] mb-2">
-                Đã xảy ra lỗi
+                An error occurred
               </h1>
               <p className="text-red-200 text-sm">
-                Ứng dụng gặp sự cố không mong muốn
+                The application encountered an unexpected error
               </p>
             </div>
 
@@ -94,7 +94,7 @@ class ErrorBoundary extends Component<Props, State> {
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#2A9E6A] hover:bg-[#238c5c] text-white rounded-xl font-semibold font-['Montserrat'] text-sm transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Thử lại
+                  Try Again
                 </button>
 
                 <button
@@ -102,7 +102,7 @@ class ErrorBoundary extends Component<Props, State> {
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 bg-[#2E2E2E] hover:bg-[#3a3a3a] text-[#F2F2F2] rounded-xl font-semibold font-['Montserrat'] text-sm transition-colors"
                 >
                   <RefreshCw className="w-4 h-4" />
-                  Tải lại trang
+                  Reload Page
                 </button>
 
                 <button
@@ -110,12 +110,12 @@ class ErrorBoundary extends Component<Props, State> {
                   className="w-full flex items-center justify-center gap-2 px-4 py-3 border border-[#2E2E2E] hover:bg-[#1e1e1e] text-[#999] rounded-xl font-semibold font-['Montserrat'] text-sm transition-colors"
                 >
                   <Home className="w-4 h-4" />
-                  Về trang chủ
+                  Go to Home
                 </button>
               </div>
 
               <p className="mt-6 text-center text-xs text-[#666]">
-                Nếu lỗi tiếp tục xảy ra, vui lòng liên hệ bộ phận hỗ trợ
+                If the error persists, please contact support
               </p>
             </div>
           </div>

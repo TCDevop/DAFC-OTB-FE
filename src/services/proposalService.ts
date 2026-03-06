@@ -89,6 +89,11 @@ export const proposalService = {
   updateSizingHeader: (headerId: string, data: any) =>
     withErrorLog('updateSizingHeader', async () => extract(await api.patch(`/proposals/sizing-headers/${headerId}`, data))),
 
+  // ─── SIZING HISTORY (from sales_sub_category_size_history_agg) ────────
+
+  getSizingHistory: (params: { brandId: string; subCategoryId: string; year?: number; seasonId?: string }) =>
+    withErrorLog('getSizingHistory', async () => extract(await api.get('/proposals/sizing-history', { params }))),
+
   // ─── APPROVAL (delegated) ─────────────────────────────────────────────
 
   approveL1: (id: string, comment?: string) => approvalHelper.approveL1('proposal', id, comment),

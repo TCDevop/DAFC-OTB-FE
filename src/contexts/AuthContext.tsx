@@ -63,7 +63,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     setLoading(true);
     try {
       const { user: userData } = await authService.login(email, password, (attempt) => {
-        setLoginStatus(`Máy chủ đang khởi động... (lần thử ${attempt + 1})`);
+        setLoginStatus(`Server is starting... (attempt ${attempt + 1})`);
       });
       setLoginStatus('');
       setUser(userData);
@@ -73,7 +73,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
       const isNetwork = err.code === 'ERR_NETWORK' || !err.response;
       const message = (isTimeout || isNetwork)
-        ? 'Máy chủ đang khởi động, vui lòng thử lại...'
+        ? 'Server is starting, please try again...'
         : err.response?.data?.message || err.message || 'Login failed';
       setError(message);
       throw new Error(message);
@@ -85,7 +85,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Login with Microsoft (Azure AD)
   const loginWithMicrosoft = useCallback(async () => {
     setError(null);
-    setLoginStatus('Đang kết nối Microsoft...');
+    setLoginStatus('Connecting to Microsoft...');
     setLoading(true);
     try {
       const { getMsalInstance, loginRequest } = await import('../services/msalConfig');
@@ -94,7 +94,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const result = await msalInstance.loginPopup(loginRequest);
       const msAccessToken = result.accessToken;
 
-      setLoginStatus('Đang xác thực...');
+      setLoginStatus('Authenticating...');
       const { user: userData } = await authService.loginWithMicrosoft(msAccessToken);
       setLoginStatus('');
       setUser(userData);
@@ -102,11 +102,11 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     } catch (err: any) {
       setLoginStatus('');
       if (err.errorCode === 'user_cancelled') {
-        throw new Error('Đã hủy đăng nhập Microsoft');
+        throw new Error('Microsoft login cancelled');
       }
       // crypto.subtle not available on HTTP (non-localhost) — need HTTPS
       if (err.errorCode === 'crypto_nonexistent' || err.message?.includes('crypto')) {
-        const msg = 'Trình duyệt yêu cầu HTTPS để đăng nhập Microsoft. Vui lòng truy cập qua https:// hoặc http://localhost';
+        const msg = 'Browser requires HTTPS for Microsoft login. Please access via https:// or http://localhost';
         setError(msg);
         throw new Error(msg);
       }

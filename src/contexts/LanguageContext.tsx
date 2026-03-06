@@ -25,7 +25,7 @@ function interpolate(str: any, params?: Record<string, any>): string {
 }
 
 export const LanguageProvider = ({ children }: { children: React.ReactNode }) => {
-  const [language, setLanguageState] = useState('vi');
+  const [language, setLanguageState] = useState('en');
 
   // Load persisted language on mount
   useEffect(() => {
@@ -35,11 +35,11 @@ export const LanguageProvider = ({ children }: { children: React.ReactNode }) =>
         setLanguageState(saved);
         document.documentElement.lang = saved;
       } else {
-        document.documentElement.lang = 'vi';
+        document.documentElement.lang = 'en';
       }
     } catch {
       // localStorage may throw SecurityError in private browsing mode
-      document.documentElement.lang = 'vi';
+      document.documentElement.lang = 'en';
     }
   }, []);
 

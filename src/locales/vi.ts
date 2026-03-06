@@ -210,6 +210,9 @@ const vi = {
     emptyFieldError: 'Vui lòng nhập email và mật khẩu',
     quickLogin: 'Đăng nhập nhanh (Tài khoản demo):',
     footer: 'DAFC Vietnam \u00A9 2025. Bảo lưu mọi quyền.',
+    serverStarting: 'Máy chủ đang khởi động, vui lòng thử lại...',
+    microsoftSuccess: 'Đăng nhập Microsoft thành công!',
+    rememberMe: 'Ghi nhớ đăng nhập',
   },
 
   // ──────────────────────────────────────────────
