@@ -14,48 +14,41 @@ He thong quan ly Open-To-Buy (OTB) cho DAFC. **Frontend** (Next.js 16) + **Backe
 | HTTP Client | Axios | 1.13.x |
 | **Backend** | NestJS | 10.3.x |
 | ORM | Prisma | 5.8.x |
-| Database | PostgreSQL | 16 |
-| Auth | JWT (Passport) | — |
+| Database | SQL Server | Azure SQL |
+| Auth | JWT (Passport) + Azure AD (MSAL) | — |
 
 ## Cau truc thu muc
 
-```
+```text
 dafc-otb/
-├── src/                    # FRONTEND (Next.js 16, React 19)
-│   ├── app/                # App Router routes (16 routes)
-│   ├── screens/            # 15 screen components
-│   ├── components/         # UI components (Layout, Common, AI)
-│   ├── contexts/           # AuthContext, AppContext, LanguageContext
-│   ├── hooks/              # useBudget, usePlanning, useProposal
-│   ├── services/           # API services (10 files)
-│   ├── locales/            # i18n EN/VN translations
-│   └── utils/              # Formatters, constants, routeMap
-├── backend/                # BACKEND (NestJS)
-│   ├── src/modules/        # 7 API modules
-│   │   ├── auth/           # Login, JWT, refresh token
-│   │   ├── budget/         # Budget CRUD + 2-level approval
-│   │   ├── planning/       # Planning versions + dimensions
-│   │   ├── proposal/       # SKU proposals + products
-│   │   ├── master-data/    # Brands, stores, categories, SKU catalog
-│   │   ├── ai/             # Size curve, alerts, allocation, risk, SKU recommend
-│   │   └── approval-workflow/ # Workflow config per brand
-│   ├── prisma/             # DB schema (29 tables) + seed
-│   └── docker-compose.yml  # PostgreSQL 16
-├── public/                 # Static assets
-├── HANDOVER.md             # Full-stack documentation (chi tiet)
-└── package.json            # Frontend dependencies
+├── frontend/              # FRONTEND (Next.js 16, React 19)
+│   ├── src/app/           # App Router routes (19 routes)
+│   ├── src/components/    # UI components (Layout, Common, AI)
+│   ├── src/contexts/      # AuthContext, AppContext, LanguageContext
+│   ├── src/hooks/         # useDataImport, useKPIBreakdown, useNetworkStatus...
+│   ├── src/services/      # API services (14 files)
+│   ├── src/locales/       # i18n EN/VN translations
+│   └── src/utils/         # Formatters, constants, routeMap
+├── backend/               # BACKEND (NestJS)
+│   ├── src/modules/       # 9 API modules
+│   │   ├── auth/          # Login, JWT, refresh token
+│   │   ├── budget/        # Budget CRUD + 2-level approval
+│   │   ├── planning/      # Planning versions + dimensions
+│   │   ├── proposal/      # SKU proposals + products
+│   │   ├── master-data/   # Brands, stores, categories, SKU catalog
+│   │   ├── ai/            # Size curve, alerts, allocation, risk, SKU recommend
+│   │   ├── approval-workflow/ # Workflow config per brand
+│   │   ├── ticket/        # Ticket management
+│   │   └── health/        # Health check
+│   ├── prisma/            # DB schema (35 tables, SQL Server) + seed
+│   └── docker-compose.yml # PostgreSQL 16 (legacy, not used with SQL Server)
+├── public/                # Static assets
+└── package.json           # Frontend dependencies
 ```
 
 ## Quick Start
 
-### 1. Start Database (PostgreSQL)
-
-```bash
-cd backend
-docker compose up -d
-```
-
-### 2. Start Backend (NestJS - port 4000)
+### 1. Start Backend (NestJS - port 4001)
 
 ```bash
 cd backend
@@ -66,19 +59,19 @@ npm run prisma:seed       # Tao demo accounts + master data
 npm run start:dev
 ```
 
-> API: http://localhost:4000/api/v1
-> Swagger: http://localhost:4000/api/docs
+> API: `http://<HOST>:<PORT>/api/v1`
+> Swagger: `http://<HOST>:<PORT>/api/docs`
 
-### 3. Start Frontend (Next.js - port 3006)
+### 2. Start Frontend (Next.js - port 3000)
 
 ```bash
-# Tu root folder
-cp .env.example .env.local
+cd frontend
+cp .env.example .env
 npm install
 npm run dev
 ```
 
-> App: http://localhost:3006
+> App: `http://<HOST>:3000`
 
 ## Demo Accounts
 
@@ -92,24 +85,29 @@ npm run dev
 
 ## Frontend Routes
 
-| URL | Man hinh | Mo ta |
-|-----|----------|-------|
-| `/login` | LoginScreen | Dang nhap |
-| `/` | HomeScreen | Dashboard KPI |
-| `/budget-management` | BudgetManagementScreen | Quan ly ngan sach |
-| `/planning` | BudgetAllocateScreen | Phan bo ngan sach |
-| `/planning/[id]` | PlanningDetailPage | Chi tiet ke hoach |
-| `/otb-analysis` | OTBAnalysisScreen | Phan tich OTB |
-| `/proposal` | SKUProposalScreen | De xuat SKU |
-| `/proposal/[id]` | ProposalDetailPage | Chi tiet de xuat |
-| `/tickets` | TicketScreen | Danh sach ticket |
-| `/tickets/[id]` | TicketDetailPage | Chi tiet ticket |
-| `/profile` | ProfileScreen | Ho so ca nhan |
-| `/settings` | SettingsScreen | Cai dat |
-| `/master-data/[type]` | MasterDataScreen | Master data |
-| `/approval-config` | ApprovalWorkflowScreen | Cau hinh duyet |
+| URL | Mo ta |
+|-----|-------|
+| `/login` | Dang nhap |
+| `/` | Dashboard KPI |
+| `/budget-management` | Quan ly ngan sach |
+| `/planning` | Phan bo ngan sach |
+| `/planning/[id]` | Chi tiet ke hoach |
+| `/otb-analysis` | Phan tich OTB |
+| `/proposal` | De xuat SKU |
+| `/proposal/[id]` | Chi tiet de xuat |
+| `/tickets` | Danh sach ticket |
+| `/tickets/[id]` | Chi tiet ticket |
+| `/approvals` | Danh sach duyet |
+| `/approval-config` | Cau hinh duyet |
+| `/import-data` | Import du lieu |
+| `/order-confirmation` | Xac nhan don hang |
+| `/receipt-confirmation` | Xac nhan nhan hang |
+| `/dev-tickets` | Dev tickets |
+| `/profile` | Ho so ca nhan |
+| `/settings` | Cai dat |
+| `/master-data/[type]` | Master data |
 
-## Backend API (port 4000)
+## Backend API (port 4001)
 
 | Module | Base Path | Endpoints |
 |--------|-----------|-----------|
@@ -120,40 +118,37 @@ npm run dev
 | Master Data | `/master` | brands, stores, collections, categories, SKU catalog |
 | AI | `/ai` | size-curve, alerts, allocation, risk, sku-recommend |
 | Approval Workflow | `/approval-workflow` | CRUD + reorder per brand |
+| Ticket | `/tickets` | Ticket management |
+| Health | `/health` | Health check |
 
 ## Environment Variables
 
-### Frontend (.env.local)
-```
-NEXT_PUBLIC_API_URL=http://localhost:4000/api/v1
+### Frontend (frontend/.env)
+
+```text
+NEXT_PUBLIC_API_URL=http://<your-host-ip>:4001/api/v1
+NEXT_PUBLIC_AZURE_CLIENT_ID=<azure-client-id>
+NEXT_PUBLIC_AZURE_TENANT_ID=<azure-tenant-id>
 ```
 
 ### Backend (backend/.env)
-```
-DATABASE_URL="postgresql://dafc:dafc2026@localhost:5432/dafc_otb?schema=public"
+
+```text
+DATABASE_URL="sqlserver://host:1433;database=dbname;user=...;password=...;encrypt=true;trustServerCertificate=true"
 JWT_SECRET="your-secret-key"
-PORT=4000
-CORS_ORIGIN="http://localhost:3006"
+HOST="<your-host-ip>"
+PORT=4001
+CORS_ORIGINS="http://localhost:3000,http://<your-host-ip>:3000,http://<your-host-ip>:4001"
 ```
 
 ## Approval Workflow
 
-```
-DRAFT → SUBMITTED → LEVEL1_APPROVED → APPROVED
-                  ↘                 ↗
-                    → REJECTED ←
+```text
+DRAFT -> SUBMITTED -> LEVEL1_APPROVED -> APPROVED
+                   \                  /
+                    -> REJECTED <-
 ```
 
 - **L1**: Merch Manager duyet
 - **L2**: Finance Director duyet
 - Ap dung cho: Budget, Planning, Proposal
-
-## Documentation
-
-Xem **HANDOVER.md** de biet chi tiet ve:
-- Kien truc frontend/backend
-- API endpoints day du
-- Database schema
-- Authentication flow
-- i18n, Dark/Light mode
-- Huong dan startup chi tiet
