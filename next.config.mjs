@@ -1,7 +1,7 @@
 /** @type {import('next').NextConfig} */
 const nextConfig = {
-  // Allow cross-origin dev requests from network IP
-  allowedDevOrigins: [' 58.187.189.140'],
+  // Allow cross-origin dev requests from any origin (dev only, no effect in production)
+  allowedDevOrigins: ['*'],
   // Output standalone for Azure App Services (Node 22/24 compatible)
   output: 'standalone',
 
