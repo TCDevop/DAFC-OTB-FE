@@ -3,7 +3,7 @@
 // DAFC OTB Platform — Tests all critical endpoints
 //
 // Install: brew install k6 (Mac) or apt install k6 (Linux)
-// Run: k6 run --env API_URL=http://localhost:4000 api-load-test.js
+// Run: k6 run --env NEXT_PUBLIC_API_URL=http://localhost:4000 api-load-test.js
 //
 // Outputs: response times, throughput, error rates, percentiles
 // ═══════════════════════════════════════════════════════════════════════════════

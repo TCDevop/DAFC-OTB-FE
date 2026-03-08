@@ -138,7 +138,7 @@ if command -v k6 &> /dev/null; then
 
     cd "$SCRIPT_DIR"
     k6 run \
-        --env API_URL="$BACKEND_URL" \
+        --env NEXT_PUBLIC_API_URL="$BACKEND_URL" \
         --out json="$REPORT_DIR/k6_results_$TIMESTAMP.json" \
         api-load-test.js 2>&1 || echo -e "${RED}  k6 test failed${NC}"
 else
