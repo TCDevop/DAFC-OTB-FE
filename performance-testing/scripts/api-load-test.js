@@ -25,7 +25,7 @@ const apiCalls = new Counter('api_calls');
 
 // ─── Configuration ───────────────────────────────────────────────────────────
 
-const API_URL = __ENV.API_URL || 'http://localhost:4000';
+const API_URL = __ENV.NEXT_PUBLIC_API_URL || 'http://localhost:4000';
 
 export const options = {
   // Scenario: Ramp up to 50 concurrent users over 5 minutes

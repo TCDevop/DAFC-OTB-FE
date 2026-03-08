@@ -3,7 +3,7 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:4000/api/v1';
+const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://192.168.192.1:4001/api/v1';
 
 // Simple in-memory cache for GET requests
 const cache = new Map<string, { data: any; timestamp: number }>();
