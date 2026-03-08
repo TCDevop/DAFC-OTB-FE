@@ -1,5 +1,6 @@
-# Docs for the Azure Web Apps Deploy action: https://github.com/Azure/webapps-deploy
-# More GitHub Actions for Azure: https://github.com/Azure/actions
+# Deploy Next.js Standalone to Azure App Service
+# Single-job design: build + deploy in one runner
+# (avoids upload-artifact which drops hidden .next/ directory)
 
 name: Build and deploy Node.js app to Azure Web App - buddyToolFEUat
 
@@ -10,46 +11,60 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
     runs-on: ubuntu-latest
     permissions:
-      contents: read #This is required for actions/checkout
+      contents: read
 
     steps:
       - uses: actions/checkout@v4
 
       - name: Set up Node.js version
-        uses: actions/setup-node@v3
+        uses: actions/setup-node@v4
         with:
           node-version: '22.x'
+          cache: 'npm'
 
-      - name: npm install, build, and test
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Build standalone output
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
+
+      # postbuild (scripts/copy-assets.js) runs automatically after build
+      # and copies public/ + .next/static/ into .next/standalone/
+
+      - name: Prepare deployment package
         run: |
-          npm install
-          npm run build --if-present
-          npm run test --if-present
+          # Copy standalone contents to deploy folder
+          cp -a .next/standalone/. deploy/
 
-      - name: Upload artifact for deployment job
-        uses: actions/upload-artifact@v4
-        with:
-          name: node-app
-          path: .
+          # Override package.json start script
+          # On Azure, standalone contents are at wwwroot root (not nested under .next/standalone/)
+          # So start script must be "node server.js"
+          node -e "
+            const pkg = require('./deploy/package.json');
+            pkg.scripts = pkg.scripts || {};
+            pkg.scripts.start = 'node server.js';
+            require('fs').writeFileSync('./deploy/package.json', JSON.stringify(pkg, null, 2));
+          "
 
-  deploy:
-    runs-on: ubuntu-latest
-    needs: build
-    
-    steps:
-      - name: Download artifact from build job
-        uses: actions/download-artifact@v4
-        with:
-          name: node-app
-      
-      - name: 'Deploy to Azure Web App'
-        id: deploy-to-webapp
+          # Verify deployment package
+          echo "=== Deployment package contents ==="
+          ls -la deploy/
+          echo "=== .next directory ==="
+          ls -la deploy/.next/ || echo "WARNING: .next/ not found!"
+          echo "=== BUILD_ID ==="
+          cat deploy/.next/BUILD_ID || echo "WARNING: BUILD_ID not found!"
+          echo "=== package.json start script ==="
+          node -e "console.log(require('./deploy/package.json').scripts.start)"
+
+      - name: Deploy to Azure Web App
         uses: azure/webapps-deploy@v3
         with:
           app-name: 'buddyToolFEUat'
           slot-name: 'Production'
-          package: .
+          package: deploy
           publish-profile: ${{ secrets.AZUREAPPSERVICE_PUBLISHPROFILE_8E0A5645F06C4A5FAC15CA672DD66B68 }}
