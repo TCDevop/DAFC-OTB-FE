@@ -4,6 +4,7 @@ const en = {
   // ──────────────────────────────────────────────
   common: {
     save: 'Save',
+    saving: 'Saving...',
     cancel: 'Cancel',
     close: 'Close',
     delete: 'Delete',
@@ -1126,13 +1127,23 @@ const en = {
     itemsSelected: 'order(s) selected',
     confirmSelected: 'Confirm Selected',
     itemsConfirmed: 'order(s) confirmed successfully',
+    saveSuccess: 'Order saved successfully',
+    saveFailed: 'Failed to save order',
+    confirmSuccess: 'Order confirmed successfully',
+    saveBeforeConfirm: 'Please save changes before confirming',
+    unsavedChanges: 'You have unsaved changes',
+    confirm: 'Confirm',
+    readOnly: 'Read only',
+    doubleClickEdit: 'Double-click to edit cells',
+    noData: 'No SKU data in this ticket',
   },
 
   // ──────────────────────────────────────────────
   // Receipt Confirmation
   // ──────────────────────────────────────────────
   receiptConfirm: {
-    subtitle: 'Verify and confirm goods received',
+    title: 'Receipt Confirmation',
+    subtitle: 'Approved tickets with confirmed orders',
     totalReceipts: 'Total Receipts',
     pendingReceipts: 'Pending',
     confirmedReceipts: 'Confirmed',

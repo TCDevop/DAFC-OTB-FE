@@ -4,6 +4,7 @@ const vi = {
   // ──────────────────────────────────────────────
   common: {
     save: 'Lưu',
+    saving: 'Đang lưu...',
     cancel: 'Hủy',
     close: 'Đóng',
     delete: 'Xóa',
@@ -1126,13 +1127,23 @@ const vi = {
     itemsSelected: 'đơn hàng đã chọn',
     confirmSelected: 'Xác nhận đã chọn',
     itemsConfirmed: 'đơn hàng xác nhận thành công',
+    saveSuccess: 'Lưu đơn hàng thành công',
+    saveFailed: 'Lưu đơn hàng thất bại',
+    confirmSuccess: 'Xác nhận đơn hàng thành công',
+    saveBeforeConfirm: 'Vui lòng lưu thay đổi trước khi xác nhận',
+    unsavedChanges: 'Bạn có thay đổi chưa lưu',
+    confirm: 'Xác nhận',
+    readOnly: 'Chỉ đọc',
+    doubleClickEdit: 'Nhấn đúp để chỉnh sửa ô',
+    noData: 'Không có dữ liệu SKU trong ticket này',
   },
 
   // ──────────────────────────────────────────────
   // Xác nhận biên nhận
   // ──────────────────────────────────────────────
   receiptConfirm: {
-    subtitle: 'Xác minh và xác nhận hàng hóa đã nhận',
+    title: 'Xác nhận biên nhận',
+    subtitle: 'Các ticket đã duyệt có đơn hàng đã xác nhận',
     totalReceipts: 'Tổng biên nhận',
     pendingReceipts: 'Đang chờ',
     confirmedReceipts: 'Đã xác nhận',
