@@ -211,16 +211,6 @@ const AllocationSidePanel = ({
                             FINAL
                           </span>
                         )}
-                        <span
-                          className={`text-[10px] px-1 py-px rounded ${
-                            version.status?.toLowerCase() === 'approved'
-                              ? 'bg-[rgba(18,119,73,0.15)] text-[#127749]'
-                              : version.status?.toLowerCase() === 'submitted'
-                                ? 'bg-[rgba(227,179,65,0.15)] text-[#E3B341]'
-                                :'bg-[#F2F2F2] text-[#666]'}`}
-                        >
-                          {version.status}
-                        </span>
                       </div>
                       {(version.createdAt || version.createdBy) && (
                         <span

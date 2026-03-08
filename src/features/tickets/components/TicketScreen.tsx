@@ -144,6 +144,9 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
 
   useEffect(() => {
     if (!isAuthenticated) return;
+    // Always invalidate cache on mount to ensure fresh data
+    // (handles navigation back from detail page after approve/reject/create)
+    invalidateCache('/tickets');
     fetchTickets();
   }, [isAuthenticated]);
 

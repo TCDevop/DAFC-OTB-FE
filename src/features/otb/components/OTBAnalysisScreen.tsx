@@ -120,6 +120,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   // Fetch budgets from API (all statuses — OTB analysis is available for any budget)
   const fetchBudgets = useCallback(async () => {
     setLoadingBudgets(true);
+    // Always invalidate cache to ensure fresh allocate headers
+    // (prevents stale data when navigating from allocation page after creating new headers)
+    invalidateCache('/budgets');
     try {
       const response = await budgetService.getAll({});
       const budgetList = (Array.isArray(response) ? response : []).map((budget: any) => {
@@ -225,7 +228,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
   // sessionStorage auto-fill removed — all filters default to 'all'
 
-  // Fetch planning versions when budget is selected
+  // Fetch planning versions when budget is selected (global version list)
   useEffect(() => {
     const fetchVersions = async () => {
       if (!selectedBudgetId || selectedBudgetId === 'all') {
@@ -234,7 +237,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         return;
       }
       setLoadingVersions(true);
+      invalidateCache('/planning');
       try {
+        // Use budgetId filter (now supported by backend) to scope to this budget only
         const response = await planningService.getAll({ budgetId: selectedBudgetId });
         const list = Array.isArray(response) ? response : [];
         setVersions(list.map((v: any) => ({
@@ -265,20 +270,34 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const filtersComplete = selectedSeasonGroup !== 'all' && selectedSeason !== 'all';
 
   // Compute matched AllocateHeaders from selected budget, filtered by seasonGroup + season
+  // For each brand, prefer the final version; if none is final, use the latest version (highest id)
   const matchedAllocateHeaders = useMemo(() => {
     if (!filtersComplete || selectedBudgetId === 'all') return [];
     const budget = apiBudgets.find((b: any) => b.id === selectedBudgetId);
     if (!budget) return [];
-    const result: any[] = [];
+    // Collect all headers matching the selected season
+    const allMatched: any[] = [];
     (budget.allocateHeaders || []).forEach((ah: any) => {
       const matchesSeason = (ah.budgetAllocates || []).some((ba: any) =>
         ba.seasonGroupName === selectedSeasonGroup && ba.seasonName === selectedSeason
       );
       if (matchesSeason) {
-        result.push({ ...ah, budgetId: budget.id });
+        allMatched.push({ ...ah, budgetId: budget.id });
       }
     });
-    return result;
+    // Deduplicate per brand: prefer final version, then latest (by id)
+    const byBrand: Record<string, any> = {};
+    allMatched.forEach((ah: any) => {
+      const existing = byBrand[ah.brandId];
+      if (!existing) {
+        byBrand[ah.brandId] = ah;
+      } else if (ah.isFinal && !existing.isFinal) {
+        byBrand[ah.brandId] = ah;
+      } else if (!existing.isFinal && !ah.isFinal && String(ah.id) > String(existing.id)) {
+        byBrand[ah.brandId] = ah;
+      }
+    });
+    return Object.values(byBrand);
   }, [filtersComplete, selectedBudgetId, apiBudgets, selectedSeasonGroup, selectedSeason]);
 
   // Per-brand total allocated budget (sum of budget_amount from matching allocates for selected season group + season)
@@ -309,6 +328,48 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       }
     });
   }, [brandSelectedVersion]); // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Hydrate localData with saved planning data (collection/gender tabs' userBuyPct)
+  // Category tab uses planningDataBySubcatId directly in getRowData, but collection/gender
+  // tabs rely on localData for %Proposed. This effect fills in saved values after API load.
+  useEffect(() => {
+    const updates: Record<string, any> = {};
+    Object.entries(brandPlanningData).forEach(([, data]) => {
+      if (!data) return;
+      // Hydrate Season Type (Collection) tab from planning_collections
+      (data.planning_collections || []).forEach((pc: any) => {
+        const stId = pc.season_type_id || pc.season_type?.id;
+        const storeId = pc.store_id || pc.store?.id;
+        if (stId && storeId) {
+          const key = `seasonType_${stId}_${storeId}`;
+          const saved = Number(pc.proposed_buy_pct) || 0;
+          if (saved) updates[key] = { ...updates[key], userBuyPct: saved };
+        }
+      });
+      // Hydrate Gender tab from planning_genders
+      (data.planning_genders || []).forEach((pg: any) => {
+        const genderId = pg.gender_id || pg.gender?.id;
+        const storeId = pg.store_id || pg.store?.id;
+        if (genderId && storeId) {
+          const key = `gender_${genderId}_${storeId}`;
+          const saved = Number(pg.proposed_buy_pct) || 0;
+          if (saved) updates[key] = { ...updates[key], userBuyPct: saved };
+        }
+      });
+    });
+    if (Object.keys(updates).length > 0) {
+      setLocalData(prev => {
+        const next = { ...prev };
+        for (const [key, vals] of Object.entries(updates)) {
+          // Only hydrate if user hasn't already edited (localData value is undefined)
+          if (next[key]?.userBuyPct === undefined) {
+            next[key] = { ...next[key], ...vals };
+          }
+        }
+        return next;
+      });
+    }
+  }, [brandPlanningData]);
 
   // ─── Historical comparison logic ─────────────────────────────────────────
   const canEditComparison = filtersComplete && selectedYear !== 'all' && selectedBudgetId !== 'all';
@@ -546,14 +607,13 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
       // Category tab: initialize editable fields only (buyProposed)
       // %Buy/%Sales/%ST come from baseline sales history overlay in getRowData
+      // Use undefined for buyProposed/userBuyPct so planning data (from API) takes priority on load
       categoryStructure.forEach((genderGroup: any) => {
         genderGroup.categories.forEach((cat: any) => {
           cat.subCategories.forEach((subCat: any) => {
             const key = `${genderGroup.gender.id}_${cat.id}_${subCat.id}`;
             initialData[key] = {
-              buyPct: 0, salesPct: 0, stPct: 0,
-              buyProposed: prev[key]?.buyProposed || 0, otbProposed: 0, varPct: 0,
-              otbSubmitted: 0, buyActual: 0,
+              buyProposed: prev[key]?.buyProposed !== undefined ? prev[key].buyProposed : undefined,
             };
           });
         });
@@ -564,8 +624,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         activeStores.forEach((store: any) => {
           const key = `seasonType_${section.id}_${store.id}`;
           initialData[key] = {
-            buyPct: 0, salesPct: 0, stPct: 0, moc: 0,
-            userBuyPct: prev[key]?.userBuyPct || 0, otbValue: 0, varPct: 0,
+            userBuyPct: prev[key]?.userBuyPct !== undefined ? prev[key].userBuyPct : undefined,
           };
         });
       });
@@ -578,8 +637,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         activeStores.forEach((store: any) => {
           const key = `gender_${gender.id}_${store.id}`;
           initialData[key] = {
-            buyPct: 0, salesPct: 0, stPct: 0,
-            userBuyPct: prev[key]?.userBuyPct || 0, otbValue: 0, varPct: 0,
+            userBuyPct: prev[key]?.userBuyPct !== undefined ? prev[key].userBuyPct : undefined,
           };
         });
       });
@@ -767,22 +825,32 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
       const brandBudget = brandId ? (brandAllocatedTotal[brandId] || 0) : 0;
       const getRowData = (cellKey: string, subCatId?: string) => {
-        let base;
+        // Start with planning data for editable fields (buyProposed, otbSubmitted, buyActual, varPct)
+        // Priority: user-edited localData > saved planning data > baseline %Sales
+        let base: any = {};
+        const localBuyProposed = localData[cellKey]?.buyProposed;
         if (subCatId && planningDataBySubcatId[subCatId]) {
           const plan = planningDataBySubcatId[subCatId];
-          base = { ...plan, buyProposed: localData[cellKey]?.buyProposed ?? plan.buyProposed };
+          base = {
+            buyProposed: localBuyProposed !== undefined ? localBuyProposed : plan.buyProposed,
+            otbProposed: plan.otbProposed,
+            varPct: plan.varPct,
+            otbSubmitted: plan.otbSubmitted,
+            buyActual: plan.buyActual,
+          };
         } else {
-          base = localData[cellKey] || {};
+          base = { buyProposed: localBuyProposed, otbProposed: 0, varPct: 0, otbSubmitted: 0, buyActual: 0 };
         }
-        // Override buyPct/salesPct/stPct with baseline (previous year) data
-        // cellKey = ${genderId}_${catId}_${subCatId} matches backend composite key
-        if (cellKey) {
-          const bl = saveBaselineLookup.bySub[cellKey];
-          if (bl) base = { ...base, buyPct: bl.buyPct, salesPct: bl.salesPct, stPct: bl.stPct };
-        }
+        // %Buy/%Sales/%ST always come from baseline (sales history), never from planning records
+        const bl = saveBaselineLookup.bySub[cellKey];
+        base.buyPct = bl?.buyPct || 0;
+        base.salesPct = bl?.salesPct || 0;
+        base.stPct = bl?.stPct || 0;
+        // Default %Proposed to %Sales only when no saved planning data AND no user edit
+        if (base.buyProposed === undefined || base.buyProposed === null) base.buyProposed = bl?.salesPct || 0;
         // $OTB = %Proposed / 100 × totalBudgetAllocatePerBrand
         if (brandBudget > 0) {
-          base = { ...base, otbProposed: Math.round((Number(base.buyProposed) || 0) / 100 * brandBudget) };
+          base.otbProposed = Math.round((Number(base.buyProposed) || 0) / 100 * brandBudget);
         }
         return base;
       };
@@ -819,7 +887,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         });
       });
 
-      // Build seasonTypes array (override with baseline data)
+      // Build seasonTypes array (always use baseline for %Buy/%Sales/%ST)
       const seasonTypes: any[] = [];
       seasonTypeSections.forEach((section: any) => {
         activeStores.forEach((store: any) => {
@@ -830,17 +898,17 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           seasonTypes.push({
             seasonTypeId: String(section.id),
             storeId: String(store.id),
-            actualBuyPct: colBl.buyPct || d.buyPct || 0,
-            actualSalesPct: colBl.salesPct || d.salesPct || 0,
-            actualStPct: colBl.stPct || d.stPct || 0,
-            actualMoc: colBl.moc || d.moc || 0,
+            actualBuyPct: colBl.buyPct || 0,
+            actualSalesPct: colBl.salesPct || 0,
+            actualStPct: colBl.stPct || 0,
+            actualMoc: colBl.moc || 0,
             proposedBuyPct: d.userBuyPct || 0,
             otbProposedAmount: stOtb,
             pctVarVsLast: d.varPct || 0});
         });
       });
 
-      // Build genders array (override with baseline data)
+      // Build genders array (always use baseline for %Buy/%Sales/%ST)
       const genders: any[] = [];
       const brandCatStruct = brandCategoryMap[brandId] || categoryStructure;
       const genderList = brandCatStruct.length > 0
@@ -855,9 +923,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           genders.push({
             genderId: String(gender.id),
             storeId: String(store.id),
-            actualBuyPct: genBl.buyPct || d.buyPct || 0,
-            actualSalesPct: genBl.salesPct || d.salesPct || 0,
-            actualStPct: genBl.stPct || d.stPct || 0,
+            actualBuyPct: genBl.buyPct || 0,
+            actualSalesPct: genBl.salesPct || 0,
+            actualStPct: genBl.stPct || 0,
             proposedBuyPct: d.userBuyPct || 0,
             otbProposedAmount: genOtb,
             pctVarVsLast: d.varPct || 0});
@@ -869,13 +937,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
       // Helper: refresh version list for this brand after save
       const refreshVersionList = async (selectVersionId?: string) => {
-        // Use allocateHeaderId for direct filter; fallback to brandId
-        const filterParams: any = { pageSize: 50 };
-        if (allocateHeaderId) {
-          filterParams.allocateHeaderId = allocateHeaderId;
-        } else {
-          filterParams.brandId = brandId;
-        }
+        // Always use allocateHeaderId to scope versions to this specific budget+brand
+        invalidateCache('/planning');
+        const filterParams: any = { allocateHeaderId, pageSize: 50 };
         const list = await planningService.getAll(filterParams);
         const mapped = (Array.isArray(list) ? list : []).map((v: any) => ({
           id: String(v.id),
@@ -1073,9 +1137,15 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
   // Brands to display as sections — all brands when none selected, filtered otherwise
   const displayBrands = useMemo(() => {
-    if (selectedBrandIds.length === 0) return apiBrands;
-    return apiBrands.filter((b: any) => selectedBrandIds.includes(String(b.id)));
-  }, [apiBrands, selectedBrandIds]);
+    // When a budget is selected with complete season filters, only show brands that have allocateHeaders
+    let brands = apiBrands;
+    if (selectedBudgetId !== 'all' && filtersComplete && matchedAllocateHeaders.length > 0) {
+      const allocatedBrandIds = new Set(matchedAllocateHeaders.map((ah: any) => String(ah.brandId)));
+      brands = apiBrands.filter((b: any) => allocatedBrandIds.has(String(b.id)));
+    }
+    if (selectedBrandIds.length === 0) return brands;
+    return brands.filter((b: any) => selectedBrandIds.includes(String(b.id)));
+  }, [apiBrands, selectedBrandIds, selectedBudgetId, filtersComplete, matchedAllocateHeaders]);
 
   // Auto-collapse all brand sections when showing all brands (no filter)
   useEffect(() => {
@@ -1194,8 +1264,15 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
       // Clear versions when filters are incomplete
       setBrandPlanningVersions({});
       setBrandSelectedVersion({});
+      setBrandPlanningData({});
       return;
     }
+    // Fully reset all brand state when filters change — no stale data
+    setBrandPlanningVersions({});
+    setBrandSelectedVersion({});
+    setBrandPlanningData({});
+    // Invalidate planning API cache to ensure fresh data after filter change
+    invalidateCache('/planning');
     let cancelled = false;
     const fetchVersions = async () => {
       await Promise.all(displayBrands.map(async (brand: any) => {
@@ -1203,8 +1280,13 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         if (!brandId) return;
         // Find the matching allocateHeader for this brand + season filter
         const matchedAH = matchedAllocateHeaders.find((ah: any) => String(ah.brandId) === brandId);
-        const filterParams: any = { brandId, pageSize: 50 };
-        if (matchedAH?.id) filterParams.allocateHeaderId = matchedAH.id;
+        // Must have allocateHeaderId to scope versions to this specific budget+brand
+        if (!matchedAH?.id) {
+          setBrandPlanningVersions(prev => ({ ...prev, [brandId]: [] }));
+          setBrandSelectedVersion(prev => ({ ...prev, [brandId]: null }));
+          return;
+        }
+        const filterParams: any = { allocateHeaderId: matchedAH.id, pageSize: 50 };
         setBrandLoadingVersions(prev => ({ ...prev, [brandId]: true }));
         try {
           const list = await planningService.getAll(filterParams);
@@ -1216,15 +1298,14 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             isFinal: v.is_final_version || false,
             version: v.version}));
           setBrandPlanningVersions(prev => ({ ...prev, [brandId]: mapped }));
-          setBrandSelectedVersion(prev => {
-            if (prev[brandId] !== undefined) return prev;
-            const finalV = mapped.find((v: any) => v.isFinal);
-            return { ...prev, [brandId]: finalV ? finalV.id : (mapped[0]?.id || null) };
-          });
+          // Always re-select version when filters change (don't keep stale selection)
+          const finalV = mapped.find((v: any) => v.isFinal);
+          setBrandSelectedVersion(prev => ({ ...prev, [brandId]: finalV ? finalV.id : (mapped[0]?.id || null) }));
         } catch (err: any) {
           if (cancelled) return;
           console.error(`[OTB] Failed to fetch planning versions for brand ${brandId}:`, err?.response?.data || err?.message);
           setBrandPlanningVersions(prev => ({ ...prev, [brandId]: [] }));
+          setBrandSelectedVersion(prev => ({ ...prev, [brandId]: null }));
         } finally {
           if (!cancelled) setBrandLoadingVersions(prev => ({ ...prev, [brandId]: false }));
         }
@@ -1232,7 +1313,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     };
     fetchVersions();
     return () => { cancelled = true; };
-  }, [displayBrands, filtersComplete, matchedAllocateHeaders]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displayBrands, filtersComplete, matchedAllocateHeaders, selectedBudgetId]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Allocate All: validate season + final planning versions, then navigate to SKU Proposal
   const handleAllocateAll = useCallback(() => {
@@ -1378,26 +1459,33 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     // cellKey = `${genderId}_${catId}_${subCatId}`, subCatId passed explicitly for planning lookup
     const brandBudget = brandId ? (brandAllocatedTotal[brandId] || 0) : 0;
     const getRowData = (cellKey: string, subCatId?: string) => {
-      let base;
+      // Start with planning data for editable fields (buyProposed, otbSubmitted, buyActual, varPct)
+      // Priority: user-edited localData > saved planning data > baseline %Sales
+      let base: any = {};
+      const localBuyProposed = localData[cellKey]?.buyProposed;
       if (subCatId && planningDataBySubcatId[subCatId]) {
         const plan = planningDataBySubcatId[subCatId];
-        base = { ...plan, buyProposed: localData[cellKey]?.buyProposed ?? plan.buyProposed };
+        base = {
+          // localData.buyProposed is undefined until user edits → use planning value
+          buyProposed: localBuyProposed !== undefined ? localBuyProposed : plan.buyProposed,
+          otbProposed: plan.otbProposed,
+          varPct: plan.varPct,
+          otbSubmitted: plan.otbSubmitted,
+          buyActual: plan.buyActual,
+        };
       } else {
-        base = localData[cellKey] || {};
+        base = { buyProposed: localBuyProposed, otbProposed: 0, varPct: 0, otbSubmitted: 0, buyActual: 0 };
       }
-      // Override buyPct/salesPct/stPct with baseline (previous year) data
-      // cellKey = ${genderId}_${catId}_${subCatId} matches backend composite key
-      if (catBaselineLookup && cellKey) {
-        const bl = catBaselineLookup.bySub[cellKey];
-        if (bl) {
-          base = { ...base, buyPct: bl.buyPct, salesPct: bl.salesPct, stPct: bl.stPct };
-          // Default %Proposed to %Sales when no user edit / no planning data
-          if (!base.buyProposed) base.buyProposed = bl.salesPct || 0;
-        }
-      }
+      // %Buy/%Sales/%ST always come from baseline (sales history), never from planning records
+      const bl = catBaselineLookup?.bySub[cellKey];
+      base.buyPct = bl?.buyPct || 0;
+      base.salesPct = bl?.salesPct || 0;
+      base.stPct = bl?.stPct || 0;
+      // Default %Proposed to %Sales only when no saved planning data AND no user edit
+      if (base.buyProposed === undefined || base.buyProposed === null) base.buyProposed = bl?.salesPct || 0;
       // $OTB = %Proposed / 100 × totalBudgetAllocatePerBrand
       if (brandBudget > 0) {
-        base = { ...base, otbProposed: Math.round((Number(base.buyProposed) || 0) / 100 * brandBudget) };
+        base.otbProposed = Math.round((Number(base.buyProposed) || 0) / 100 * brandBudget);
       }
       return base;
     };
@@ -2108,9 +2196,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                 <span className={'text-[#1A1A1A]'}>{store.name}</span>
                               </div>
                             </td>
-                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(genBl.buyPct || rowData.buyPct)}</td>
-                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(genBl.salesPct || rowData.salesPct)}</td>
-                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(genBl.stPct || rowData.stPct)}</td>
+                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(genBl.buyPct)}</td>
+                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(genBl.salesPct)}</td>
+                            <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(genBl.stPct)}</td>
                             {historicalPeriods
                               .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
                               .map((period) => {
@@ -2438,7 +2526,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       <div className="h-[1.5px]" style={{ background:'linear-gradient(90deg, transparent 5%, rgba(184,153,112,0.4) 50%, transparent 95%)'}} />
                       <div className="py-1">
                       <div
-                        onClick={() => { setSelectedYear('all'); setOpenDropdown(null); }}
+                        onClick={() => { setSelectedYear('all'); setSelectedBudgetId('all'); setOpenDropdown(null); }}
                         className={`relative px-3 py-1.5 flex items-center justify-between cursor-pointer text-sm transition-all duration-150 ${
                           selectedYear === 'all'
                             ?'bg-[rgba(215,183,151,0.1)] text-[#6B4D30]':'hover:bg-[rgba(215,183,151,0.06)] text-[#444444] hover:text-[#1A1A1A]'}`}
@@ -2450,7 +2538,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                       {availableYears.map((year: number) => (
                         <div
                           key={year}
-                          onClick={() => { setSelectedYear(year); setOpenDropdown(null); }}
+                          onClick={() => { setSelectedYear(year); setSelectedBudgetId('all'); setOpenDropdown(null); }}
                           className={`relative px-3 py-1.5 flex items-center justify-between cursor-pointer text-sm transition-all duration-150 ${
                             selectedYear === year
                               ?'bg-[rgba(215,183,151,0.1)] text-[#6B4D30]':'hover:bg-[rgba(215,183,151,0.06)] text-[#444444] hover:text-[#1A1A1A]'}`}

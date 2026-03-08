@@ -11,6 +11,7 @@ import {
 import toast from 'react-hot-toast';
 import { useRouter } from 'next/navigation';
 import { approvalService, masterDataService } from '@/services';
+import { invalidateCache } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ExpandableStatCard } from '@/components/ui';
@@ -80,11 +81,11 @@ const ApprovalsScreen = ({  }: any) => {
 
   // Fetch pending approvals + master data
   useEffect(() => {
+    invalidateCache('/tickets');
     fetchPendingApprovals();
     masterDataService.getGroupBrands().then((res: any) => {
       const data = Array.isArray(res) ? res : [];
       setGroupBrands(data);
-      // Flatten all child brands from group brands
       const allBrands: any[] = [];
       data.forEach((gb: any) => {
         (gb.brands || []).forEach((b: any) => {

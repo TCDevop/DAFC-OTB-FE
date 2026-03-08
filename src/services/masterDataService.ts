@@ -138,6 +138,17 @@ export const masterDataService = {
     }
   },
 
+  // Get recommended SKUs for a season/year
+  async getProductRecommends(params: { year?: number; seasonName?: string; brandName?: string; subCategory?: string } = {}) {
+    try {
+      const response = await api.get('/master/product-recommends', { params });
+      return extract(response);
+    } catch (err: any) {
+      console.error('[masterDataService.getProductRecommends]', err?.response?.status, err?.message);
+      throw err;
+    }
+  },
+
   // Get sizes for a specific subcategory (e.g. XS, S, M, L, XL)
   async getSubcategorySizes(subCategoryId: string) {
     try {

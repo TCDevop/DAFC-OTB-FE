@@ -298,6 +298,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Fetch budgets from API (all statuses)
   const fetchBudgets = useCallback(async () => {
     setLoadingBudgets(true);
+    // Always invalidate cache to ensure fresh allocate headers
+    invalidateCache('/budgets');
     try {
       const response = await budgetService.getAll({});
       const budgetList = (Array.isArray(response) ? response : []).map((budget: any) => {
@@ -395,15 +397,29 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Allocation/Planning validation — checks if budget + season filters are selected
   const filtersComplete = budgetFilter !== 'all' && seasonGroupFilter !== 'all' && seasonFilter !== 'all';
 
+  // Match allocate headers by season, deduplicate per brand (prefer final, then latest)
   const matchedAllocateHeaders = useMemo(() => {
     if (!filtersComplete) return [];
     const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
     if (!budget) return [];
-    return (budget.allocateHeaders || []).filter((ah: any) =>
+    const allMatched = (budget.allocateHeaders || []).filter((ah: any) =>
       (ah.budgetAllocates || []).some((ba: any) =>
         ba.seasonGroupName === seasonGroupFilter && ba.seasonName === seasonFilter
       )
     );
+    // Deduplicate per brand: prefer final version, then latest (by id)
+    const byBrand: Record<string, any> = {};
+    allMatched.forEach((ah: any) => {
+      const existing = byBrand[ah.brandId];
+      if (!existing) {
+        byBrand[ah.brandId] = ah;
+      } else if (ah.isFinal && !existing.isFinal) {
+        byBrand[ah.brandId] = ah;
+      } else if (!existing.isFinal && !ah.isFinal && String(ah.id) > String(existing.id)) {
+        byBrand[ah.brandId] = ah;
+      }
+    });
+    return Object.values(byBrand);
   }, [filtersComplete, budgetFilter, apiBudgets, seasonGroupFilter, seasonFilter]);
 
   // Gated proposal loading — only when budget + season filters are complete
@@ -420,18 +436,22 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       loadAbortRef.current = null;
     }
 
-    if (!filtersComplete) {
+    if (!filtersComplete || matchedAllocateHeaders.length === 0) {
       setBrandProposalHeaders({});
       setBrandSizingHeaders({});
+      setBrandSkuVersion({});
+      setBrandSizingChoice({});
       setSkuBlocks([]);
       return;
     }
-    if (matchedAllocateHeaders.length === 0) return;
 
     const controller = new AbortController();
     loadAbortRef.current = controller;
     const signal = controller.signal;
     const loadId = ++loadProposalsRef.current;
+
+    // Invalidate proposal cache to ensure fresh data when season changes
+    invalidateCache('/proposals');
 
     const loadFilteredProposals = async () => {
       setSkuDataLoading(true);
@@ -534,21 +554,73 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               setSkuCatalog(prev => [...prev, ...supplementarySkus]);
             }
           } else {
-            // No proposals found — try loading previous year template
+            // No proposals found — load recommended SKUs from previous year
             if (signal.aborted) return;
             const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
             const currentFY = budget?.fiscalYear;
-            if (currentFY && seasonGroupFilter !== 'all' && seasonFilter !== 'all') {
-              const historical = await proposalService.getHistorical({
-                fiscalYear: currentFY - 1,
-                seasonGroupName: seasonGroupFilter,
-                seasonName: seasonFilter,
-                brandId,
-              });
-              if (historical) {
-                const histBlocks = buildBlocksFromProposal(historical, brandId);
-                histBlocks.forEach((b: any) => { b.isHistorical = true; });
-                allBlocks.push(...histBlocks);
+            // Resolve season name for the recommend API (table uses season_name text)
+            // Also resolve brand name from the allocate header
+            const brandObj = apiBrands.find((b: any) => String(b.id) === brandId);
+            const brandName = brandObj?.name || ah.brandName || '';
+            if (currentFY && seasonFilter !== 'all') {
+              try {
+                const recommends = await masterDataService.getProductRecommends({
+                  year: currentFY - 1,
+                  seasonName: seasonFilter,
+                  brandName: brandName || undefined,
+                });
+                const recList = Array.isArray(recommends) ? recommends : (recommends?.data || []);
+                if (recList.length > 0) {
+                  // Build blocks from recommended products, grouped by subcategory
+                  const recBlocks: any[] = [];
+                  recList.forEach((rec: any) => {
+                    const prod = rec.product || {};
+                    const subCat = prod.sub_category || {};
+                    const cat = subCat.category || {};
+                    const genderObj = cat.gender || {};
+                    // Use product's hierarchy if available, fall back to rec table columns
+                    const gender = (genderObj.name || '').toLowerCase();
+                    const category = (cat.name || rec.category || '').toLowerCase();
+                    const subCategory = (subCat.name || rec.sub_category || '').toLowerCase();
+                    if (!category || !subCategory) return;
+
+                    let block = recBlocks.find((b: any) => b.gender === gender && b.category === category && b.subCategory === subCategory);
+                    if (!block) {
+                      block = { brandId, proposalHeaderId: '', gender, category, subCategory, items: [], isRecommended: true };
+                      recBlocks.push(block);
+                    }
+                    block.items.push({
+                      productId: String(prod.id || ''),
+                      skuProposalId: '',
+                      sku: rec.sku || prod.sku_code || '',
+                      name: prod.product_name || prod.name || rec.item_code || '',
+                      collectionName: prod.collection || '',
+                      color: prod.color || '',
+                      colorCode: prod.colorCode || '',
+                      division: cat.name || '',
+                      productType: subCat.name || '',
+                      departmentGroup: '',
+                      fsr: '',
+                      carryForward: 'NEW',
+                      composition: prod.composition || '',
+                      unitCost: Number(prod.unit_cost) || 0,
+                      importTaxPct: 0,
+                      srp: Number(prod.unit_price) || 0,
+                      wholesale: 0, rrp: 0, regionalRrp: 0,
+                      theme: prod.theme || '',
+                      size: '',
+                      order: 0,
+                      storeQty: {},
+                      ttlValue: 0,
+                      customerTarget: 'New',
+                      imageUrl: prod.image_url || '',
+                    });
+                  });
+                  allBlocks.push(...recBlocks);
+                }
+              } catch (err: any) {
+                if (err?.code === 'ERR_CANCELED') throw err;
+                console.error('[SKUProposal] Failed to load product recommends:', err?.message);
               }
             }
           }
@@ -567,21 +639,21 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           }
         }
 
-        // Auto-select final or latest version per brand
+        // Auto-select final or latest version per brand (replace, don't merge stale)
         const autoSelected: Record<string, string> = {};
         for (const [bId, headers] of Object.entries(newHeadersByBrand)) {
           const finalH = headers.find((h: any) => h.isFinal);
           autoSelected[bId] = String(finalH ? finalH.id : headers[0]?.id || '');
         }
-        setBrandSkuVersion(prev => ({ ...autoSelected, ...prev }));
+        setBrandSkuVersion(autoSelected);
 
-        // Auto-select final or latest sizing choice per brand
+        // Auto-select final or latest sizing choice per brand (replace, don't merge stale)
         const autoSizing: Record<string, string> = {};
         for (const [bId, headers] of Object.entries(newSizingByBrand)) {
           const finalH = headers.find((h: any) => h.isFinal);
           autoSizing[bId] = String(finalH ? finalH.id : headers[0]?.id || '');
         }
-        setBrandSizingChoice(prev => ({ ...autoSizing, ...prev }));
+        setBrandSizingChoice(autoSizing);
       } catch (err: any) {
         // Silently ignore cancelled requests
         if (err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
@@ -1058,9 +1130,15 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
   // Brands to display — filtered by brandFilter
   const displayBrands = useMemo(() => {
-    if (brandFilter === 'all') return apiBrands;
-    return apiBrands.filter((b: any) => String(b.id) === brandFilter);
-  }, [apiBrands, brandFilter]);
+    // When budget is selected with complete season filters, only show brands that have allocateHeaders
+    let brands = apiBrands;
+    if (budgetFilter !== 'all' && filtersComplete && matchedAllocateHeaders.length > 0) {
+      const allocatedBrandIds = new Set(matchedAllocateHeaders.map((ah: any) => String(ah.brandId)));
+      brands = apiBrands.filter((b: any) => allocatedBrandIds.has(String(b.id)));
+    }
+    if (brandFilter === 'all') return brands;
+    return brands.filter((b: any) => String(b.id) === brandFilter);
+  }, [apiBrands, brandFilter, budgetFilter, filtersComplete, matchedAllocateHeaders]);
 
   // Auto-collapse all brand sections when brand filter is "all"
   useEffect(() => {
@@ -1079,6 +1157,18 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       setBrandCategoryOtb({});
       return;
     }
+    // Clean up stale brand data from previous filter selection
+    const activeBrandIds = new Set(displayBrands.map((b: any) => String(b.id)));
+    setBrandPlanningHeaders(prev => {
+      const cleaned: Record<string, any[]> = {};
+      activeBrandIds.forEach(id => { if (prev[id]) cleaned[id] = prev[id]; });
+      return cleaned;
+    });
+    setBrandCategoryOtb(prev => {
+      const cleaned: Record<string, Record<string, number>> = {};
+      activeBrandIds.forEach(id => { if (prev[id]) cleaned[id] = prev[id]; });
+      return cleaned;
+    });
     displayBrands.forEach(async (brand: any) => {
       const brandId = String(brand.id);
       const matchedAH = matchedAllocateHeaders.find((ah: any) => String(ah.brandId) === brandId);
@@ -1289,17 +1379,22 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Build header-level sizing payload from brandSizingHeaders + sizingData state
   const buildSizingsPayload = useCallback((brandId: string) => {
     const headers = brandSizingHeaders[brandId] || [];
-    if (headers.length === 0) return undefined;
 
     // Use ALL blocks for the brand (unfiltered) so sizing data isn't lost
     const blocks = skuBlocks.filter((b: any) =>
       String(b.brandId || 'all') === brandId && b.items?.length > 0
     );
 
-    return headers.map((sh: any) => {
-      const choiceKey = String(sh.id);
-      const rows: any[] = [];
+    // When no sizing headers exist yet, use fallback choice keys matching getDefaultSizing
+    const fallbackChoices = [
+      { id: 'choiceA', version: 1, isFinal: false },
+      { id: 'choiceB', version: 2, isFinal: false },
+      { id: 'choiceC', version: 3, isFinal: false },
+    ];
+    const choices = headers.length > 0 ? headers : fallbackChoices;
 
+    const buildRows = (choiceKey: string) => {
+      const rows: any[] = [];
       blocks.forEach((block: any) => {
         const blockKey = buildBlockKey(block);
         (block.items || []).forEach((item: any, idx: number) => {
@@ -1321,11 +1416,30 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           });
         });
       });
+      return rows;
+    };
 
+    // Check if there's any sizing data at all (including fallback keys)
+    const hasSizingData = blocks.some((block: any) => {
+      const blockKey = buildBlockKey(block);
+      return (block.items || []).some((_: any, idx: number) => {
+        const key = `${blockKey}_${idx}`;
+        const sd = sizingData[key];
+        if (!sd) return false;
+        return Object.values(sd).some((choiceData: any) =>
+          choiceData && typeof choiceData === 'object' && Object.values(choiceData).some((v: any) => Number(v) > 0)
+        );
+      });
+    });
+
+    if (!hasSizingData) return undefined;
+
+    return choices.map((sh: any) => {
+      const choiceKey = String(sh.id);
       return {
         version: Math.round(Number(sh.version) || 1),
         isFinal: Boolean(sh.isFinal),
-        rows,
+        rows: buildRows(choiceKey),
       };
     });
   }, [skuBlocks, brandSizingHeaders, sizingData]);
@@ -1363,7 +1477,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               ...(prev[brandId] || []),
             ]}));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
-          // Update sizing headers from the response (now at header level)
+          // Update sizing headers + hydrate sizing data from saved response
           const detail = await proposalService.getOne(newId);
           const fullDetail = detail?.data || detail;
           if (fullDetail) {
@@ -1373,6 +1487,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             }));
             sizingHeaders.sort((a: any, b: any) => a.version - b.version);
             setBrandSizingHeaders(prev => ({ ...prev, [brandId]: sizingHeaders }));
+            const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
+            hydrateSizingData(brandBlocks, sizingHeaders);
           }
           headerId = newId;
         }
@@ -1397,6 +1513,19 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               ...(prev[brandId] || []),
             ]}));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
+          // Reload sizing headers + hydrate sizing data from saved response
+          const detail = await proposalService.getOne(newId);
+          const fullDetail = detail?.data || detail;
+          if (fullDetail) {
+            const sizingHeaders = (fullDetail.proposal_sizing_headers || []).map((sh: any) => ({
+              id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? false,
+              proposalSizings: sh.proposal_sizings || [],
+            }));
+            sizingHeaders.sort((a: any, b: any) => a.version - b.version);
+            setBrandSizingHeaders(prev => ({ ...prev, [brandId]: sizingHeaders }));
+            const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
+            hydrateSizingData(brandBlocks, sizingHeaders);
+          }
         }
         invalidateCache('/proposals');
         toast.success('Saved as new version');
@@ -1406,6 +1535,24 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           await proposalService.saveFullProposal(headerId, { products, sizings });
         }
         invalidateCache('/proposals');
+        // Reload saved data from API to ensure local state matches backend
+        const detail = await proposalService.getOne(headerId);
+        const fullDetail = detail?.data || detail;
+        if (fullDetail) {
+          const sizingHeaders = (fullDetail.proposal_sizing_headers || []).map((sh: any) => ({
+            id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? false,
+            proposalSizings: sh.proposal_sizings || [],
+          }));
+          sizingHeaders.sort((a: any, b: any) => a.version - b.version);
+          setBrandSizingHeaders(prev => ({ ...prev, [brandId]: sizingHeaders }));
+          const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
+          // Update skuBlocks with fresh data from backend
+          setSkuBlocks(prev => {
+            const other = prev.filter((b: any) => String(b.brandId) !== brandId);
+            return [...other, ...brandBlocks];
+          });
+          hydrateSizingData(brandBlocks, sizingHeaders);
+        }
         toast.success('Saved successfully');
       }
     } catch (err: any) {
@@ -1463,15 +1610,82 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const canShowCardView = filteredSkuBlocks.length > 0 && filteredSkuBlocks.some((b: any) => b.items.length > 0);
 
   // Submit validation: all brands must have final version + final sizing choice
-  const canSubmitTicket = useMemo(() => {
-    if (grandTotals.order === 0) return false;
-    return displayBrands.every((b: any) => {
-      const bId = String(b.id);
-      const hasFinalVersion = (brandProposalHeaders[bId] || []).some((h: any) => h.isFinal);
-      const hasFinalChoice = (brandSizingHeaders[bId] || []).some((h: any) => h.isFinal);
-      return hasFinalVersion && hasFinalChoice;
+  // Per-brand ticket submit readiness check
+  const canSubmitTicketForBrand = useCallback((brandId: string) => {
+    const brandBlocks = filteredSkuBlocks.filter((b: any) => String(b.brandId) === brandId);
+    const brandOrder = brandBlocks.reduce((sum: number, block: any) =>
+      sum + (block.items || []).reduce((s: number, item: any) => s + (Number(item.order) || 0), 0), 0);
+    if (brandOrder === 0) return false;
+    const hasFinalVersion = (brandProposalHeaders[brandId] || []).some((h: any) => h.isFinal);
+    const hasFinalChoice = (brandSizingHeaders[brandId] || []).some((h: any) => h.isFinal);
+    return hasFinalVersion && hasFinalChoice;
+  }, [filteredSkuBlocks, brandProposalHeaders, brandSizingHeaders]);
+
+  const handleSubmitTicketForBrand = useCallback((brandId: string) => {
+    if (!onSubmitTicket) return;
+    const brandName = displayBrands.find((b: any) => String(b.id) === brandId)?.name || '';
+    const finalHeaderId = getBrandSkuVersion(brandId);
+    const brandBlocksAll = filteredSkuBlocks.filter((block: any) => {
+      const bId = String(block.brandId || 'all');
+      return bId === brandId && (!block.proposalHeaderId || block.proposalHeaderId === finalHeaderId);
     });
-  }, [grandTotals.order, displayBrands, brandProposalHeaders, brandSizingHeaders]);
+    // Enrich items with sizing data
+    const enrichedBlocks = brandBlocksAll.map((block: any) => ({
+      ...block,
+      items: (block.items || []).map((item: any, idx: number) => {
+        const blockKey = buildBlockKey(block);
+        const choices = getBrandSizingChoices(brandId);
+        const finalChoice = choices.find((c: any) => c.isFinal);
+        const choiceKey = finalChoice ? String(finalChoice.id) : (choices[0] ? String(choices[0].id) : 'default');
+        const sizing = getSizing(blockKey, idx, brandId);
+        const choiceSizing = sizing[choiceKey] || {};
+        return { ...item, sizing: choiceSizing };
+      })}));
+    // Brand totals
+    const brandGrandTotals = {
+      skuCount: enrichedBlocks.reduce((sum: number, b: any) => sum + (b.items?.length || 0), 0),
+      order: enrichedBlocks.reduce((sum: number, b: any) =>
+        sum + (b.items || []).reduce((s: number, i: any) => s + (Number(i.order) || 0), 0), 0),
+      ttlValue: enrichedBlocks.reduce((sum: number, b: any) =>
+        sum + (b.items || []).reduce((s: number, i: any) => s + (Number(i.ttlValue) || 0), 0), 0),
+      storeQty: stores.reduce((acc: Record<string, number>, st: any) => {
+        acc[st.code] = enrichedBlocks.reduce((sum: number, b: any) =>
+          sum + (b.items || []).reduce((s: number, i: any) => s + (Number(i.storeQty?.[st.code]) || 0), 0), 0);
+        return acc;
+      }, {} as Record<string, number>),
+    };
+    const proposalHeaderIds = finalHeaderId ? [finalHeaderId] : [];
+    const matchedAH = matchedAllocateHeaders.find((ah: any) => String(ah.brandId) === brandId);
+    const brandAllocations = matchedAH && matchedAH.isFinal ? [{
+      brandId, brandName: matchedAH.brandName || brandName,
+      totalAllocation: (matchedAH.budgetAllocates || [])
+        .filter((ba: any) => ba.seasonGroupName === seasonGroupFilter && ba.seasonName === seasonFilter)
+        .reduce((sum: number, ba: any) => sum + (ba.budgetAmount || 0), 0),
+    }] : [];
+    const matchedSG = apiSeasonGroups.find((sg: any) => (sg.name || sg.code) === seasonGroupFilter);
+    let resolvedSeasonId = '';
+    if (matchedSG) {
+      const matchedS = (matchedSG.seasons || []).find((s: any) => (s.name || s.code) === seasonFilter);
+      if (matchedS) resolvedSeasonId = String(matchedS.id);
+    }
+    onSubmitTicket({
+      budgetId: budgetFilter !== 'all' ? budgetFilter : '',
+      proposalHeaderIds,
+      skuBlocks: enrichedBlocks,
+      grandTotals: brandGrandTotals,
+      stores,
+      fiscalYear: fyFilter !== 'all' ? fyFilter : '',
+      budgetName: selectedBudget?.budgetName || '',
+      budgetAmount: selectedBudget?.totalBudget || 0,
+      seasonGroup: seasonGroupFilter !== 'all' ? seasonGroupFilter : '',
+      season: seasonFilter !== 'all' ? seasonFilter : '',
+      seasonGroupId: matchedSG ? String(matchedSG.id) : '',
+      seasonId: resolvedSeasonId,
+      brandAllocations,
+      brandId,
+      brandName,
+    });
+  }, [onSubmitTicket, displayBrands, filteredSkuBlocks, getBrandSkuVersion, getBrandSizingChoices, getSizing, stores, matchedAllocateHeaders, apiSeasonGroups, seasonGroupFilter, seasonFilter, budgetFilter, fyFilter, selectedBudget]);
 
   // Export filtered SKU data to CSV
   const handleExportCSV = useCallback(() => {
@@ -2824,76 +3038,26 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     </div>
                   </div>
                   <div className="ml-auto">
-                    <button
-                      onClick={() => {
-                        if (onSubmitTicket) {
-                          // Only include blocks from the final (selected) version per brand
-                          const finalBlocks = filteredSkuBlocks.filter((block: any) => {
-                            const bId = block.brandId || 'all';
-                            const finalHeaderId = getBrandSkuVersion(bId);
-                            return !block.proposalHeaderId || block.proposalHeaderId === finalHeaderId;
-                          });
-                          // Enrich items with sizing data for each brand's selected choice
-                          const enrichedBlocks = finalBlocks.map((block: any) => ({
-                            ...block,
-                            items: (block.items || []).map((item: any, idx: number) => {
-                              const blockKey = buildBlockKey(block);
-                              const bId = block.brandId || 'all';
-                              const choices = getBrandSizingChoices(bId);
-                              const finalChoice = choices.find((c: any) => c.isFinal);
-                              const choiceKey = finalChoice ? String(finalChoice.id) : (choices[0] ? String(choices[0].id) : 'default');
-                              const sizing = getSizing(blockKey, idx, bId);
-                              const choiceSizing = sizing[choiceKey] || {};
-                              return { ...item, sizing: choiceSizing };
-                            })}));
-                          // Collect all proposal header IDs for the active brands
-                          const proposalHeaderIds = Object.entries(brandSkuVersion)
-                            .filter(([, hId]) => hId)
-                            .map(([, hId]) => hId);
-                          // Build brand allocations from final allocate headers
-                          const brandAllocations = matchedAllocateHeaders
-                            .filter((ah: any) => ah.isFinal)
-                            .map((ah: any) => {
-                              const total = (ah.budgetAllocates || [])
-                                .filter((ba: any) => ba.seasonGroupName === seasonGroupFilter && ba.seasonName === seasonFilter)
-                                .reduce((sum: number, ba: any) => sum + (ba.budgetAmount || 0), 0);
-                              return { brandId: ah.brandId, brandName: ah.brandName, totalAllocation: total };
-                            });
-                          // Resolve season group / season DB IDs
-                          const matchedSG = apiSeasonGroups.find((sg: any) => (sg.name || sg.code) === seasonGroupFilter);
-                          let resolvedSeasonId = '';
-                          if (matchedSG) {
-                            const matchedS = (matchedSG.seasons || []).find((s: any) => (s.name || s.code) === seasonFilter);
-                            if (matchedS) resolvedSeasonId = String(matchedS.id);
-                          }
-                          onSubmitTicket({
-                            budgetId: budgetFilter !== 'all' ? budgetFilter : '',
-                            proposalHeaderIds,
-                            skuBlocks: enrichedBlocks,
-                            grandTotals,
-                            stores,
-                            fiscalYear: fyFilter !== 'all' ? fyFilter : '',
-                            budgetName: selectedBudget?.budgetName || '',
-                            budgetAmount: selectedBudget?.totalBudget || 0,
-                            seasonGroup: seasonGroupFilter !== 'all' ? seasonGroupFilter : '',
-                            season: seasonFilter !== 'all' ? seasonFilter : '',
-                            seasonGroupId: matchedSG ? String(matchedSG.id) : '',
-                            seasonId: resolvedSeasonId,
-                            brandAllocations,
-                          });
-                        } else {
-                          router.push(`/tickets?source=proposal&budgetId=${budgetFilter !== 'all' ? budgetFilter : ''}`);
-                        }
-                      }}
-                      disabled={!canSubmitTicket}
-                      title={!canSubmitTicket ? 'All brands must have a final version and final sizing choice' : ''}
-                      className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold font-['Montserrat'] transition-colors ${
-                        canSubmitTicket
-                          ?'bg-[#C4A77D] text-white hover:bg-[#B8956D]':'bg-slate-200 text-slate-400 cursor-not-allowed'}`}
-                    >
-                      <Send size={16} />
-                      Submit Ticket
-                    </button>
+                    {(() => {
+                      const isSingleBrand = displayBrands.length === 1;
+                      const singleBrandId = isSingleBrand ? String(displayBrands[0].id) : '';
+                      const canSubmit = isSingleBrand && canSubmitTicketForBrand(singleBrandId);
+                      return (
+                        <button
+                          disabled={!canSubmit}
+                          onClick={() => { if (canSubmit) handleSubmitTicketForBrand(singleBrandId); }}
+                          title={!isSingleBrand ? 'Select a single brand to submit ticket' : !canSubmit ? 'Brand must have a final version and final sizing choice with orders' : ''}
+                          className={`flex items-center gap-2 px-5 py-2 rounded-lg text-sm font-semibold font-['Montserrat'] transition-colors ${
+                            canSubmit
+                              ? 'bg-[#C4A77D] text-white hover:bg-[#B8956D]'
+                              : 'bg-slate-200 text-slate-400 cursor-not-allowed'
+                          }`}
+                        >
+                          <Send size={16} />
+                          Submit Ticket
+                        </button>
+                      );
+                    })()}
                   </div>
                 </div>
               </div>
@@ -2952,12 +3116,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         {isFinal && <Star size={11} className={'text-[#6B4D30] fill-[#6B4D30] shrink-0'} />}
                         <span className="font-medium truncate">{isVersion ? `Version ${item.version}` : `Choice ${choiceLetter(item.version)}`}</span>
-                        {isVersion && item.status && (
-                          <span className={`text-[9px] px-1 rounded ${
-                            item.status === 'APPROVED' ? 'bg-green-500/20 text-green-400' :
-                            item.status === 'SUBMITTED' ? 'bg-blue-500/20 text-blue-400' :
-                            item.status === 'REJECTED' ? 'bg-red-500/20 text-red-400' :'bg-[#E5E0DB] text-[#666]'}`}>{item.status}</span>
-                        )}
                         {isFinal && <span className="px-1 py-px text-[8px] font-bold bg-[#D7B797] text-[#0A0A0A] rounded shrink-0">FINAL</span>}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -2991,7 +3149,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       {/* SKU Lightbox Modal — Portal to body for full-screen blur */}
       {lightbox && lightbox.open && lightbox.item && createPortal(
         <div className="fixed inset-0 backdrop-blur-md flex items-center justify-center z-50" onClick={(e) => { if (e.target === e.currentTarget) handleCloseLightbox(); }}>
-          <div ref={lightboxRef} className={`rounded-2xl w-full max-w-2xl mx-4 overflow-hidden max-h-[90vh] flex flex-col border ${'bg-white border-[rgba(215,183,151,0.3)]'}`} style={{ boxShadow: '0 25px 60px -12px rgba(0,0,0,0.4), 0 10px 30px -8px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.05)' }}>
+          <div ref={lightboxRef} className={`rounded-2xl w-full max-w-4xl mx-4 overflow-hidden max-h-[90vh] flex flex-col border ${'bg-white border-[rgba(215,183,151,0.3)]'}`} style={{ boxShadow: '0 25px 60px -12px rgba(0,0,0,0.4), 0 10px 30px -8px rgba(0,0,0,0.3), 0 0 0 1px rgba(0,0,0,0.05)' }}>
             {/* Header */}
             <div className={`px-6 py-4 flex items-center justify-between ${'bg-[rgba(160,120,75,0.18)] border-b border-[rgba(215,183,151,0.3)]'}`}>
               <div className="flex items-center gap-3">
@@ -3015,7 +3173,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
             {/* Tab Buttons */}
             <div className={`flex border-b ${'border-[rgba(215,183,151,0.3)]'}`}>
-              {([['details', t('skuProposal.showDetails')], ['storeOrder', t('skuProposal.storeOrder')], ['sizing', t('skuProposal.sizing')]] as const).map(([tabId, label]) => (
+              {([['details', t('skuProposal.showDetails')], ['storeOrder', `${t('skuProposal.storeOrder')} (${lightbox.item.order || 0})`], ['sizing', t('skuProposal.sizing')]] as const).map(([tabId, label]) => (
                 <button
                   key={tabId}
                   type="button"
@@ -3126,11 +3284,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10">
                       <tr className={'bg-[rgba(215,183,151,0.2)] text-[#6B4D30]'}>
-                        <th className="px-4 py-2 text-left font-semibold font-['Montserrat']">{lightbox.item.productType}</th>
+                        <th className="px-4 py-2 text-left font-semibold font-['Montserrat'] w-[140px]">Size</th>
                         {getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType).map((sz: string) => (
-                          <th key={sz} className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono']">{sz}</th>
+                          <th key={sz} className="px-1 py-2 text-center font-semibold font-['JetBrains_Mono'] text-xs w-[60px]">{sz}</th>
                         ))}
-                        <th className={`px-4 py-2 text-center font-semibold font-['Montserrat'] ${'bg-[rgba(215,183,151,0.25)]'}`}>Sum</th>
+                        <th className={`px-4 py-2 text-center font-semibold font-['Montserrat'] w-[100px] ${'bg-[rgba(215,183,151,0.25)]'}`}>Sum</th>
+                        <th className="px-2 py-2 text-center font-semibold font-['Montserrat'] w-[120px]">Comment</th>
                       </tr>
                     </thead>
                     <tbody className={'text-[#333333]'}>
@@ -3163,22 +3322,24 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                             <tr className={'border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.08)]'}>
                               <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% Sales mix</td>
                               {lbSizes.map((sz: string) => (
-                                <td key={sz} className="px-4 py-2 text-center font-['JetBrains_Mono'] text-[#666]">
+                                <td key={sz} className="px-1 py-2 text-center font-['JetBrains_Mono'] text-xs text-[#666]">
                                   {`${(histBySize[sz]?.salesMixPct || 0).toFixed(1)}%`}
                                 </td>
                               ))}
                               <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${'bg-[rgba(160,120,75,0.12)]'}`}>
                                 {`${salesMixSum.toFixed(1)}%`}
                               </td>
+                              <td></td>
                             </tr>
                             <tr className={'border-b border-[rgba(215,183,151,0.2)]'}>
                               <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% ST</td>
                               {lbSizes.map((sz: string) => (
-                                <td key={sz} className="px-4 py-2 text-center font-['JetBrains_Mono'] text-[#666]">
+                                <td key={sz} className="px-1 py-2 text-center font-['JetBrains_Mono'] text-xs text-[#666]">
                                   {`${(histBySize[sz]?.stPct ?? 0).toFixed(1)}%`}
                                 </td>
                               ))}
                               <td className={`px-4 py-2 text-center font-['JetBrains_Mono'] ${'text-[#999999] bg-[rgba(160,120,75,0.12)]'}`}>0.0%</td>
+                              <td></td>
                             </tr>
                           </>
                         );
@@ -3191,45 +3352,75 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                           version: sh.version ?? 1,
                           isFinal: sh.isFinal ?? false,
                         })).sort((a: any, b: any) => a.version - b.version);
-                        return headerChoices.length >= 3 ? headerChoices.slice(0, 3) : [
+                        const choices = headerChoices.length >= 3 ? headerChoices.slice(0, 3) : [
                           { id: 'choiceA', version: 1, isFinal: false },
                           { id: 'choiceB', version: 2, isFinal: false },
                           { id: 'choiceC', version: 3, isFinal: false },
                         ];
-                      })().map((choice: any, ci: number) => {
-                        const choiceKey = String(choice.id);
-                        const lbBrandId = lightbox.blockKey.split('_')[0] || 'all';
-                        const sizing = getSizing(lightbox.blockKey, lightbox.idx, lbBrandId);
-                        const lbSizeKeys = getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType);
-                        const choiceData = sizing[choiceKey] || buildEmptySizeData(lbSizeKeys);
-                        const isFirst = ci === 0;
-                        return (
-                          <tr key={choice.id} className={isFirst
-                            ? ('border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.12)]')
-                            : ('border-b border-[rgba(215,183,151,0.2)] bg-[rgba(18,119,73,0.03)]')
-                          }>
-                            <td className={`px-4 py-2 font-medium ${isFirst ? ('text-[#6B4D30]') : ('text-[#127749]')}`}>
-                              Choice {choiceLetter(choice.version)}{choice.isFinal && <span className="ml-1 text-[10px] font-bold text-[#2A9E6A]">FINAL</span>}
-                            </td>
-                            {lbSizeKeys.map((size: string) => (
-                              <td key={size} className="px-1 py-2">
+                        const totalStoreOrder = lightbox.item.order || 0;
+                        return choices.map((choice: any, ci: number) => {
+                          const choiceKey = String(choice.id);
+                          const sizing = getSizing(lightbox.blockKey, lightbox.idx, lbBrandId);
+                          const lbSizeKeys = getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType);
+                          const choiceData = sizing[choiceKey] || buildEmptySizeData(lbSizeKeys);
+                          const choiceSum = calculateSum(choiceData);
+                          const isOver = totalStoreOrder > 0 && choiceSum > totalStoreOrder;
+                          const isFirst = ci === 0;
+                          const commentKey = `${choiceKey}_comment`;
+                          const commentValue = sizing[commentKey] || '';
+                          return (
+                            <tr key={choice.id} className={isFirst
+                              ? ('border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.12)]')
+                              : ('border-b border-[rgba(215,183,151,0.2)] bg-[rgba(18,119,73,0.03)]')
+                            }>
+                              <td className={`px-4 py-2 font-medium ${isFirst ? ('text-[#6B4D30]') : ('text-[#127749]')}`}>
+                                Choice {choiceLetter(choice.version)}{choice.isFinal && <span className="ml-1 text-[10px] font-bold text-[#2A9E6A]">FINAL</span>}
+                              </td>
+                              {lbSizeKeys.map((size: string) => (
+                                <td key={size} className="px-1 py-2">
+                                  <input
+                                    type="number"
+                                    min="0"
+                                    value={parseInt(String(choiceData[size] ?? 0)) || 0}
+                                    onChange={(e) => updateSizing(lightbox.blockKey, lightbox.idx, choiceKey, size, e.target.value, lbBrandId)}
+                                    className={`w-full text-center font-['JetBrains_Mono'] text-sm rounded border py-1 px-1 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                      isOver
+                                        ? 'bg-red-50 border-red-300 text-red-600'
+                                        : isFirst
+                                          ? ('bg-emerald-50 border-emerald-200 text-[#6B4D30]')
+                                          : ('bg-emerald-50 border-emerald-200 text-[#127749]')
+                                    }`}
+                                  />
+                                </td>
+                              ))}
+                              <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${isOver ? 'text-red-600 bg-red-50' : isFirst ? ('text-[#6B4D30] bg-[rgba(215,183,151,0.2)]') : ('text-[#127749] bg-[rgba(18,119,73,0.08)]')}`}>
+                                {choiceSum}
+                                {isOver && <span className="block text-[9px] font-normal">/{totalStoreOrder}</span>}
+                              </td>
+                              <td className="px-1 py-2">
                                 <input
-                                  type="number"
-                                  min="0"
-                                  value={parseInt(String(choiceData[size] ?? 0)) || 0}
-                                  onChange={(e) => updateSizing(lightbox.blockKey, lightbox.idx, choiceKey, size, e.target.value, lbBrandId)}
-                                  className={`w-full text-center font-['JetBrains_Mono'] text-sm rounded border py-1 px-1 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                  type="text"
+                                  placeholder="Comment..."
+                                  value={commentValue}
+                                  onChange={(e) => {
+                                    const key = getSizingKey(lightbox.blockKey, lightbox.idx);
+                                    const currentSizing = sizingData[key] || getDefaultSizing(lbBrandId);
+                                    setSizingData((prev: any) => ({
+                                      ...prev,
+                                      [key]: { ...currentSizing, [commentKey]: e.target.value }
+                                    }));
+                                  }}
+                                  className={`w-28 text-xs rounded border py-1 px-2 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] ${
                                     isFirst
-                                      ? ('bg-emerald-50 border-emerald-200 text-[#6B4D30]')
-                                      : ('bg-emerald-50 border-emerald-200 text-[#127749]')
+                                      ? 'bg-emerald-50 border-emerald-200 text-[#6B4D30] placeholder-[#B8A08A]'
+                                      : 'bg-emerald-50 border-emerald-200 text-[#127749] placeholder-[#7BBF9E]'
                                   }`}
                                 />
                               </td>
-                            ))}
-                            <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${isFirst ? ('text-[#6B4D30] bg-[rgba(215,183,151,0.2)]') : ('text-[#127749] bg-[rgba(18,119,73,0.08)]')}`}>{calculateSum(choiceData)}</td>
-                          </tr>
-                        );
-                      })}
+                            </tr>
+                          );
+                        });
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -3237,20 +3428,54 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             </div>
 
             {/* Footer */}
-            <div className={`px-6 py-3 flex justify-end gap-3 border-t ${'border-[rgba(215,183,151,0.3)]'}`}>
-              <button
-                onClick={handleCloseLightbox}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${'text-[#666666] hover:bg-[rgba(160,120,75,0.12)] hover:text-[#6B4D30]'}`}
-              >
-                Close
-              </button>
-              <button
-                onClick={handleCloseLightbox}
-                className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors shadow-sm ${'bg-[#D7B797] text-[#333333] hover:bg-[#C4A584]'}`}
-              >
-                Done
-              </button>
-            </div>
+            {(() => {
+              // Check if any sizing choice exceeds total store order (only on sizing tab)
+              let sizingOverAllocated = false;
+              if (lightbox.tab === 'sizing') {
+                const lbBrandId = lightbox.blockKey.split('_')[0] || 'all';
+                const totalStoreOrder = lightbox.item.order || 0;
+                if (totalStoreOrder > 0) {
+                  const headerChoices = (brandSizingHeaders[lbBrandId] || []).map((sh: any) => String(sh.id));
+                  const choiceKeys = headerChoices.length >= 3 ? headerChoices.slice(0, 3) : ['choiceA', 'choiceB', 'choiceC'];
+                  const sizing = getSizing(lightbox.blockKey, lightbox.idx, lbBrandId);
+                  const lbSizeKeys = getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType);
+                  for (const ck of choiceKeys) {
+                    const choiceData = sizing[ck] || buildEmptySizeData(lbSizeKeys);
+                    const choiceSum = calculateSum(choiceData);
+                    if (choiceSum > totalStoreOrder) { sizingOverAllocated = true; break; }
+                  }
+                }
+              }
+              return (
+                <div className={`px-6 py-3 border-t ${'border-[rgba(215,183,151,0.3)]'}`}>
+                  {sizingOverAllocated && (
+                    <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
+                      <AlertTriangle size={16} className="flex-shrink-0" />
+                      <span>Sizing total exceeds store order ({lightbox.item.order}). Please adjust before confirming.</span>
+                    </div>
+                  )}
+                  <div className="flex justify-end gap-3">
+                    <button
+                      onClick={handleCloseLightbox}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors ${'text-[#666666] hover:bg-[rgba(160,120,75,0.12)] hover:text-[#6B4D30]'}`}
+                    >
+                      Close
+                    </button>
+                    <button
+                      onClick={sizingOverAllocated ? undefined : handleCloseLightbox}
+                      disabled={sizingOverAllocated}
+                      className={`px-4 py-1.5 text-sm font-medium rounded-lg transition-colors shadow-sm ${
+                        sizingOverAllocated
+                          ? 'bg-gray-300 text-gray-500 cursor-not-allowed'
+                          : 'bg-[#D7B797] text-[#333333] hover:bg-[#C4A584]'
+                      }`}
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
+              );
+            })()}
           </div>
         </div>,
         document.body

@@ -10,6 +10,7 @@ import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '@/utils';
 import { api, ticketService } from '@/services';
+import { invalidateCache } from '@/services/api';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { ProductImage } from '@/components/ui';
 
@@ -29,6 +30,8 @@ interface ProposalTicketReviewProps {
     seasonGroupId?: string;
     seasonId?: string;
     brandAllocations?: { brandId: string; brandName: string; totalAllocation: number }[];
+    brandId?: string;
+    brandName?: string;
   };
   onBack: () => void;
   onSubmitted: () => void;
@@ -44,6 +47,7 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
   const {
     skuBlocks, grandTotals, stores, budgetId, proposalHeaderIds, sizingChoiceName,
     fiscalYear, budgetName, budgetAmount, seasonGroup, season, seasonGroupId, seasonId, brandAllocations,
+    brandName,
   } = reviewData;
 
   const toggleBlock = useCallback((key: string) => {
@@ -71,6 +75,8 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
       }
     }
 
+    invalidateCache('/tickets');
+    try { sessionStorage.setItem('tickets_need_refresh', '1'); } catch {}
     toast.success(t('skuProposal.submitSuccess') || 'Ticket created and proposal submitted for approval');
     onSubmitted();
   };
@@ -141,7 +147,7 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
         </button>
         <div className="flex-1">
           <h2 className="text-lg font-bold font-['Montserrat'] text-[#0A0A0A]">
-            {t('skuProposal.reviewTicket') || 'Review Ticket'}
+            {t('skuProposal.reviewTicket') || 'Review Ticket'}{brandName ? ` — ${brandName}` : ''}
           </h2>
           <p className="text-xs text-[#999999]">
             {t('skuProposal.reviewBeforeSubmit') || 'Review your SKU proposal before submitting for approval'}
@@ -159,7 +165,7 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
                 Budget Information
               </span>
             </div>
-            <div className="grid grid-cols-2 md:grid-cols-5 gap-4">
+            <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               {fiscalYear && (
                 <div>
                   <div className="text-xs text-[#999999]">Fiscal Year</div>
@@ -169,74 +175,38 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
               {budgetName && (
                 <div>
                   <div className="text-xs text-[#999999]">Budget Name</div>
-                  <div className="text-sm font-bold font-['Montserrat'] text-[#0A0A0A] mt-1">{budgetName}</div>
+                  <div className="text-lg font-bold font-['JetBrains_Mono'] text-[#0A0A0A]">{budgetName}</div>
                 </div>
               )}
               {seasonGroup && (
                 <div>
                   <div className="text-xs text-[#999999]">Season Group</div>
-                  <div className="text-sm font-bold font-['Montserrat'] text-[#0A0A0A] mt-1">{seasonGroup}</div>
+                  <div className="text-lg font-bold font-['JetBrains_Mono'] text-[#0A0A0A]">{seasonGroup}</div>
                 </div>
               )}
               {season && (
                 <div>
                   <div className="text-xs text-[#999999]">Season</div>
-                  <div className="text-sm font-bold font-['Montserrat'] text-[#0A0A0A] mt-1">{season}</div>
-                </div>
-              )}
-              {budgetAmount != null && budgetAmount > 0 && (
-                <div>
-                  <div className="text-xs text-[#999999]">Budget Amount</div>
-                  <div className="text-lg font-bold font-['JetBrains_Mono'] text-[#6B4D30]">{formatCurrency(budgetAmount)}</div>
+                  <div className="text-lg font-bold font-['JetBrains_Mono'] text-[#0A0A0A]">{season}</div>
                 </div>
               )}
             </div>
-          </div>
-        </div>
-      )}
-
-      {/* Budget Allocation per Brand */}
-      {brandAllocations && brandAllocations.length > 0 && (
-        <div className="rounded-xl border overflow-hidden bg-white border-[rgba(215,183,151,0.3)]">
-          <div className="px-5 py-4">
-            <div className="flex items-center gap-2 mb-3">
-              <BarChart3 size={16} className="text-[#6B4D30]" />
-              <span className="text-sm font-bold font-['Montserrat'] uppercase tracking-wide text-[#6B4D30]">
-                Budget Allocation per Brand
-              </span>
-              <span className="text-[10px] px-1.5 py-0.5 rounded bg-[#D7B797] text-[#0A0A0A] font-bold ml-1">FINAL</span>
-            </div>
-            <table className="w-full text-xs">
-              <thead className="bg-[rgba(160,120,75,0.08)]">
-                <tr>
-                  <th className="text-left px-3 py-2 font-semibold text-[#666]">Brand</th>
-                  <th className="text-right px-3 py-2 font-semibold text-[#666]">Allocated Amount</th>
-                  <th className="text-right px-3 py-2 font-semibold text-[#666]">% of Total</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-gray-100">
-                {brandAllocations.map((ba) => (
-                  <tr key={ba.brandId} className="hover:bg-gray-50">
-                    <td className="px-3 py-2 font-medium text-[#0A0A0A]">{ba.brandName}</td>
-                    <td className="px-3 py-2 text-right font-['JetBrains_Mono'] font-medium text-[#6B4D30]">
-                      {formatCurrency(ba.totalAllocation)}
-                    </td>
-                    <td className="px-3 py-2 text-right font-['JetBrains_Mono'] text-[#666]">
-                      {totalBrandAllocation > 0 ? ((ba.totalAllocation / totalBrandAllocation) * 100).toFixed(1) : '0.0'}%
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-              <tfoot className="bg-[rgba(160,120,75,0.08)]">
-                <tr>
-                  <td className="px-3 py-2 font-bold text-[#0A0A0A]">Total</td>
-                  <td className="px-3 py-2 text-right font-['JetBrains_Mono'] font-bold text-[#6B4D30]">
-                    {formatCurrency(totalBrandAllocation)}
-                  </td>
-                  <td className="px-3 py-2 text-right font-['JetBrains_Mono'] font-bold text-[#0A0A0A]">100.0%</td>
-                </tr>
-              </tfoot>
-            </table>
+            {(brandName || totalBrandAllocation > 0) && (
+              <div className="grid grid-cols-2 md:grid-cols-4 gap-4 mt-3 pt-3 border-t border-[rgba(215,183,151,0.2)]">
+                {brandName && (
+                  <div>
+                    <div className="text-xs text-[#999999]">Brand</div>
+                    <div className="text-lg font-bold font-['JetBrains_Mono'] text-[#0A0A0A]">{brandName}</div>
+                  </div>
+                )}
+                {totalBrandAllocation > 0 && (
+                  <div>
+                    <div className="text-xs text-[#999999]">Brand Allocation</div>
+                    <div className="text-lg font-bold font-['JetBrains_Mono'] text-[#6B4D30]">{formatCurrency(totalBrandAllocation)}</div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}

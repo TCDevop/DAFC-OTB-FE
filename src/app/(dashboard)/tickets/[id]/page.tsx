@@ -18,6 +18,7 @@ export default function TicketDetailRoute() {
 
   const handleBack = () => {
     sessionStorage.removeItem('selectedTicket');
+    router.refresh();
     router.push(showApprovalActions ? '/approvals' : '/tickets');
   };
 

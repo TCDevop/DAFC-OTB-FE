@@ -3,12 +3,14 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   ChevronDown, ChevronRight, ArrowLeft, Loader2, Check, X, Clock,
-  CheckCircle, XCircle, Package, Layers, DollarSign, BarChart3, ShoppingCart
+  CheckCircle, XCircle, Package, Layers, DollarSign, BarChart3, ShoppingCart,
+  GitCompareArrows
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '@/utils';
 import { ProductImage, ConfirmDialog } from '@/components/ui';
 import { ticketService } from '@/services';
+import { invalidateCache } from '@/services/api';
 import { useAuth } from '@/contexts/AuthContext';
 
 import { useConfirmDialog } from '@/hooks/useConfirmDialog';
@@ -169,6 +171,9 @@ function buildFromSnapshot(snapshotHeaders: any[]) {
     // so we compute from SKU proposal values
     let brandTotalValue = 0;
 
+    // Group proposals by subCategory across ALL sku_proposal_headers
+    const blockMap: Record<string, any> = {};
+
     for (const sph of (ah.sku_proposal_headers || ah.skuProposalHeaders || [])) {
       const proposals = sph.sku_proposals || sph.skuProposals || [];
       const sizingHeaders = sph.proposal_sizing_headers || sph.proposalSizingHeaders || [];
@@ -186,13 +191,14 @@ function buildFromSnapshot(snapshotHeaders: any[]) {
         for (const ps of sizings) {
           const skuPropId = String(ps.sku_proposal_id || ps.skuProposalId || '');
           const sizeLabel = ps.subcategory_size?.name || ps.subcategorySize?.name || ps.subcategory_size_id || ps.subcategorySizeId || '';
-          if (!sizingBySkuId[skuPropId]) sizingBySkuId[skuPropId] = {};
-          sizingBySkuId[skuPropId][sizeLabel] = Number(ps.proposal_quantity || ps.proposalQuantity || 0);
+          const qty = Number(ps.proposal_quantity || ps.proposalQuantity || 0);
+          if (qty > 0) {
+            if (!sizingBySkuId[skuPropId]) sizingBySkuId[skuPropId] = {};
+            sizingBySkuId[skuPropId][sizeLabel] = qty;
+          }
         }
       }
 
-      // Group proposals by subCategory
-      const blockMap: Record<string, any> = {};
       for (const sku of proposals) {
         const product = sku.product || {};
         const subCat = product.sub_category || product.subCategory || {};
@@ -251,9 +257,9 @@ function buildFromSnapshot(snapshotHeaders: any[]) {
       }
 
       grandSkuCount += proposals.length;
-      skuBlocks.push(...Object.values(blockMap));
     }
 
+    skuBlocks.push(...Object.values(blockMap));
     brandAllocations.push({ brandId, brandName, totalAllocation: brandTotalValue });
   }
 
@@ -268,6 +274,31 @@ function buildFromSnapshot(snapshotHeaders: any[]) {
 }
 
 /* =========================
+   COMPARE HELPERS
+========================= */
+
+/** Build a lookup map from compareData: skuCode → { type, changes, previous } */
+function buildCompareMap(compareData: any): Map<string, { type: 'added' | 'removed' | 'modified'; changes?: any; previous?: any }> {
+  const map = new Map<string, any>();
+  if (!compareData?.hasPrevious || !compareData.changes) return map;
+  const { added, removed, modified } = compareData.changes;
+  for (const item of (added || [])) map.set(item.skuCode, { type: 'added' });
+  for (const item of (removed || [])) map.set(item.skuCode, { type: 'removed', previous: item });
+  for (const item of (modified || [])) map.set(item.skuCode, { type: 'modified', changes: item.changes, previous: item.previous });
+  return map;
+}
+
+const DiffValue = ({ from, to }: { from: number; to: number }) => {
+  const diff = to - from;
+  if (diff === 0) return null;
+  return (
+    <div className={`text-[9px] font-['JetBrains_Mono'] ${diff > 0 ? 'text-emerald-600' : 'text-red-500'}`}>
+      {from} {diff > 0 ? '+' : ''}{diff}
+    </div>
+  );
+};
+
+/* =========================
    MAIN COMPONENT
 ========================= */
 
@@ -278,10 +309,29 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
   const [actionLoading, setActionLoading] = useState(false);
   const [fullTicket, setFullTicket] = useState<any>(null);
   const [expandedBlocks, setExpandedBlocks] = useState<Record<string, boolean>>({});
+  const [compareData, setCompareData] = useState<any>(null);
+  const [compareLoading, setCompareLoading] = useState(false);
+  const [showCompare, setShowCompare] = useState(false);
 
   const toggleBlock = useCallback((key: string) => {
     setExpandedBlocks(prev => ({ ...prev, [key]: !prev[key] }));
   }, []);
+
+  // Fetch comparison data
+  const fetchCompare = useCallback(async () => {
+    if (!ticket?.id || compareData !== null) return;
+    setCompareLoading(true);
+    try {
+      const data = await ticketService.compare(String(ticket.id));
+      setCompareData(data);
+      if (data.hasPrevious) setShowCompare(true);
+      else toast('No previous rejected ticket to compare with');
+    } catch {
+      toast.error('Failed to load comparison');
+    } finally {
+      setCompareLoading(false);
+    }
+  }, [ticket?.id, compareData]);
 
   // Fetch full ticket data with snapshot
   useEffect(() => {
@@ -311,6 +361,18 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
     }
     return { brandAllocations: [], skuBlocks: [], stores: [], grandTotals: { order: 0, ttlValue: 0, skuCount: 0 }, sizingChoiceName: '' };
   }, [fullTicket]);
+
+  // Compare map: skuCode → diff info (only when compare is active)
+  const compareMap = useMemo(() => {
+    if (!showCompare || !compareData?.hasPrevious) return new Map();
+    return buildCompareMap(compareData);
+  }, [showCompare, compareData]);
+
+  // Removed SKUs from compare (need to render as greyed-out rows)
+  const removedSkus = useMemo(() => {
+    if (!showCompare || !compareData?.hasPrevious) return [];
+    return compareData.changes?.removed || [];
+  }, [showCompare, compareData]);
 
   // Budget info from ticket relations
   const budgetInfo = useMemo(() => {
@@ -396,27 +458,60 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
   }, [fullTicket, ticket]);
 
   // Approval actions
+  const isAdmin = useMemo(() => {
+    if (!user) return false;
+    const permissions = user.role?.permissions || user.permissions || [];
+    const roleName = (user.role?.name || user.roleName || '').toLowerCase();
+    return permissions.includes('*') || roleName.includes('admin');
+  }, [user]);
+
   const canApprove = () => {
     if (!ticket || !user) return false;
     const status = (fullTicket?.status || ticket?.status || '').toUpperCase();
+    if (status !== 'SUBMITTED' && status !== 'PENDING' && status !== 'LEVEL1_APPROVED' && status !== 'IN_REVIEW') return false;
+    if (isAdmin) return true;
     const roleName = (user.role?.name || user.roleName || '').toLowerCase();
     const permissions = user.role?.permissions || user.permissions || [];
     if (status === 'SUBMITTED' || status === 'PENDING') {
-      return permissions.includes('proposal:approve_l1') || permissions.includes('*') || roleName.includes('manager');
+      return permissions.includes('proposal:approve_l1') || roleName.includes('manager');
     }
     if (status === 'LEVEL1_APPROVED' || status === 'IN_REVIEW') {
-      return permissions.includes('proposal:approve_l2') || permissions.includes('*') || roleName.includes('finance') || roleName.includes('director');
+      return permissions.includes('proposal:approve_l2') || roleName.includes('finance') || roleName.includes('director');
     }
     return false;
+  };
+
+  // Determine the approvalWorkflowLevelId to use
+  const getApprovalLevelId = (): string => {
+    // If admin with no workflow configured, use admin_default
+    if (isAdmin) {
+      const history = fullTicket?.approvalHistory || [];
+      const hasWorkflowLevel = history.some((h: any) => h.approvalWorkflowLevelId && h.approvalWorkflowLevelId !== 'admin_default');
+      if (!hasWorkflowLevel) return 'admin_default';
+    }
+    // For normal flow, try to find the current pending level from approval history
+    const status = (fullTicket?.status || ticket?.status || '').toUpperCase();
+    if (status === 'SUBMITTED' || status === 'PENDING') {
+      return fullTicket?.approvalLevels?.[0]?.id || 'admin_default';
+    }
+    if (status === 'LEVEL1_APPROVED' || status === 'IN_REVIEW') {
+      return fullTicket?.approvalLevels?.[1]?.id || 'admin_default';
+    }
+    return 'admin_default';
   };
 
   const handleApproveTicket = async () => {
     if (!fullTicket?.id) return;
     setActionLoading(true);
     try {
-      // TODO: wire to real approval endpoint when available
-      // await ticketService.processApproval(fullTicket.id, { ... });
-      toast.success('Approved');
+      const levelId = getApprovalLevelId();
+      await ticketService.processApproval(String(fullTicket.id), {
+        approvalWorkflowLevelId: levelId,
+        isApproved: true,
+      });
+      invalidateCache('/tickets');
+      toast.success('Ticket approved successfully');
+      try { sessionStorage.setItem('tickets_need_refresh', '1'); } catch {}
       if (onBack) onBack();
     } catch (err: any) {
       toast.error(err.response?.data?.message || 'Failed to approve');
@@ -432,12 +527,19 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
       confirmLabel: 'Reject',
       variant: 'danger',
       promptPlaceholder: 'Reason...',
-      onConfirm: async (_reason?: string) => {
+      onConfirm: async (reason?: string) => {
         if (!fullTicket?.id) return;
         setActionLoading(true);
         try {
-          // TODO: wire to real rejection endpoint
-          toast.success('Rejected');
+          const levelId = getApprovalLevelId();
+          await ticketService.processApproval(String(fullTicket.id), {
+            approvalWorkflowLevelId: levelId,
+            isApproved: false,
+            comment: reason,
+          });
+          invalidateCache('/tickets');
+          toast.success('Ticket rejected');
+          try { sessionStorage.setItem('tickets_need_refresh', '1'); } catch {}
           if (onBack) onBack();
         } catch (err: any) {
           toast.error(err.response?.data?.message || 'Failed to reject');
@@ -504,7 +606,22 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
           </div>
         </div>
         <div className="flex items-center gap-1.5 shrink-0">
-          {showApprovalActions && canApprove() && (
+          <button
+            onClick={() => {
+              if (compareData?.hasPrevious) { setShowCompare(v => !v); }
+              else { fetchCompare(); }
+            }}
+            disabled={compareLoading}
+            className={`flex items-center gap-1 px-2.5 py-1 font-medium rounded text-[11px] border transition-all disabled:opacity-50 ${
+              showCompare
+                ? 'bg-white/30 text-white border-white/40'
+                : 'bg-white/10 hover:bg-white/20 text-white/80 border-white/15'
+            }`}
+          >
+            {compareLoading ? <Loader2 size={11} className="animate-spin" /> : <GitCompareArrows size={11} />}
+            {showCompare ? 'Hide Changes' : 'Compare'}
+          </button>
+          {(showApprovalActions || isAdmin) && canApprove() && (
             <>
               <button onClick={handleRejectTicket} disabled={actionLoading} className="flex items-center gap-1 px-2.5 py-1 bg-[#F85149]/20 hover:bg-[#F85149]/30 text-white font-medium rounded text-[11px] border border-[#F85149]/25 disabled:opacity-50">
                 <XCircle size={11} /> Reject
@@ -574,6 +691,7 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
         <StatusTrackingPanel approvalHistory={approvalHistory} ticket={fullTicket || ticket} />
       </div>
 
+      {/* ===== COMPARE PANEL ===== */}
       {/* ===== BUDGET ALLOCATION PER BRAND ===== */}
       {brandAllocations.length > 0 && (
         <div className="rounded-xl border overflow-hidden bg-white border-[rgba(215,183,151,0.3)]">
@@ -627,6 +745,19 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
             <h3 className="text-sm font-bold font-['Montserrat'] text-gray-800">
               SKU Proposal Details
             </h3>
+            {showCompare && compareData?.hasPrevious && (() => {
+              const s = compareData.changes?.summary;
+              return (
+                <div className="flex items-center gap-2 ml-2">
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-amber-100 text-amber-700 font-bold">{s?.modifiedCount || 0} changed</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-emerald-100 text-emerald-700 font-bold">+{s?.addedCount || 0} new</span>
+                  <span className="text-[9px] px-1.5 py-0.5 rounded-full bg-red-100 text-red-600 font-bold">-{s?.removedCount || 0} removed</span>
+                  <button onClick={() => setShowCompare(false)} className="text-[9px] text-gray-400 hover:text-gray-600 ml-1">
+                    <X size={12} />
+                  </button>
+                </div>
+              );
+            })()}
           </div>
           <div className="flex items-center gap-2">
             {skuBlocks.length > 0 ? (
@@ -662,7 +793,11 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
             const isExpanded = expandedBlocks[blockKey] !== false; // expanded by default
             const blockItems = block.items || [];
             const blockTotal = blockItems.reduce((sum: number, item: any) => sum + (Number(item.orderQty || 0)), 0);
-            const sizeKeys = Array.from(new Set(blockItems.flatMap((item: any) => Object.keys(item.sizing || {})))) as string[];
+            const allSizeKeys = Array.from(new Set(blockItems.flatMap((item: any) => Object.keys(item.sizing || {})))) as string[];
+            // Filter out sizes where ALL items have qty 0 (ghost sizes)
+            const sizeKeys = allSizeKeys.filter(size =>
+              blockItems.some((item: any) => (item.sizing?.[size] || 0) > 0)
+            );
             sizeKeys.sort();
             const hasSizing = sizeKeys.length > 0;
 
@@ -711,34 +846,85 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
                           </tr>
                         </thead>
                         <tbody className="divide-y divide-gray-100">
-                          {blockItems.map((item: any, iIdx: number) => (
-                            <tr key={`${item.sku}_${iIdx}`} className="hover:bg-gray-50">
-                              <td className="px-3 py-1.5">
-                                <div className="flex items-center gap-2">
-                                  <ProductImage subCategory={block.subCategory || ''} sku={item.sku} imageUrl={item.imageUrl} size={40} rounded="rounded-md" />
-                                  <span className="font-['JetBrains_Mono'] font-medium text-[#6B4D30]">{item.sku}</span>
-                                </div>
-                              </td>
-                              <td className="px-3 py-1.5 text-[#0A0A0A] max-w-[200px] truncate" title={item.name}>{item.name}</td>
-                              <td className="px-3 py-1.5 text-center font-['JetBrains_Mono'] font-bold text-[#0A0A0A]">
-                                {item.orderQty || 0}
-                              </td>
-                              {stores.map((st) => (
-                                <td key={st.code} className="px-3 py-1.5 text-center font-['JetBrains_Mono'] text-[#666]">
-                                  {item.storeQty?.[st.code] || 0}
+                          {blockItems.map((item: any, iIdx: number) => {
+                            const diff = compareMap.get(item.sku);
+                            const rowBg = diff?.type === 'added' ? 'bg-emerald-50/40' : diff?.type === 'modified' ? 'bg-amber-50/30' : '';
+                            return (
+                              <tr key={`${item.sku}_${iIdx}`} className={`hover:bg-gray-50 ${rowBg}`}>
+                                <td className="px-3 py-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <ProductImage subCategory={block.subCategory || ''} sku={item.sku} imageUrl={item.imageUrl} size={40} rounded="rounded-md" />
+                                    <div>
+                                      <span className="font-['JetBrains_Mono'] font-medium text-[#6B4D30]">{item.sku}</span>
+                                      {diff && (
+                                        <span className={`ml-1.5 text-[8px] px-1 py-px rounded font-bold ${
+                                          diff.type === 'added' ? 'bg-emerald-100 text-emerald-700' :
+                                          diff.type === 'modified' ? 'bg-amber-100 text-amber-700' : ''
+                                        }`}>
+                                          {diff.type === 'added' ? 'NEW' : diff.type === 'modified' ? 'CHANGED' : ''}
+                                        </span>
+                                      )}
+                                    </div>
+                                  </div>
                                 </td>
-                              ))}
-                              <td className="px-3 py-1.5 text-right font-['JetBrains_Mono'] font-medium text-[#127749]">
-                                {formatCurrency(item.ttlValue || 0)}
-                              </td>
-                              {/* Sizing data */}
-                              {hasSizing && sizeKeys.map((size) => (
-                                <td key={size} className="px-2 py-1.5 text-center font-['JetBrains_Mono'] text-[#6B4D30]/80 bg-[rgba(215,183,151,0.08)]">
-                                  {item.sizing?.[size] || 0}
+                                <td className="px-3 py-1.5 text-[#0A0A0A] max-w-[200px] truncate" title={item.name}>{item.name}</td>
+                                <td className="px-3 py-1.5 text-center font-['JetBrains_Mono'] font-bold text-[#0A0A0A]">
+                                  <span>{item.orderQty || 0}</span>
+                                  {diff?.changes?.orderQty && <DiffValue from={diff.changes.orderQty.from} to={diff.changes.orderQty.to} />}
                                 </td>
-                              ))}
-                            </tr>
-                          ))}
+                                {stores.map((st) => (
+                                  <td key={st.code} className="px-3 py-1.5 text-center font-['JetBrains_Mono'] text-[#666]">
+                                    <span>{item.storeQty?.[st.code] || 0}</span>
+                                    {diff?.changes?.storeQty?.[st.code] && <DiffValue from={diff.changes.storeQty[st.code].from} to={diff.changes.storeQty[st.code].to} />}
+                                  </td>
+                                ))}
+                                <td className="px-3 py-1.5 text-right font-['JetBrains_Mono'] font-medium text-[#127749]">
+                                  {formatCurrency(item.ttlValue || 0)}
+                                </td>
+                                {/* Sizing data */}
+                                {hasSizing && sizeKeys.map((size) => (
+                                  <td key={size} className="px-2 py-1.5 text-center font-['JetBrains_Mono'] text-[#6B4D30]/80 bg-[rgba(215,183,151,0.08)]">
+                                    <span>{item.sizing?.[size] || 0}</span>
+                                    {diff?.changes?.sizing?.[size] && <DiffValue from={diff.changes.sizing[size].from} to={diff.changes.sizing[size].to} />}
+                                  </td>
+                                ))}
+                              </tr>
+                            );
+                          })}
+                          {/* Removed SKUs (only in previous ticket) */}
+                          {showCompare && removedSkus
+                            .filter((r: any) => {
+                              const rSubCat = r.subCategory || '';
+                              return rSubCat === (block.subCategory || block.category || '');
+                            })
+                            .map((item: any, rIdx: number) => (
+                              <tr key={`removed_${item.skuCode}_${rIdx}`} className="bg-red-50/30 opacity-60">
+                                <td className="px-3 py-1.5">
+                                  <div className="flex items-center gap-2">
+                                    <ProductImage subCategory={block.subCategory || ''} sku={item.skuCode} imageUrl={item.imageUrl} size={40} rounded="rounded-md" />
+                                    <div>
+                                      <span className="font-['JetBrains_Mono'] font-medium text-gray-400 line-through">{item.skuCode}</span>
+                                      <span className="ml-1.5 text-[8px] px-1 py-px rounded font-bold bg-red-100 text-red-600">REMOVED</span>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="px-3 py-1.5 text-gray-400 line-through max-w-[200px] truncate">{item.name}</td>
+                                <td className="px-3 py-1.5 text-center font-['JetBrains_Mono'] text-gray-400 line-through">{item.orderQty || 0}</td>
+                                {stores.map((st) => (
+                                  <td key={st.code} className="px-3 py-1.5 text-center font-['JetBrains_Mono'] text-gray-300 line-through">
+                                    {item.storeQty?.[st.code] || 0}
+                                  </td>
+                                ))}
+                                <td className="px-3 py-1.5 text-right font-['JetBrains_Mono'] text-gray-400 line-through">
+                                  {formatCurrency((item.orderQty || 0) * (item.srp || 0))}
+                                </td>
+                                {hasSizing && sizeKeys.map((size) => (
+                                  <td key={size} className="px-2 py-1.5 text-center font-['JetBrains_Mono'] text-gray-300 line-through bg-[rgba(215,183,151,0.04)]">
+                                    {item.sizing?.[size] || 0}
+                                  </td>
+                                ))}
+                              </tr>
+                            ))}
                         </tbody>
                       </table>
                     </div>
