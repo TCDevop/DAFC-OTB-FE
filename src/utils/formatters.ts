@@ -47,10 +47,10 @@ export function formatFullCurrency(value: number | string | null | undefined): s
   } else if (typeof value === 'number') {
     num = isNaN(value) ? 0 : value;
   }
-  return new Intl.NumberFormat('vi-VN').format(num) + ' VND';
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(num)) + ' VND';
 }
 
-// Format plain number with thousand separators (e.g. 1,234,567)
+// Format plain number with thousand separators, rounded to integer (e.g. 1,234,567)
 export function formatNumber(value: number | string | null | undefined): string {
   let num = 0;
   if (value === null || value === undefined) {
@@ -60,20 +60,23 @@ export function formatNumber(value: number | string | null | undefined): string 
   } else if (typeof value === 'number') {
     num = isNaN(value) ? 0 : value;
   }
-  return new Intl.NumberFormat('vi-VN').format(num);
+  return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(num));
 }
 
-// Format percentage display (no sign, just value with decimals)
-export function displayPct(value: number | string | null | undefined, decimals = 1): string {
+// Format percentage display (no sign, no rounding — show exact value)
+export function displayPct(value: number | string | null | undefined): string {
   const num = Number(value) || 0;
-  return `${num.toFixed(decimals)}%`;
+  // Remove trailing zeros but keep all meaningful decimals
+  const str = parseFloat(num.toFixed(10)).toString();
+  return `${str}%`;
 }
 
-// Format percentage with optional sign and color hint (for changes/variance)
-export function formatPercent(value: number | string | null | undefined, decimals = 1): string {
+// Format percentage with optional sign (for changes/variance, no rounding)
+export function formatPercent(value: number | string | null | undefined): string {
   const num = Number(value) || 0;
   const sign = num > 0 ? '+' : '';
-  return `${sign}${num.toFixed(decimals)}%`;
+  const str = parseFloat(num.toFixed(10)).toString();
+  return `${sign}${str}%`;
 }
 
 // Format change between two values as percentage
@@ -85,19 +88,17 @@ export function formatChange(oldVal: number, newVal: number): { text: string; di
 }
 
 interface FormatCurrencyOptions {
-  full?: boolean;
   currency?: 'VND' | 'USD';
 }
 
 export const formatCurrency = (value: string | number | null | undefined, options: FormatCurrencyOptions = {}): string => {
-  const { full = false, currency = 'VND' } = options;
+  const { currency = 'VND' } = options;
 
   // Parse value - handle string, number, null, undefined
   let num = 0;
   if (value === null || value === undefined) {
     num = 0;
   } else if (typeof value === 'string') {
-    // Remove any non-numeric characters except decimal point and minus
     const cleaned = value.replace(/[^\d.-]/g, '');
     num = parseFloat(cleaned) || 0;
   } else if (typeof value === 'number') {
@@ -109,60 +110,18 @@ export const formatCurrency = (value: string | number | null | undefined, option
   // Convert to USD if requested
   if (currency === 'USD') {
     num = num / VND_TO_USD_RATE;
-
-    // Format USD
-    const isNegative = num < 0;
-    const absNum = Math.abs(num);
-    const prefix = isNegative ? '-' : '';
-
-    if (absNum >= 1e6) {
-      const val = absNum / 1e6;
-      return `${prefix}$${val.toFixed(1)}M`;
-    }
-    if (absNum >= 1e3) {
-      const val = absNum / 1e3;
-      return `${prefix}$${val.toFixed(0)}K`;
-    }
-    return `${prefix}$${absNum.toFixed(0)}`;
-  }
-
-  // VND formatting
-  // If full format requested, show full number
-  if (full) {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'VND',
+      currency: 'USD',
       minimumFractionDigits: 0,
-      maximumFractionDigits: 0
-    }).format(num);
+      maximumFractionDigits: 0,
+    }).format(Math.round(num));
   }
 
-  // Handle negative numbers
-  const isNegative = num < 0;
-  const absNum = Math.abs(num);
-  const prefix = isNegative ? '-' : '';
-
-  // Abbreviated format: B (billion), M (million), K (thousand)
-  if (absNum >= 1e9) {
-    const val = absNum / 1e9;
-    const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
-    return `${prefix}${formatted}B`;
-  }
-
-  if (absNum >= 1e6) {
-    const val = absNum / 1e6;
-    const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
-    return `${prefix}${formatted}M`;
-  }
-
-  if (absNum >= 1e3) {
-    const val = absNum / 1e3;
-    const formatted = val % 1 === 0 ? val.toFixed(0) : val.toFixed(1);
-    return `${prefix}${formatted}K`;
-  }
-
-  // For smaller numbers
-  return new Intl.NumberFormat('en-US').format(num);
+  // VND formatting — full number with thousand separators, rounded to integer
+  return new Intl.NumberFormat('en-US', {
+    maximumFractionDigits: 0,
+  }).format(Math.round(num));
 };
 
 export interface Season {

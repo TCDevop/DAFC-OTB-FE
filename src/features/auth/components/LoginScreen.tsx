@@ -127,22 +127,9 @@ const LoginScreen = () => {
     }
   };
 
-  // Demo accounts for quick login
-  const demoAccounts = [
-    { email: 'admin@dafc.com', password: 'dafc@2026', role: 'Admin', color: '#C4A77D' },
-    { email: 'merch@dafc.com', password: 'dafc@2026', role: 'Merchandiser', color: '#6B8E6B' },
-    { email: 'manager@dafc.com', password: 'dafc@2026', role: 'Manager', color: '#6B7B8E' },
-    { email: 'finance@dafc.com', password: 'dafc@2026', role: 'Finance', color: '#8E6B8E' },
-  ];
-
-  const handleDemoLogin = (account: any) => {
-    setEmail(account.email);
-    setPassword(account.password);
-    setLocalError('');
-  };
 
   return (
-    <div className="min-h-screen relative flex items-center justify-center p-5 md:p-10"
+    <div className="h-screen relative flex items-center justify-center p-4 md:p-10 overflow-hidden"
       style={{ background: 'linear-gradient(160deg, #FAF9F7 0%, #F5F3EF 30%, #EDE9E3 60%, #F0EDE7 100%)' }}>
 
       {/* Subtle accent shapes */}
@@ -160,9 +147,9 @@ const LoginScreen = () => {
       <div className="relative z-10 w-full max-w-[420px]">
 
         {/* Logo Section */}
-        <div className="text-center mb-10">
-          <img src="/dafc-logo.png" alt="DAFC" className="h-16 mx-auto mb-2 object-contain" />
-          <p className="text-[15px] font-semibold tracking-[0.08em] text-[#5C4A3A] mb-1"
+        <div className="text-center mb-5">
+          <img src="/dafc-logo.png" alt="DAFC" className="h-12 mx-auto mb-1.5 object-contain" />
+          <p className="text-[14px] font-semibold tracking-[0.08em] text-[#5C4A3A] mb-0.5"
             style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}>
             {t('login.title')}
           </p>
@@ -173,7 +160,7 @@ const LoginScreen = () => {
         </div>
 
         {/* Login Card */}
-        <div className="relative px-11 py-12 rounded-3xl border"
+        <div className="relative px-8 py-8 rounded-3xl border"
           style={{
             background: 'rgba(255, 255, 255, 0.82)',
             backdropFilter: 'blur(20px)',
@@ -187,8 +174,8 @@ const LoginScreen = () => {
           <div className="absolute bottom-4 right-4 w-6 h-6 border-b border-r" style={{ borderColor: 'rgba(139, 115, 85, 0.30)' }} />
 
           {/* Welcome */}
-          <div className="text-center mb-9">
-            <h2 className="text-[28px] font-normal text-[#3D2E22] mb-1.5"
+          <div className="text-center mb-6">
+            <h2 className="text-[24px] font-normal text-[#3D2E22] mb-1"
               style={{ fontFamily: 'var(--font-cormorant), Georgia, serif' }}>
               Welcome Back
             </h2>
@@ -200,14 +187,14 @@ const LoginScreen = () => {
           {/* Form */}
           <form onSubmit={handleSubmit}>
             {/* Email */}
-            <div className="relative mb-[18px]">
+            <div className="relative mb-3.5">
               <input
                 data-testid="email-input"
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t('login.emailPlaceholder') || 'Email address'}
-                className="login-input w-full py-4 pl-5 pr-[50px] rounded-[14px] text-[14px] font-normal text-[#3D2E22] tracking-[0.02em] outline-none transition-colors duration-200 focus:border-[rgba(139,115,85,0.50)] focus:bg-[rgba(255,255,255,0.9)] focus:ring-[3px] focus:ring-[rgba(139,115,85,0.08)]"
+                className="login-input w-full py-3 pl-5 pr-[50px] rounded-[14px] text-[14px] font-normal text-[#3D2E22] tracking-[0.02em] outline-none transition-colors duration-200 focus:border-[rgba(139,115,85,0.50)] focus:bg-[rgba(255,255,255,0.9)] focus:ring-[3px] focus:ring-[rgba(139,115,85,0.08)]"
                 style={{
                   background: 'rgba(255, 255, 255, 0.7)',
                   border: '1px solid rgba(139, 115, 85, 0.28)',
@@ -220,14 +207,14 @@ const LoginScreen = () => {
             </div>
 
             {/* Password */}
-            <div className="relative mb-[18px]">
+            <div className="relative mb-3.5">
               <input
                 data-testid="password-input"
                 type={showPassword ? 'text' : 'password'}
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('login.passwordPlaceholder') || 'Password'}
-                className="login-input w-full py-4 pl-5 pr-[50px] rounded-[14px] text-[14px] font-normal text-[#3D2E22] tracking-[0.02em] outline-none transition-colors duration-200 focus:border-[rgba(139,115,85,0.50)] focus:bg-[rgba(255,255,255,0.9)] focus:ring-[3px] focus:ring-[rgba(139,115,85,0.08)]"
+                className="login-input w-full py-3 pl-5 pr-[50px] rounded-[14px] text-[14px] font-normal text-[#3D2E22] tracking-[0.02em] outline-none transition-colors duration-200 focus:border-[rgba(139,115,85,0.50)] focus:bg-[rgba(255,255,255,0.9)] focus:ring-[3px] focus:ring-[rgba(139,115,85,0.08)]"
                 style={{
                   background: 'rgba(255, 255, 255, 0.7)',
                   border: '1px solid rgba(139, 115, 85, 0.28)',
@@ -252,7 +239,7 @@ const LoginScreen = () => {
             )}
 
             {/* Remember & Forgot */}
-            <div className="flex items-center justify-between mb-7 text-[13px]">
+            <div className="flex items-center justify-between mb-5 text-[13px]">
               <label className="flex items-center gap-2.5 cursor-pointer text-[#6B5744] hover:text-[#3D2E22] transition-colors font-light select-none">
                 <div
                   onClick={() => setRememberMe(!rememberMe)}
@@ -280,7 +267,7 @@ const LoginScreen = () => {
               data-testid="submit-button"
               type="submit"
               disabled={loading}
-              className="w-full py-[18px] rounded-[14px] text-white text-[12px] font-medium tracking-[0.25em] uppercase cursor-pointer relative overflow-hidden transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#7A6548]"
+              className="w-full py-3.5 rounded-[14px] text-white text-[12px] font-medium tracking-[0.25em] uppercase cursor-pointer relative overflow-hidden transition-colors duration-200 disabled:opacity-50 disabled:cursor-not-allowed hover:bg-[#7A6548]"
               style={{
                 background: 'linear-gradient(135deg, #8B7355 0%, #6B5744 100%)',
                 fontFamily: 'var(--font-montserrat), sans-serif',
@@ -299,7 +286,7 @@ const LoginScreen = () => {
           </form>
 
           {/* Divider */}
-          <div className="flex items-center gap-5 my-6">
+          <div className="flex items-center gap-5 my-4">
             <div className="flex-1 h-px" style={{ background: 'rgba(139, 115, 85, 0.25)' }} />
             <span className="text-[11px] font-medium text-[#8B7A6B] tracking-[0.15em]">OR</span>
             <div className="flex-1 h-px" style={{ background: 'rgba(139, 115, 85, 0.25)' }} />
@@ -327,35 +314,10 @@ const LoginScreen = () => {
             Sign in with Microsoft
           </button>
 
-          {/* Demo Divider */}
-          <div className="flex items-center gap-5 my-6">
-            <div className="flex-1 h-px" style={{ background: 'rgba(139, 115, 85, 0.25)' }} />
-            <span className="text-[11px] font-medium text-[#8B7A6B] tracking-[0.15em]">DEMO</span>
-            <div className="flex-1 h-px" style={{ background: 'rgba(139, 115, 85, 0.25)' }} />
-          </div>
-
-          {/* Demo Accounts */}
-          <div className="grid grid-cols-2 gap-2">
-            {demoAccounts.map((account) => (
-              <button
-                key={account.email}
-                type="button"
-                onClick={() => handleDemoLogin(account)}
-                className="flex items-center justify-between px-3 py-2.5 rounded-[10px] text-[12px] cursor-pointer transition-colors duration-200 hover:bg-[rgba(255,255,255,0.9)] hover:border-[rgba(139,115,85,0.35)] group"
-                style={{
-                  background: 'rgba(255, 255, 255, 0.75)',
-                  border: '1px solid rgba(139, 115, 85, 0.22)',
-                }}
-              >
-                <span className="text-[#3D2E22] font-normal truncate">{account.email.split('@')[0]}</span>
-                <span className="font-medium ml-1" style={{ color: account.color }}>{account.role}</span>
-              </button>
-            ))}
-          </div>
         </div>
 
         {/* Footer */}
-        <div className="text-center mt-8">
+        <div className="text-center mt-5">
           <p className="text-[11px] font-light text-[#8B7A6B] tracking-[0.08em]">
             &copy; 2026 DAFC. All rights reserved.
           </p>

@@ -718,7 +718,7 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
                       {formatCurrency(ba.totalAllocation)}
                     </td>
                     <td className="px-3 py-1.5 text-right font-['JetBrains_Mono'] text-[#666]">
-                      {totalBrandAllocation > 0 ? ((ba.totalAllocation / totalBrandAllocation) * 100).toFixed(1) : '0.0'}%
+                      {totalBrandAllocation > 0 ? ((ba.totalAllocation / totalBrandAllocation) * 100) : 0}%
                     </td>
                   </tr>
                 ))}

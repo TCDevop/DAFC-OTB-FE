@@ -58,7 +58,7 @@ export async function exportAllocationToExcel(opts: ExportAllocationOptions) {
   ws2.addRow(['Total Budget', totalBudget]);
   ws2.addRow(['Total Allocated', totalAllocated]);
   ws2.addRow(['Remaining', totalBudget - totalAllocated]);
-  ws2.addRow(['Allocation %', totalBudget > 0 ? `${Math.round((totalAllocated / totalBudget) * 100)}%` : '0%']);
+  ws2.addRow(['Allocation %', totalBudget > 0 ? `${((totalAllocated / totalBudget) * 100)}%` : '0%']);
   ws2.addRow(['Stores', stores.map(s => s.code).join(', ')]);
   ws2.addRow(['Export Date', new Date().toLocaleDateString('vi-VN')]);
 

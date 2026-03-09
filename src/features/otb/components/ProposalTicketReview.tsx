@@ -337,12 +337,15 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
                             <td className="px-3 py-1.5 text-right font-['JetBrains_Mono'] font-medium text-[#127749]">
                               {formatCurrency(item.ttlValue || item.totalValue || 0)}
                             </td>
-                            {/* Sizing data columns with light background */}
-                            {hasSizing && sizeKeys.map((size: string) => (
-                              <td key={size} className="px-2 py-1.5 text-center font-['JetBrains_Mono'] text-[#6B4D30]/80 bg-[rgba(215,183,151,0.08)]">
-                                {item.sizing?.[size] || 0}
-                              </td>
-                            ))}
+                            {/* Sizing data columns with light background — always show 0 for empty */}
+                            {hasSizing && sizeKeys.map((size: string) => {
+                              const val = Number(item.sizing?.[size]) || 0;
+                              return (
+                                <td key={size} className={`px-2 py-1.5 text-center font-['JetBrains_Mono'] bg-[rgba(215,183,151,0.08)] ${val > 0 ? 'text-[#6B4D30] font-medium' : 'text-[#999]'}`}>
+                                  {val}
+                                </td>
+                              );
+                            })}
                           </tr>
                         ))}
                       </tbody>

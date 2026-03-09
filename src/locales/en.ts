@@ -387,6 +387,7 @@ const en = {
     duplicate: 'Duplicate',
     approvalHistory: 'Approval History',
     noApprovalRecords: 'No approval records',
+    submitSuccess: 'Budget submitted successfully',
     noDataTitle: 'No budget selected',
     noDataDesc: 'Please select a budget from the filter above to view and edit allocation data.',
   },

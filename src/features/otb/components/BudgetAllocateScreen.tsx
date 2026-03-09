@@ -1099,18 +1099,6 @@ const BudgetAllocateScreen = ({
 
   return (
     <>
-      {/* ── Save loading overlay — blocks all interaction while saving ── */}
-      {saving && (
-        <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center bg-black/40 backdrop-blur-[2px] animate-fadeIn">
-          <div className={`flex flex-col items-center gap-4 px-8 py-6 rounded-2xl shadow-2xl border animate-scalePop ${'bg-white border-[#C4B5A5]'}`}>
-            <div className="w-10 h-10 rounded-full border-4 border-[#D7B797]/30 border-t-[#D7B797] animate-spin" />
-            <div className="text-center">
-              <p className={`text-sm font-semibold font-['Montserrat'] ${'text-[#0A0A0A]'}`}>Saving allocation…</p>
-              <p className={`text-xs mt-1 ${'text-[#999]'}`}>Please wait</p>
-            </div>
-          </div>
-        </div>
-      )}
 
       {/* Filter Section — hides entirely on scroll */}
       <div ref={barRef} className={`sticky -top-3 md:-top-6 z-[50] -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 backdrop-blur-sm relative border-b ${'bg-white/95 border-[rgba(215,183,151,0.3)]'}`}>
@@ -1624,7 +1612,7 @@ const BudgetAllocateScreen = ({
                                     </th>
                                     {stores.map((store: any) => (
                                       <th key={store.id} className={`px-1.5 py-0.5 text-center text-xs font-semibold font-['Montserrat'] whitespace-nowrap ${'text-[#333333]'}`}>
-                                        <div>{store.code} <span className={`font-normal font-['JetBrains_Mono'] text-[10px] ${'text-[#666666]'}`}>({storePercentages[store.id]}%)</span></div>
+                                        <div>{store.code}</div>
                                       </th>
                                     ))}
                                     <th className={`px-1.5 py-0.5 text-center text-xs font-semibold font-['Montserrat'] whitespace-nowrap ${'text-[#333333]'}`}>{t('planning.totalValue')}</th>

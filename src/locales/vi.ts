@@ -387,6 +387,7 @@ const vi = {
     duplicate: 'Nhân bản',
     approvalHistory: 'Lịch sử phê duyệt',
     noApprovalRecords: 'Chưa có lịch sử phê duyệt',
+    submitSuccess: 'Gửi ngân sách thành công',
     noDataTitle: 'Chưa chọn ngân sách',
     noDataDesc: 'Vui lòng chọn ngân sách từ bộ lọc phía trên để xem và chỉnh sửa dữ liệu phân bổ.',
   },

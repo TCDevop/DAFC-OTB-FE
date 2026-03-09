@@ -1,7 +1,8 @@
 'use client';
 
 import { useState, useEffect, useMemo } from 'react';
-import { Loader2, Plus, X, LayoutList, LayoutGrid, Ticket, CircleCheckBig, DollarSign, Search } from 'lucide-react';
+import { useRouter } from 'next/navigation';
+import { Loader2, Plus, X, LayoutList, LayoutGrid, Ticket, CircleCheckBig, DollarSign, Search, Eye } from 'lucide-react';
 import TicketKanbanBoard from './TicketKanbanBoard';
 import { ExpandableStatCard, ErrorMessage, EmptyState } from '@/components/ui';
 import { MobileList, FilterChips, FloatingActionButton, PullToRefresh, useBottomSheet, FilterBottomSheet } from '@/components/mobile';
@@ -36,6 +37,7 @@ const getDisplayStatus = (status: any, t: any) => {
 // (Season groups & seasons loaded from API via masterDataService.getSeasonGroups)
 
 const TicketScreen = ({ onOpenTicketDetail }: any) => {
+  const router = useRouter();
   const { t } = useLanguage();
   const { isAuthenticated } = useAuth();
   const { isMobile } = useIsMobile();
@@ -421,9 +423,9 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
           <table className="w-full text-sm">
             <thead className={`sticky top-0 z-10 ${'bg-[#E8DDD1]'}`}>
               <tr>
-                {['FY', t('ticket.budgetNameLabel'), t('ticket.seasonGroupLabel'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status')].map((header: any, idx: any) => (
+                {['FY', t('ticket.budgetNameLabel'), t('ticket.seasonGroupLabel'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status'), ''].map((header: any, idx: any) => (
                   <th
-                    key={header}
+                    key={`h-${idx}`}
                     className={`px-4 py-2 text-left font-semibold text-xs uppercase tracking-wider ${'text-[#4A3728]'} ${idx === 6 ? 'text-center' : ''}`}
                   >
                     {header}
@@ -433,7 +435,9 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
             </thead>
 
             <tbody className={`divide-y ${'divide-gray-200'}`}>
-              {filteredTickets.map((ticket: any) => (
+              {filteredTickets.map((ticket: any) => {
+                const isApproved = ['LEVEL2_APPROVED', 'APPROVED', 'FINAL'].includes(ticket.status?.toUpperCase());
+                return (
                 <tr
                   key={ticket.id}
                   onClick={() => onOpenTicketDetail(ticket)}
@@ -462,8 +466,24 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
                       {getDisplayStatus(ticket.status, t)}
                     </span>
                   </td>
+                  <td className="px-4 py-3 text-center">
+                    {isApproved && (
+                      <button
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          sessionStorage.setItem('orderTicket', JSON.stringify(ticket.data || ticket));
+                          router.push('/order-confirmation');
+                        }}
+                        className="inline-flex items-center justify-center p-1.5 rounded-md transition-all bg-[rgba(215,183,151,0.15)] text-[#6B4D30] hover:bg-[rgba(215,183,151,0.3)]"
+                        title="View Order"
+                      >
+                        <Eye size={14} />
+                      </button>
+                    )}
+                  </td>
                 </tr>
-              ))}
+                );
+              })}
             </tbody>
           </table>
           </div>

@@ -712,7 +712,7 @@ const PlanningDetailPage = ({
   const dimZero = (val: number | string, suffix = '%') => {
     const num = typeof val === 'string' ? parseFloat(val) : val;
     if (num === 0) return <span className="opacity-60">0{suffix}</span>;
-    return `${typeof val === 'number' ? val.toFixed(val % 1 === 0 ? 0 : 1) : val}${suffix}`;
+    return `${val}${suffix}`;
   };
 
   // Render Collection Tab
@@ -787,7 +787,7 @@ const PlanningDetailPage = ({
                       <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{dimZero(storeRow.buyPct)}</td>
                       <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{dimZero(storeRow.salesPct)}</td>
                       <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{displayPct(storeRow.stPct)}</td>
-                      <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{storeRow.moc.toFixed(1)}</td>
+                      <td className={`px-3 py-1.5 text-center text-xs ${tableCellText}`}>{Math.round(storeRow.moc)}</td>
                       <td className={`px-3 py-1.5 ${isReadOnly ? 'bg-[rgba(160,120,75,0.08)]' : 'bg-[rgba(160,120,75,0.12)]'}`}>
                         <EditableCell
                           cellKey={cellKey}

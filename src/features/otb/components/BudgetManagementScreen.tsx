@@ -195,8 +195,8 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
     return {
       total, approved, remaining,
       count: budgetData.length,
-      approvedPct: total > 0 ? ((approved / total) * 100).toFixed(1) : '0',
-      remainingPct: total > 0 ? ((remaining / total) * 100).toFixed(1) : '0',
+      approvedPct: total > 0 ? ((approved / total) * 100) : 0,
+      remainingPct: total > 0 ? ((remaining / total) * 100) : 0,
     };
   }, [budgetData]);
 

@@ -336,11 +336,11 @@ const AddSKUModal = ({
                 </div>
               ) : (
                 <div className="space-y-1">
-                  {filteredCatalog.map((sku: any) => {
+                  {filteredCatalog.map((sku: any, idx: number) => {
                     const isSelected = selectedSkus.has(sku.sku);
                     return (
                       <button
-                        key={sku.sku}
+                        key={`${sku.sku}_${idx}`}
                         type="button"
                         onClick={() => toggleSku(sku.sku)}
                         className={`w-full flex items-center gap-3 px-3 py-2 rounded-lg text-left transition-colors ${

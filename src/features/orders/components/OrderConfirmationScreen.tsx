@@ -1,10 +1,11 @@
 'use client';
 
 import React, { useState, useEffect, useMemo } from 'react';
+import { useRouter } from 'next/navigation';
 import {
-  Loader2, Package, Search, X, RefreshCw
+  Loader2, Package, Search, X, RefreshCw, Eye, Receipt
 } from 'lucide-react';
-import { ticketService } from '@/services';
+import { ticketService, orderService } from '@/services';
 import { useAuth } from '@/contexts/AuthContext';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
@@ -16,6 +17,7 @@ import OrderTicketDetail from './OrderTicketDetail';
    MAIN SCREEN
 ═══════════════════════════════════════════════ */
 const OrderConfirmationScreen = () => {
+  const router = useRouter();
   const { isAuthenticated } = useAuth();
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
@@ -24,6 +26,7 @@ const OrderConfirmationScreen = () => {
   const [error, setError] = useState<any>(null);
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [selectedTicket, setSelectedTicket] = useState<any>(null);
+  const [confirmedTicketIds, setConfirmedTicketIds] = useState<Set<string>>(new Set());
 
   const formatDate = (dateStr: string | null | undefined) => {
     if (!dateStr) return '-';
@@ -65,6 +68,14 @@ const OrderConfirmationScreen = () => {
       });
 
       setTickets(mapped);
+
+      // Fetch confirmed orders to know which tickets have confirmed orders
+      try {
+        const confirmedOrders = await orderService.getAll({ status: 'CONFIRMED' });
+        const confirmedList = Array.isArray(confirmedOrders) ? confirmedOrders : [];
+        const ids = new Set<string>(confirmedList.map((o: any) => String(o.ticket_id || o.id)));
+        setConfirmedTicketIds(ids);
+      } catch { /* ignore */ }
     } catch (err: any) {
       console.error('Failed to fetch tickets:', err);
       setError(t('orderConfirm.failedToLoad'));
@@ -197,9 +208,9 @@ const OrderConfirmationScreen = () => {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-[#E8DDD1]">
                 <tr>
-                  {['FY', t('ticket.budgetNameLabel'), t('ticket.seasonGroupLabel'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status')].map((header: any, idx: any) => (
+                  {['FY', t('ticket.budgetNameLabel'), t('ticket.seasonGroupLabel'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status'), ''].map((header: any, idx: any) => (
                     <th
-                      key={header}
+                      key={`h-${idx}`}
                       className={`px-4 py-2 text-left font-semibold text-xs uppercase tracking-wider text-[#4A3728] ${idx === 6 ? 'text-center' : ''}`}
                     >
                       {header}
@@ -209,11 +220,12 @@ const OrderConfirmationScreen = () => {
               </thead>
 
               <tbody className="divide-y divide-gray-200">
-                {filtered.map((ticket: any) => (
+                {filtered.map((ticket: any) => {
+                  const isConfirmed = confirmedTicketIds.has(String(ticket.id));
+                  return (
                   <tr
                     key={ticket.id}
-                    onClick={() => setSelectedTicket?.(ticket)}
-                    className="cursor-pointer transition-all duration-150 border-l-2 border-transparent hover:bg-[rgba(215,183,151,0.15)] hover:border-l-[#D7B797]"
+                    className="transition-all duration-150 border-l-2 border-transparent hover:bg-[rgba(215,183,151,0.15)] hover:border-l-[#D7B797]"
                   >
                     <td className="px-4 py-3 font-['JetBrains_Mono'] font-medium text-gray-800">
                       {ticket.fy}
@@ -238,8 +250,32 @@ const OrderConfirmationScreen = () => {
                         {getDisplayStatus(ticket.status)}
                       </span>
                     </td>
+                    <td className="px-4 py-3 text-center">
+                      <div className="inline-flex items-center gap-1.5">
+                        <button
+                          onClick={() => setSelectedTicket?.(ticket)}
+                          className="inline-flex items-center justify-center p-1.5 rounded-md transition-all bg-[rgba(215,183,151,0.15)] text-[#6B4D30] hover:bg-[rgba(215,183,151,0.3)]"
+                          title="View Order"
+                        >
+                          <Eye size={14} />
+                        </button>
+                        {isConfirmed && (
+                          <button
+                            onClick={() => {
+                              sessionStorage.setItem('receiptTicket', JSON.stringify(ticket.data || ticket));
+                              router.push('/receipt-confirmation');
+                            }}
+                            className="inline-flex items-center justify-center p-1.5 rounded-md transition-all bg-[rgba(42,158,106,0.1)] text-[#2A9E6A] hover:bg-[rgba(42,158,106,0.2)]"
+                            title="View Receipt"
+                          >
+                            <Receipt size={14} />
+                          </button>
+                        )}
+                      </div>
+                    </td>
                   </tr>
-                ))}
+                  );
+                })}
               </tbody>
             </table>
           </div>

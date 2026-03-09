@@ -238,16 +238,10 @@ const HomeScreen = () => {
     fetchSeasonOptions();
   }, []);
 
-  // Format VND amount for display (e.g. 12500000000 → "12.5B")
+  // Format VND amount for display — full number with thousand separators
   const formatVND = (amount: number): string => {
     if (!amount || amount === 0) return '0';
-    const trillion = 1_000_000_000_000;
-    const billion = 1_000_000_000;
-    const million = 1_000_000;
-    if (amount >= trillion) return `${(amount / trillion).toFixed(1)}T`;
-    if (amount >= billion) return `${(amount / billion).toFixed(1)}B`;
-    if (amount >= million) return `${(amount / million).toFixed(0)}M`;
-    return amount.toLocaleString('en-US');
+    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(amount));
   };
 
   const fetchStats = async () => {
@@ -656,14 +650,7 @@ const HomeScreen = () => {
               const yTicks = Array.from({ length: 5 }, (_, i) => {
                 const val = niceMax * (1 - i / 4);
                 const y = CHART_TOP + i * ((CHART_BOTTOM - CHART_TOP) / 4);
-                const trillion = 1_000_000_000_000;
-                const billion = 1_000_000_000;
-                const million = 1_000_000;
-                let label: string;
-                if (niceMax >= trillion) label = `${(val / trillion).toFixed(1)}T`;
-                else if (niceMax >= billion) label = `${(val / billion).toFixed(1)}B`;
-                else if (niceMax >= million) label = `${(val / million).toFixed(0)}M`;
-                else label = val.toLocaleString('en-US');
+                const label = new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(val));
                 return { y, label };
               });
 
@@ -736,14 +723,9 @@ const HomeScreen = () => {
                   {/* Value labels on actual line */}
                   {chartData.map((d, i) => {
                     const x = toX(i), y = toY(d.actual);
-                    const trillion = 1_000_000_000_000;
-                    const billion = 1_000_000_000;
-                    const million = 1_000_000;
-                    let label: string;
-                    if (d.actual >= trillion) label = `${(d.actual / trillion).toFixed(1)}T`;
-                    else if (d.actual >= billion) label = `${(d.actual / billion).toFixed(1)}B`;
-                    else if (d.actual >= million) label = `${(d.actual / million).toFixed(0)}M`;
-                    else label = d.actual > 0 ? d.actual.toLocaleString('en-US') : '0';
+                    const label = d.actual > 0
+                      ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(d.actual))
+                      : '0';
                     return (
                       <g key={`val-${i}`} filter="url(#labelShadow)">
                         <rect x={x - 22} y={y - 24} width="44" height="17" rx="5"

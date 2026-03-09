@@ -26,8 +26,8 @@ interface GapTableProps {
 /* ═══════════════════════════════════════════════
    Format helpers
 ═══════════════════════════════════════════════ */
-const fmt = (v: number) => v.toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
-const fmtPct = (v: number) => `${Math.round(v)}%`;
+const fmt = (v: number) => new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(v));
+const fmtPct = (v: number) => `${v}%`;
 
 /* ═══════════════════════════════════════════════
    Auto-generate note

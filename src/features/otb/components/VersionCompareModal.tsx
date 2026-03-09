@@ -219,7 +219,7 @@ const VersionCompareModal = ({
                             className={`text-[10px] ${
                               isUp ? 'text-[#2A9E6A]' : isDown ? 'text-[#F85149]' :'text-[#999]'}`}
                           >
-                            ({formatPercent(diff.changePct, 0)})
+                            ({formatPercent(diff.changePct)})
                           </span>
                         </div>
                       </td>

@@ -288,8 +288,8 @@ const KPIDetailModal = ({
                             {item.label}
                           </span>
                           <span className={`text-xs font-['JetBrains_Mono'] tabular-nums ${textSecondary}`}>
-                            {typeof item.value === 'number' && item.value > 999
-                              ? `${(item.value / 1_000_000).toFixed(1)}M`
+                            {typeof item.value === 'number'
+                              ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(item.value))
                               : item.value}
                             {item.pct != null && ` (${item.pct}%)`}
                           </span>
@@ -311,8 +311,8 @@ const KPIDetailModal = ({
                           {t('home.kpiDetail.total')}
                         </span>
                         <span className={`text-sm font-bold font-['JetBrains_Mono'] tabular-nums`} style={{ color: accentColor }}>
-                          {data.summary.total > 999
-                            ? `${(data.summary.total / 1_000_000).toFixed(1)}M`
+                          {typeof data.summary.total === 'number'
+                            ? new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(data.summary.total))
                             : data.summary.total}
                         </span>
                       </div>

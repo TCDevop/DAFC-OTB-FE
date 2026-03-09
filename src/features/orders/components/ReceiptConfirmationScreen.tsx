@@ -244,10 +244,10 @@ const ReceiptConfirmationScreen = () => {
                     <td className="px-4 py-3 text-center">
                       <button
                         onClick={() => setSelectedTicket(ticket)}
-                        className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md text-xs font-semibold transition-all bg-[rgba(215,183,151,0.15)] text-[#6B4D30] hover:bg-[rgba(215,183,151,0.3)]"
+                        className="inline-flex items-center justify-center p-1.5 rounded-md transition-all bg-[rgba(215,183,151,0.15)] text-[#6B4D30] hover:bg-[rgba(215,183,151,0.3)]"
+                        title={t('common.viewDetails')}
                       >
-                        <Eye size={13} />
-                        {t('common.viewDetails')}
+                        <Eye size={14} />
                       </button>
                     </td>
                   </tr>

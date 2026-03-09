@@ -64,7 +64,6 @@ const EditableCell = React.memo(({ cellKey, value, isEditing, editValue, onStart
         <span className={`font-['JetBrains_Mono'] font-medium ${'text-[#6B4D30]'}`}>
           {displayPct(value)}
         </span>
-        <Pencil size={12} className={`opacity-40 group-hover:opacity-100 transition-opacity ${'text-[#6B4D30]'}`} />
       </div>
     </div>
   );
@@ -1599,22 +1598,93 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
                     return (
                       <div key={catEntry.category.id} className={`rounded-xl border overflow-hidden ${'border-[#C4B5A5] bg-white'}`}>
-                        {/* Category Header - Level 2 */}
-                        <div
-                          onClick={() => toggleSubCategoryExpanded(genderEntry.gender.id, catEntry.category.id, brandId || undefined)}
-                          className={`flex flex-wrap items-center gap-2 md:gap-3 px-3 md:px-4 py-0.5 cursor-pointer transition-all ${'bg-[rgba(160,120,75,0.12)] hover:bg-[rgba(215,183,151,0.2)]'}`}
-                        >
-                          <button className={`p-1 rounded-lg transition-colors ${'bg-[rgba(215,183,151,0.2)] hover:bg-[rgba(215,183,151,0.3)]'}`}>
-                            <ChevronDown
-                              size={16}
-                              className={`transition-transform duration-200 ${'text-[#6B4D30]'} ${isCatExpanded ? '' : '-rotate-90'}`}
-                            />
-                          </button>
-                          <Tag size={16} className={'text-[#6B4D30]'} />
-                          <span className={`font-semibold text-xs uppercase tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
-                            {catEntry.category.name}
-                          </span>
-                        </div>
+                        {/* Category Header - Level 2: when expanded show header only, when collapsed show header + summary in one row */}
+                        {isCatExpanded ? (
+                          <div
+                            onClick={() => toggleSubCategoryExpanded(genderEntry.gender.id, catEntry.category.id, brandId || undefined)}
+                            className={`flex items-center gap-2 md:gap-3 px-3 md:px-4 py-0.5 cursor-pointer transition-all ${'bg-[rgba(160,120,75,0.12)] hover:bg-[rgba(215,183,151,0.2)]'}`}
+                          >
+                            <button className={`shrink-0 p-1 rounded-lg transition-colors ${'bg-[rgba(215,183,151,0.2)] hover:bg-[rgba(215,183,151,0.3)]'}`}>
+                              <ChevronDown size={16} className={`transition-transform duration-200 ${'text-[#6B4D30]'}`} />
+                            </button>
+                            <Tag size={16} className={'shrink-0 text-[#6B4D30]'} />
+                            <span className={`font-semibold text-xs uppercase tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
+                              {catEntry.category.name}
+                            </span>
+                          </div>
+                        ) : (
+                          <div
+                            onClick={() => toggleSubCategoryExpanded(genderEntry.gender.id, catEntry.category.id, brandId || undefined)}
+                            className={`cursor-pointer transition-all overflow-x-auto ${'bg-[rgba(160,120,75,0.12)] hover:bg-[rgba(215,183,151,0.2)]'}`}
+                          >
+                            <table className="w-full text-sm" style={{ tableLayout: 'fixed' }}>
+                              <colgroup>
+                                <col style={{ width: '160px' }} />
+                                <col style={{ width: '70px' }} />
+                                <col style={{ width: '70px' }} />
+                                <col style={{ width: '70px' }} />
+                                {historicalPeriods
+                                  .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
+                                  .map((period) => (
+                                  <React.Fragment key={`col_sum_${period.label}`}>
+                                    <col style={{ width: '60px' }} />
+                                    <col style={{ width: '60px' }} />
+                                    <col style={{ width: '60px' }} />
+                                  </React.Fragment>
+                                ))}
+                                <col style={{ width: '90px' }} />
+                                <col style={{ width: '100px' }} />
+                                <col style={{ width: '80px' }} />
+                                <col style={{ width: '80px' }} />
+                                <col style={{ width: '70px' }} />
+                                <col style={{ width: '50px' }} />
+                              </colgroup>
+                              <tbody>
+                                <tr>
+                                  <td className="px-3 py-0.5">
+                                    <div className="flex items-center gap-2">
+                                      <button className={`shrink-0 p-1 rounded-lg transition-colors ${'bg-[rgba(215,183,151,0.2)] hover:bg-[rgba(215,183,151,0.3)]'}`}>
+                                        <ChevronDown size={16} className={`transition-transform duration-200 -rotate-90 ${'text-[#6B4D30]'}`} />
+                                      </button>
+                                      <Tag size={16} className={'shrink-0 text-[#6B4D30]'} />
+                                      <span className={`truncate font-semibold text-xs uppercase tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
+                                        {catEntry.category.name}
+                                      </span>
+                                    </div>
+                                  </td>
+                                  <td className={`px-2 py-0.5 text-center text-[11px] font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(catTotals.buyPct)}</td>
+                                  <td className={`px-2 py-0.5 text-center text-[11px] font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(catTotals.salesPct)}</td>
+                                  <td className={`px-2 py-0.5 text-center text-[11px] font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(catTotals.stPct)}</td>
+                                  {historicalPeriods
+                                    .filter(p => !(baselinePeriod && p.fiscalYear === baselinePeriod.fiscalYear && p.seasonGroup === baselinePeriod.seasonGroup && p.season === baselinePeriod.season))
+                                    .map((period) => {
+                                    const hLookup = buildHistoricalLookup(brandId || '', period.label);
+                                    let hBuy = 0, hSales = 0, hSt = 0;
+                                    catEntry.subCategories.forEach((subEntry: any) => {
+                                      const hd = hLookup.bySub[subEntry.dataKey] || {};
+                                      hBuy += Number(hd.buyPct) || 0;
+                                      hSales += Number(hd.salesPct) || 0;
+                                      hSt += Number(hd.stPct) || 0;
+                                    });
+                                    return (
+                                    <React.Fragment key={`sum_hist_${period.label}`}>
+                                      <td className={`border-l-2 border-[#D7B797] px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{displayPct(hBuy)}</td>
+                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{displayPct(hSales)}</td>
+                                      <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] text-[10px] ${'text-[#777]'}`}>{displayPct(hSt)}</td>
+                                    </React.Fragment>
+                                    );
+                                  })}
+                                  <td className={`px-2 py-0.5 text-center bg-[rgba(160,120,75,0.14)] font-bold text-[11px] font-['JetBrains_Mono'] ${'text-[#6B4D30]'}`}>{displayPct(catTotals.buyProposed)}</td>
+                                  <td className={`px-2 py-0.5 text-center font-bold text-[11px] font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{formatNumber(catTotals.otbProposed)}</td>
+                                  <td className={`px-2 py-0.5 text-center font-bold text-[11px] font-['JetBrains_Mono'] ${catTotals.varPct < 0 ? 'text-[#FF7B72]' : 'text-[#5C4A32]'}`}>{formatPercent(catTotals.varPct)}</td>
+                                  <td className={`px-2 py-0.5 text-center text-[11px] font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{formatNumber(catTotals.otbSubmitted)}</td>
+                                  <td className={`px-2 py-0.5 text-center text-[11px] font-['JetBrains_Mono'] ${'text-[#5C4A32]'}`}>{displayPct(catTotals.buyActual)}</td>
+                                  <td className="px-2 py-0.5"></td>
+                                </tr>
+                              </tbody>
+                            </table>
+                          </div>
+                        )}
 
                         {/* SubCategory Table - Level 3 */}
                         {isCatExpanded && (
@@ -2383,6 +2453,15 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                 </div>
               );
             })()}
+            {!isCollapsed && filtersComplete && (
+              <button
+                onClick={(e) => { e.stopPropagation(); handleToggleAll(brandId); }}
+                className={`shrink-0 flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
+              >
+                <ChevronDown size={12} className={`transition-transform ${allCollapsedPerBrand[brandId] ? '-rotate-90' : ''}`} />
+                {allCollapsedPerBrand[brandId] ? 'Expand' : 'Collapse'}
+              </button>
+            )}
             {isCollapsed && (
               <span className={`text-xs ${'text-[#AAAAAA]'}`}>Click to expand</span>
             )}
