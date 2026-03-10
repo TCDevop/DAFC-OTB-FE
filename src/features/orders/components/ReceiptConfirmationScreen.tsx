@@ -78,6 +78,18 @@ const ReceiptConfirmationScreen = () => {
     fetchTickets();
   }, [isAuthenticated]);
 
+  // Auto-open detail when navigated from Orders page
+  useEffect(() => {
+    const stored = sessionStorage.getItem('autoOpenReceiptTicket');
+    if (stored) {
+      try {
+        const ticket = JSON.parse(stored);
+        setSelectedTicket(ticket);
+      } catch { /* ignore */ }
+      sessionStorage.removeItem('autoOpenReceiptTicket');
+    }
+  }, []);
+
   const filtered = useMemo(() => {
     if (!searchTerm) return tickets;
     const term = searchTerm.toLowerCase();

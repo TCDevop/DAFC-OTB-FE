@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useMemo } from 'react';
 import { useRouter } from 'next/navigation';
-import { Loader2, Plus, X, LayoutList, LayoutGrid, Ticket, CircleCheckBig, DollarSign, Search, Eye } from 'lucide-react';
+import { Loader2, Plus, X, LayoutList, LayoutGrid, Ticket, CircleCheckBig, DollarSign, Search, Eye, PackageCheck } from 'lucide-react';
 import TicketKanbanBoard from './TicketKanbanBoard';
 import { ExpandableStatCard, ErrorMessage, EmptyState } from '@/components/ui';
 import { MobileList, FilterChips, FloatingActionButton, PullToRefresh, useBottomSheet, FilterBottomSheet } from '@/components/mobile';
@@ -440,8 +440,7 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
                 return (
                 <tr
                   key={ticket.id}
-                  onClick={() => onOpenTicketDetail(ticket)}
-                  className={`cursor-pointer transition-all duration-150 border-l-2 border-transparent ${'hover:bg-[rgba(215,183,151,0.15)] hover:border-l-[#D7B797]'}`}
+                  className={`transition-all duration-150 border-l-2 border-transparent ${'hover:bg-[rgba(215,183,151,0.15)] hover:border-l-[#D7B797]'}`}
                 >
                   <td className={`px-4 py-3 font-['JetBrains_Mono'] font-medium ${'text-gray-800'}`}>
                     {ticket.fy}
@@ -467,19 +466,31 @@ const TicketScreen = ({ onOpenTicketDetail }: any) => {
                     </span>
                   </td>
                   <td className="px-4 py-3 text-center">
-                    {isApproved && (
+                    <div className="inline-flex items-center gap-1.5">
                       <button
                         onClick={(e) => {
                           e.stopPropagation();
-                          sessionStorage.setItem('orderTicket', JSON.stringify(ticket.data || ticket));
-                          router.push('/order-confirmation');
+                          onOpenTicketDetail(ticket);
                         }}
                         className="inline-flex items-center justify-center p-1.5 rounded-md transition-all bg-[rgba(215,183,151,0.15)] text-[#6B4D30] hover:bg-[rgba(215,183,151,0.3)]"
-                        title="View Order"
+                        title="View Detail"
                       >
                         <Eye size={14} />
                       </button>
-                    )}
+                      {isApproved && (
+                        <button
+                          onClick={(e) => {
+                            e.stopPropagation();
+                            sessionStorage.setItem('autoOpenOrderTicket', JSON.stringify(ticket));
+                            router.push('/order-confirmation');
+                          }}
+                          className="inline-flex items-center justify-center p-1.5 rounded-md transition-all bg-[rgba(42,158,106,0.1)] text-[#2A9E6A] hover:bg-[rgba(42,158,106,0.2)]"
+                          title="Go to Order"
+                        >
+                          <PackageCheck size={14} />
+                        </button>
+                      )}
+                    </div>
                   </td>
                 </tr>
                 );

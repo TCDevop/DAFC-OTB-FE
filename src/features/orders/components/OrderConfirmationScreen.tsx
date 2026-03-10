@@ -90,6 +90,18 @@ const OrderConfirmationScreen = () => {
     fetchTickets();
   }, [isAuthenticated]);
 
+  // Auto-open detail when navigated from Tickets page
+  useEffect(() => {
+    const stored = sessionStorage.getItem('autoOpenOrderTicket');
+    if (stored) {
+      try {
+        const ticket = JSON.parse(stored);
+        setSelectedTicket(ticket);
+      } catch { /* ignore */ }
+      sessionStorage.removeItem('autoOpenOrderTicket');
+    }
+  }, []);
+
   const filtered = useMemo(() => {
     if (!searchTerm) return tickets;
     const term = searchTerm.toLowerCase();
@@ -262,7 +274,7 @@ const OrderConfirmationScreen = () => {
                         {isConfirmed && (
                           <button
                             onClick={() => {
-                              sessionStorage.setItem('receiptTicket', JSON.stringify(ticket.data || ticket));
+                              sessionStorage.setItem('autoOpenReceiptTicket', JSON.stringify(ticket));
                               router.push('/receipt-confirmation');
                             }}
                             className="inline-flex items-center justify-center p-1.5 rounded-md transition-all bg-[rgba(42,158,106,0.1)] text-[#2A9E6A] hover:bg-[rgba(42,158,106,0.2)]"
