@@ -220,10 +220,10 @@ const OrderConfirmationScreen = () => {
             <table className="w-full text-sm">
               <thead className="sticky top-0 z-10 bg-[#E8DDD1]">
                 <tr>
-                  {['FY', t('ticket.budgetNameLabel'), t('ticket.seasonGroupLabel'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status'), ''].map((header: any, idx: any) => (
+                  {['FY', t('ticket.budgetNameLabel'), t('ticket.seasonGroupLabel'), t('ticket.seasonLabel'), t('budget.createdBy'), t('budget.createdOn'), t('common.status'), 'Actions'].map((header: any, idx: any) => (
                     <th
                       key={`h-${idx}`}
-                      className={`px-4 py-2 text-left font-semibold text-xs uppercase tracking-wider text-[#4A3728] ${idx === 6 ? 'text-center' : ''}`}
+                      className={`px-4 py-2 text-left font-semibold text-xs uppercase tracking-wider text-[#4A3728] ${idx >= 6 ? 'text-center' : ''}`}
                     >
                       {header}
                     </th>

@@ -208,7 +208,7 @@ const ReceiptConfirmationScreen = () => {
                     'Amount',
                     t('budget.createdBy'),
                     t('budget.createdOn'),
-                    '',
+                    'Actions',
                   ].map((header: any, idx: any) => (
                     <th
                       key={`h-${idx}`}
