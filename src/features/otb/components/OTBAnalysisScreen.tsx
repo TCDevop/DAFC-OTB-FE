@@ -425,6 +425,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [subCategoryFilter, setSubCategoryFilter] = useState('all');
   const [openCategoryDropdown, setOpenCategoryDropdown] = useState<any>(null);
+  // Transaction filter: 'all' | 'has' (có phát sinh) | 'none' (không phát sinh)
+  const [transactionFilter, setTransactionFilter] = useState<'all' | 'has' | 'none'>('all');
 
   // Active tab for Category / Season Type / Gender views
   const [activeTab, setActiveTab] = useState<'category' | 'seasonType' | 'gender'>('category');
@@ -994,9 +996,10 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     setSelectedYear('all');
     setComparisonType('same');
     setSeasonCount(1);
+    setTransactionFilter('all');
   };
 
-  const hasActiveFilters = selectedBudgetId !== 'all' || selectedSeasonGroup !== 'all' || selectedSeason !== 'all' || selectedVersionId || selectedYear !== 'all';
+  const hasActiveFilters = selectedBudgetId !== 'all' || selectedSeasonGroup !== 'all' || selectedSeason !== 'all' || selectedVersionId || selectedYear !== 'all' || transactionFilter !== 'all';
 
   // Filter budgets by year and season
   const filteredBudgets = useMemo(() => {
@@ -1537,7 +1540,13 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           .filter((catEntry: any) => categoryFilter === 'all' || catEntry.category.id === categoryFilter)
           .map((catEntry: any) => ({
             ...catEntry,
-            subCategories: catEntry.subCategories.filter((sub: any) => subCategoryFilter === 'all' || sub.subCategory.id === subCategoryFilter)}))
+            subCategories: catEntry.subCategories.filter((sub: any) => {
+              if (subCategoryFilter !== 'all' && sub.subCategory.id !== subCategoryFilter) return false;
+              if (transactionFilter === 'all') return true;
+              const d = getRowData(sub.dataKey, String(sub.subCategory.id));
+              const hasTransaction = Number(d.buyPct) !== 0 || Number(d.salesPct) !== 0 || Number(d.stPct) !== 0;
+              return transactionFilter === 'has' ? hasTransaction : !hasTransaction;
+            })}))
           .filter((catEntry: any) => catEntry.subCategories.length > 0)}))
       .filter((gEntry: any) => gEntry.categories.length > 0);
 
@@ -1936,7 +1945,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
     return (
       <div className="p-4 space-y-3">
-        {seasonTypeSections.map((section: any) => {
+        {seasonTypeSections.filter((section: any) => {
+          if (transactionFilter === 'all') return true;
+          const t = calculateSeasonTypeTotals(section.id);
+          const hasTransaction = t.buyPct !== 0 || t.salesPct !== 0 || t.stPct !== 0;
+          return transactionFilter === 'has' ? hasTransaction : !hasTransaction;
+        }).map((section: any) => {
           const sectionTotals = calculateSeasonTypeTotals(section.id);
           const isExpanded = expandedSeasonTypes[section.id] !== false;
 
@@ -2160,7 +2174,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
 
     return (
       <div className="p-4 space-y-3">
-        {genderList.map((gender: any) => {
+        {genderList.filter((gender: any) => {
+          if (transactionFilter === 'all') return true;
+          const gt = calculateGenderTotals(gender.id);
+          const hasTransaction = gt.buyPct !== 0 || gt.salesPct !== 0 || gt.stPct !== 0;
+          return transactionFilter === 'has' ? hasTransaction : !hasTransaction;
+        }).map((gender: any) => {
           const genderTotals = calculateGenderTotals(gender.id);
           const isExpanded = expandedGenderGroups[gender.id] !== false;
 
@@ -2993,6 +3012,20 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     </div>
                   )}
                 </div>
+
+                {/* Transaction Filter — dropdown */}
+                <div className={`self-stretch w-px hidden sm:block rounded-full ${'bg-gradient-to-b from-transparent via-[#C4B5A5]/40 to-transparent'}`} />
+                <FilterSelect
+                  icon={BarChart3}
+                  label="Transaction"
+                  value={transactionFilter}
+                  options={[
+                    { value: 'all', label: 'All' },
+                    { value: 'has', label: 'Has Transactions' },
+                    { value: 'none', label: 'No Transactions' },
+                  ]}
+                  onChange={(val: any) => setTransactionFilter(val)}
+                />
 
                 {/* Clear Filters Button */}
                 {hasActiveFilters && (

@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import {
   ChevronDown, Package, Pencil, X, Plus, Trash2, Ruler, Clock, Users,
   Layers, Check, LayoutGrid, List, SlidersHorizontal, Download, Send, Tag, Star, Sparkles,
-  AlertTriangle, ArrowRight, Save, FilePlus, FileText
+  AlertTriangle, ArrowRight, Save, FilePlus, FileText, Columns2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -42,9 +42,9 @@ const buildEmptySizeData = (sizeKeys: string[]): Record<string, number> => {
   return empty;
 };
 
-// Build block key including brandId for per-brand section support
+// Build block key including brandId for per-brand section support — keyed by product.rail
 const buildBlockKey = (block: any) =>
-  `${block.brandId || 'all'}_${block.gender}_${block.category}_${block.subCategory}`;
+  `${block.brandId || 'all'}_${block.rail || block.subCategory}`;
 
 // Extract brand ID from a proposal header (handles both Prisma & transformed formats)
 const extractBrandId = (p: any): string => {
@@ -68,13 +68,15 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
 
   items.forEach((sp: any) => {
     const prod = sp.product || sp;
+    const rail = (prod.rail || sp.rail || '').trim();
+    // Keep metadata for display/filters
     const gender = (prod.sub_category?.category?.gender?.name || prod.gender || '').toLowerCase();
     const category = (prod.sub_category?.category?.name || prod.category || '').toLowerCase();
     const subCategory = (prod.sub_category?.name || prod.subCategory || '').toLowerCase();
 
-    let block = blocks.find((b: any) => b.gender === gender && b.category === category && b.subCategory === subCategory);
+    let block = blocks.find((b: any) => b.rail === rail);
     if (!block) {
-      block = { brandId, proposalHeaderId, gender, category, subCategory, items: [] };
+      block = { brandId, proposalHeaderId, rail, gender, category, subCategory, items: [] };
       blocks.push(block);
     }
 
@@ -352,7 +354,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const [genderFilter, setGenderFilter] = useState('all');
   const [categoryFilter, setCategoryFilter] = useState('all');
   const [subCategoryFilter, setSubCategoryFilter] = useState('all');
-  const hasActiveSkuFilter = genderFilter !== 'all' || categoryFilter !== 'all' || subCategoryFilter !== 'all';
+  const [railFilter, setRailFilter] = useState('all');
+  const hasActiveSkuFilter = genderFilter !== 'all' || categoryFilter !== 'all' || subCategoryFilter !== 'all' || railFilter !== 'all';
   const [pendingContextFilters, setPendingContextFilters] = useState<{ category?: string; subCategory?: string } | null>(null);
 
   // Load categories per selected brand (reload when brandFilter changes)
@@ -589,15 +592,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     const subCat = prod.sub_category || {};
                     const cat = subCat.category || {};
                     const genderObj = cat.gender || {};
-                    // Use product's hierarchy if available, fall back to rec table columns
+                    const rail = (prod.rail || rec.rail || '').trim();
+                    if (!rail) return;
+                    // Keep metadata for display/filters
                     const gender = (genderObj.name || '').toLowerCase();
                     const category = (cat.name || rec.category || '').toLowerCase();
                     const subCategory = (subCat.name || rec.sub_category || '').toLowerCase();
-                    if (!category || !subCategory) return;
 
-                    let block = recBlocks.find((b: any) => b.gender === gender && b.category === category && b.subCategory === subCategory);
+                    let block = recBlocks.find((b: any) => b.rail === rail);
                     if (!block) {
-                      block = { brandId, proposalHeaderId: '', gender, category, subCategory, items: [], isRecommended: true };
+                      block = { brandId, proposalHeaderId: '', rail, gender, category, subCategory, items: [], isRecommended: true };
                       recBlocks.push(block);
                     }
                     block.items.push({
@@ -688,7 +692,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [collapsedBrands, setCollapsedBrands] = useState<Record<string, boolean>>({});
   const [contextBanner, setContextBanner] = useState<any>(null);
-  const [viewMode, setViewMode] = useState('table');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'card'>('kanban');
   const [lightbox, setLightbox] = useState<{ open: boolean; key: string; tab: 'details' | 'storeOrder' | 'sizing'; item: any; blockKey: string; idx: number; block: any } | null>(null);
   const [customerTargetOptions, setCustomerTargetOptions] = useState<string[]>(['New', 'Existing']);
   // Per-brand proposal headers (versions) & sizing headers (choices) from API
@@ -1258,123 +1262,119 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return paths;
   }, [masterCategories]);
 
+  // Build gender options from items' gender field
   const genderOptions = useMemo(() => {
-    const fromBlocks = skuBlocks.map((s: any) => s.gender).filter(Boolean);
-    const fromMaster = masterGenders.filter(Boolean);
     const map = new Map<string, string>();
-    [...fromBlocks, ...fromMaster].forEach((g: string) => {
-      const key = g.toLowerCase();
-      if (!map.has(key)) map.set(key, g);
+    skuBlocks.forEach((b: any) => {
+      (b.items || []).forEach((item: any) => {
+        // items don't store gender directly; fall back to block metadata
+        const val = b.gender || '';
+        if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+      });
     });
     return [
       { value: 'all', label: 'All Genders' },
       ...Array.from(map.entries()).map(([value, label]) => ({ value, label })),
     ];
-  }, [skuBlocks, masterGenders]);
+  }, [skuBlocks]);
 
+  // Build category options from items' division field (not block metadata)
   const categoryOptions = useMemo(() => {
-    const fromBlocks = skuBlocks
-      .filter((s: any) => genderFilter === 'all' || s.gender.toLowerCase() === genderFilter.toLowerCase())
-      .map((s: any) => s.category)
-      .filter(Boolean);
-    const fromMaster = masterCategories.map((c: any) => (c.name || c.code || '')).filter(Boolean);
     const map = new Map<string, string>();
-    [...fromBlocks, ...fromMaster].forEach((c: string) => {
-      const key = c.toLowerCase();
-      if (!map.has(key)) map.set(key, c);
+    skuBlocks.forEach((b: any) => {
+      (b.items || []).forEach((item: any) => {
+        const val = item.division || '';
+        if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+      });
     });
     return [
       { value: 'all', label: 'All Categories' },
       ...Array.from(map.entries()).map(([value, label]) => ({ value, label })),
     ];
-  }, [genderFilter, skuBlocks, masterCategories]);
+  }, [skuBlocks]);
 
+  // Build sub-category options from items' productType field, filtered by selected category
   const subCategoryOptions = useMemo(() => {
-    const fromBlocks = skuBlocks
-      .filter((s: any) => (genderFilter === 'all' || s.gender.toLowerCase() === genderFilter.toLowerCase())
-        && (categoryFilter === 'all' || s.category.toLowerCase() === categoryFilter.toLowerCase()))
-      .map((s: any) => s.subCategory)
-      .filter(Boolean);
-    // Extract sub-categories from master data, filtered by selected category
-    const fromMaster = masterCategories
-      .filter((c: any) => categoryFilter === 'all' || (c.name || c.code || '').toLowerCase() === categoryFilter.toLowerCase())
-      .flatMap((c: any) => (c.sub_categories || c.subCategories || []).map((sc: any) => (sc.name || sc.code || '')))
-      .filter(Boolean);
     const map = new Map<string, string>();
-    [...fromBlocks, ...fromMaster].forEach((s: string) => {
-      const key = s.toLowerCase();
-      if (!map.has(key)) map.set(key, s);
+    skuBlocks.forEach((b: any) => {
+      (b.items || []).forEach((item: any) => {
+        if (categoryFilter !== 'all' && (item.division || '').toLowerCase() !== categoryFilter.toLowerCase()) return;
+        const val = item.productType || '';
+        if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+      });
     });
     return [
       { value: 'all', label: 'All Sub Categories' },
       ...Array.from(map.entries()).map(([value, label]) => ({ value, label })),
     ];
-  }, [genderFilter, categoryFilter, skuBlocks, masterCategories]);
+  }, [categoryFilter, skuBlocks]);
+
+  const railOptions = useMemo(() => {
+    const seen = new Map<string, string>();
+    skuBlocks.forEach((b: any) => {
+      if (!b.rail) return;
+      const key = b.rail.toLowerCase();
+      if (!seen.has(key)) seen.set(key, b.rail);
+    });
+    return [
+      { value: 'all', label: 'All Rails' },
+      ...Array.from(seen.entries()).map(([value, label]) => ({ value, label })),
+    ];
+  }, [skuBlocks]);
 
   const filteredSkuBlocks = useMemo(() => {
     return skuBlocks.filter((block: any) => {
-      if (genderFilter !== 'all' && block.gender.toLowerCase() !== genderFilter.toLowerCase()) return false;
-      if (categoryFilter !== 'all' && block.category.toLowerCase() !== categoryFilter.toLowerCase()) return false;
-      if (subCategoryFilter !== 'all' && block.subCategory.toLowerCase() !== subCategoryFilter.toLowerCase()) return false;
+      if (genderFilter !== 'all' && (block.gender || '').toLowerCase() !== genderFilter.toLowerCase()) return false;
+      if (railFilter !== 'all' && (block.rail || '').toLowerCase() !== railFilter.toLowerCase()) return false;
+      if (categoryFilter !== 'all') {
+        const hasMatch = (block.items || []).some((item: any) =>
+          (item.division || '').toLowerCase() === categoryFilter.toLowerCase()
+        );
+        if (!hasMatch) return false;
+      }
+      if (subCategoryFilter !== 'all') {
+        const hasMatch = (block.items || []).some((item: any) =>
+          (item.productType || '').toLowerCase() === subCategoryFilter.toLowerCase()
+        );
+        if (!hasMatch) return false;
+      }
       return true;
     });
-  }, [genderFilter, categoryFilter, subCategoryFilter, skuBlocks]);
+  }, [genderFilter, railFilter, categoryFilter, subCategoryFilter, skuBlocks]);
 
-  // Per-brand subcategory blocks: for each displayBrand, build subcategory rails
-  // Uses brandCategoryMap (per-brand categories) instead of global allSubcategoryPaths
+  // Per-brand rail blocks: grouped by product.rail field
   const brandSubcategoryBlocks = useMemo(() => {
     const result: Record<string, any[]> = {};
     displayBrands.forEach((brand: any) => {
       const brandId = String(brand.id);
+      const addedRails = new Set<string>();
       const blocks: any[] = [];
-      const addedKeys = new Set<string>();
-      // Build subcategory paths from this brand's own categories
-      const brandCategories = brandCategoryMap[brandId] || [];
-      brandCategories.forEach((cat: any) => {
-        const gender = (cat.genderName || '').toLowerCase();
-        const category = (cat.name || cat.code || '').toLowerCase();
-        const subCats = cat.sub_categories || cat.subCategories || [];
-        subCats.forEach((sc: any) => {
-          const subCategory = (sc.name || sc.code || '').toLowerCase();
-          if (!subCategory) return;
-          // Apply gender/category/subCategory filters
-          if (genderFilter !== 'all' && gender !== genderFilter.toLowerCase()) return;
-          if (categoryFilter !== 'all' && category !== categoryFilter.toLowerCase()) return;
-          if (subCategoryFilter !== 'all' && subCategory !== subCategoryFilter.toLowerCase()) return;
-          const pathKey = `${gender}_${category}_${subCategory}`;
-          if (addedKeys.has(pathKey)) return;
-          addedKeys.add(pathKey);
-          // Check if an existing skuBlock matches this brand + path
-          const existing = skuBlocks.find((b: any) =>
-            String(b.brandId || 'all') === brandId &&
-            b.gender.toLowerCase() === gender &&
-            b.category.toLowerCase() === category &&
-            b.subCategory.toLowerCase() === subCategory
-          );
-          if (existing) {
-            blocks.push(existing);
-          } else {
-            blocks.push({ brandId, gender, category, subCategory, items: [] });
-          }
-        });
-      });
-      // Also include any skuBlocks for this brand that aren't covered by brandCategoryMap
       skuBlocks.forEach((block: any) => {
         if (String(block.brandId || 'all') !== brandId) return;
-        if (genderFilter !== 'all' && block.gender.toLowerCase() !== genderFilter.toLowerCase()) return;
-        if (categoryFilter !== 'all' && block.category.toLowerCase() !== categoryFilter.toLowerCase()) return;
-        if (subCategoryFilter !== 'all' && block.subCategory.toLowerCase() !== subCategoryFilter.toLowerCase()) return;
-        const alreadyIncluded = blocks.some((b: any) =>
-          b.gender.toLowerCase() === block.gender.toLowerCase() &&
-          b.category.toLowerCase() === block.category.toLowerCase() &&
-          b.subCategory.toLowerCase() === block.subCategory.toLowerCase()
-        );
-        if (!alreadyIncluded) blocks.push(block);
+        const rail = (block.rail || '').toLowerCase();
+        if (genderFilter !== 'all' && (block.gender || '').toLowerCase() !== genderFilter.toLowerCase()) return;
+        if (railFilter !== 'all' && rail !== railFilter.toLowerCase()) return;
+        if (categoryFilter !== 'all') {
+          const hasMatch = (block.items || []).some((item: any) =>
+            (item.division || '').toLowerCase() === categoryFilter.toLowerCase()
+          );
+          if (!hasMatch) return;
+        }
+        if (subCategoryFilter !== 'all') {
+          const hasMatch = (block.items || []).some((item: any) =>
+            (item.productType || '').toLowerCase() === subCategoryFilter.toLowerCase()
+          );
+          if (!hasMatch) return;
+        }
+        if (!addedRails.has(rail)) {
+          addedRails.add(rail);
+          blocks.push(block);
+        }
       });
       result[brandId] = blocks;
     });
     return result;
-  }, [displayBrands, brandCategoryMap, skuBlocks, genderFilter, categoryFilter, subCategoryFilter]);
+  }, [displayBrands, skuBlocks, genderFilter, railFilter, categoryFilter, subCategoryFilter]);
 
   // Build products payload from ALL blocks for a brand (ignoring active filters
   // so that save-full doesn't delete products outside the current filter view)
@@ -1736,6 +1736,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       block.items.map((item: any) => ({
         skuCode: item.sku || '',
         productName: item.name || '',
+        rail: block.rail || '',
         gender: block.gender || '',
         category: block.category || '',
         subCategory: block.subCategory || '',
@@ -1751,7 +1752,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       return;
     }
 
-    const headers = ['SKU Code', 'Product Name', 'Gender', 'Category', 'Sub-Category', 'Size', 'Color', 'SRP', 'Order Qty', 'Total Value'];
+    const headers = ['SKU Code', 'Product Name', 'Rail', 'Gender', 'Category', 'Sub-Category', 'Size', 'Color', 'SRP', 'Order Qty', 'Total Value'];
 
     const escapeCSV = (val: any) => {
       const str = String(val ?? '');
@@ -1764,7 +1765,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     const csvContent = [
       headers.join(','),
       ...rows.map((row: any) =>
-        [row.skuCode, row.productName, row.gender, row.category, row.subCategory, row.size, row.color, row.srp, row.orderQty, row.totalValue]
+        [row.skuCode, row.productName, row.rail, row.gender, row.category, row.subCategory, row.size, row.color, row.srp, row.orderQty, row.totalValue]
           .map(escapeCSV)
           .join(',')
       )
@@ -2194,7 +2195,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               {/* Separator */}
               <div className="w-px self-stretch bg-[rgba(215,183,151,0.4)] shrink-0 mx-0.5" />
 
-              {/* SKU Data Filters */}
+              {/* Gender, Category, SubCategory, Rail filters */}
               <FilterSelect
                 icon={Users}
                 label={t('common.gender') || 'Gender'}
@@ -2219,13 +2220,21 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 onChange={setSubCategoryFilter}
                 placeholder={t('common.allSubCategories') || 'All SubCategories'}
               />
+              <FilterSelect
+                icon={Layers}
+                label="Rail"
+                value={railFilter}
+                options={railOptions}
+                onChange={setRailFilter}
+                placeholder="All Rails"
+              />
 
               {hasActiveSkuFilter && (
                 <button
                   type="button"
-                  onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); }}
+                  onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); setRailFilter('all'); }}
                   className="shrink-0 p-1 rounded transition-colors text-[#666] hover:text-[#F85149] hover:bg-red-50"
-                  title="Clear all SKU filters"
+                  title="Clear filters"
                 >
                   <X size={14} />
                 </button>
@@ -2238,17 +2247,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         {/* ── Rail Controls + Summary ── */}
         {displayBrands.length > 0 && (
           <div className="border-t border-[rgba(215,183,151,0.25)] -mx-2 md:-mx-3 -mb-2 md:-mb-3 px-3 md:px-6 py-1.5 flex items-center gap-1.5">
-            {/* Summary (left) */}
-            <span className="text-xs text-[#666]">{displayBrands.length} Brands &middot; {grandTotals.skuCount} SKUs</span>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[rgba(215,183,151,0.08)] border border-[rgba(215,183,151,0.15)]">
-              <span className="text-[10px] uppercase font-bold text-[#999] tracking-wide">Order</span>
-              <span className="text-xs font-bold text-[#6B4D30]">{grandTotals.order}</span>
-            </div>
-            <div className="flex items-center gap-1.5 px-2 py-1 rounded-md bg-[rgba(18,119,73,0.06)] border border-[rgba(18,119,73,0.12)]">
-              <span className="text-[10px] uppercase font-bold text-[#127749]/60 tracking-wide">Value</span>
-              <span className="text-xs font-bold text-[#127749]">{formatCurrency(grandTotals.ttlValue)}</span>
-            </div>
-
             <div className="flex-1" />
 
             {/* Collapse/Expand (right) */}
@@ -2279,22 +2277,26 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             <div className="flex items-center gap-0.5 rounded-md p-0.5 bg-[rgba(160,120,75,0.10)]">
               <button
                 type="button"
-                onClick={() => setViewMode('table')}
-                title="Table view"
-                className={`p-1 rounded transition-colors ${
-                  viewMode === 'table'
-                    ? 'bg-white text-[#6B4D30] shadow-sm' : 'text-[#888] hover:text-[#6B4D30]'}`}
+                onClick={() => setViewMode('list')}
+                title="List view"
+                className={`p-1 rounded transition-colors ${viewMode === 'list' ? 'bg-white text-[#6B4D30] shadow-sm' : 'text-[#888] hover:text-[#6B4D30]'}`}
               >
                 <List size={13} />
+              </button>
+              <button
+                type="button"
+                onClick={() => setViewMode('kanban')}
+                title="Kanban view"
+                className={`p-1 rounded transition-colors ${viewMode === 'kanban' ? 'bg-white text-[#6B4D30] shadow-sm' : 'text-[#888] hover:text-[#6B4D30]'}`}
+              >
+                <Columns2 size={13} />
               </button>
               <button
                 type="button"
                 onClick={() => canShowCardView && setViewMode('card')}
                 disabled={!canShowCardView}
                 title={!canShowCardView ? 'Add SKUs to enable card view' : 'Card view'}
-                className={`p-1 rounded transition-colors ${
-                  viewMode === 'card'
-                    ? 'bg-white text-[#6B4D30] shadow-sm' : 'text-[#888] hover:text-[#6B4D30]'} ${!canShowCardView ? 'opacity-40 cursor-not-allowed' : ''}`}
+                className={`p-1 rounded transition-colors ${viewMode === 'card' ? 'bg-white text-[#6B4D30] shadow-sm' : 'text-[#888] hover:text-[#6B4D30]'} ${!canShowCardView ? 'opacity-40 cursor-not-allowed' : ''}`}
               >
                 <LayoutGrid size={13} />
               </button>
@@ -2696,9 +2698,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     )}
                     {brandBlocks.length === 0 ? (
                       <div className={`p-6 text-center ${'text-[#999999]'}`}>
-                        <p className="text-sm">No subcategories available for this brand</p>
+                        <p className="text-sm">No rails available for this brand</p>
                       </div>
-                    ) : brandBlocks.map((block: any) => {
+                    ) : (() => {
+                      const renderBlock = (block: any) => {
                       const key = buildBlockKey(block);
                       const isCollapsed = collapsed[key];
                       const isEmpty = !block.items || block.items.length === 0;
@@ -2715,27 +2718,23 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                               <div className="text-left flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className={`text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#8A6340]'}`}>RAIL</span>
-                                  <span className={`font-semibold text-sm ${'text-[#6B4D30]'}`}>{block.subCategory}</span>
-                                  <span className={`text-xs px-2 py-0.5 rounded-full ${'bg-[rgba(160,120,75,0.12)] text-[#6B5B4D]'}`}>
+                                  <span className={`font-semibold text-sm ${'text-[#6B4D30]'}`}>{block.rail || block.subCategory}</span>
+                                  <span className={`text-[9px] px-1.5 py-0.5 rounded ${'bg-[rgba(160,120,75,0.12)] text-[#6B5B4D]'}`}>
                                     {block.items?.length || 0} SKUs
                                   </span>
                                   {(() => {
                                     const otbKey = `${(block.gender || '').toLowerCase()}_${(block.category || '').toLowerCase()}_${(block.subCategory || '').toLowerCase()}`;
                                     const otbAmount = brandCategoryOtb[brandId]?.[otbKey];
                                     return otbAmount != null && otbAmount > 0 ? (
-                                      <span className="text-[10px] px-1.5 py-0.5 rounded bg-[rgba(18,119,73,0.1)] text-[#127749] font-semibold font-['JetBrains_Mono']">
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded bg-[rgba(18,119,73,0.1)] text-[#127749] font-semibold font-['JetBrains_Mono']">
                                         OTB {formatCurrency(otbAmount)}
                                       </span>
                                     ) : null;
                                   })()}
                                   {!isEmpty && (() => {
                                     const { completed, total } = getSizingCount(key, block.items);
-                                    return completed > 0 ? (
-                                      <span className={`text-[10px] px-1.5 py-0.5 rounded-full font-semibold ${
-                                        completed === total
-                                          ? 'bg-[#127749]/15 text-[#2A9E6A]'
-                                          : 'bg-[#D97706]/15 text-[#D97706]'
-                                      }`}>
+                                    return completed > 0 && completed < total ? (
+                                      <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-[#D97706]/15 text-[#D97706]">
                                         {completed}/{total} sized
                                       </span>
                                     ) : null;
@@ -3026,7 +3025,51 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 </>)}
                         </div>
                       );
-                    })}
+                    };
+                    const doneBlocks = brandBlocks.filter((b: any) => {
+                      if (!b.items || b.items.length === 0) return false;
+                      const bk = buildBlockKey(b);
+                      const { completed, total } = getSizingCount(bk, b.items);
+                      return total > 0 && completed === total;
+                    });
+                    const todoBlocks = brandBlocks.filter((b: any) => {
+                      if (!b.items || b.items.length === 0) return true;
+                      const bk = buildBlockKey(b);
+                      const { completed, total } = getSizingCount(bk, b.items);
+                      return total === 0 || completed < total;
+                    });
+                    if (viewMode === 'list') {
+                      return <div className="space-y-3">{brandBlocks.map(renderBlock)}</div>;
+                    }
+                    return (
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
+                        <div className="rounded-xl border border-[#D97706]/20 bg-[rgba(217,119,6,0.03)] p-3 space-y-3">
+                          <div className="flex items-center gap-2 px-1 pb-1.5 border-b border-[#D97706]/20">
+                            <Clock size={13} className="text-[#D97706]" />
+                            <span className="text-[11px] font-bold uppercase tracking-wider font-['Montserrat'] text-[#D97706]">In Progress</span>
+                            <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#D97706]/10 text-[#D97706] font-semibold">{todoBlocks.length} rails</span>
+                          </div>
+                          <div className="space-y-3">
+                            {todoBlocks.length === 0 ? (
+                              <div className="p-4 text-center text-[#999] text-xs italic rounded-lg border border-dashed border-[#D97706]/20">All rails completed</div>
+                            ) : todoBlocks.map(renderBlock)}
+                          </div>
+                        </div>
+                        <div className="rounded-xl border border-[#2A9E6A]/20 bg-[rgba(42,158,106,0.03)] p-3 space-y-3">
+                          <div className="flex items-center gap-2 px-1 pb-1.5 border-b border-[#2A9E6A]/20">
+                            <Check size={13} className="text-[#2A9E6A]" />
+                            <span className="text-[11px] font-bold uppercase tracking-wider font-['Montserrat'] text-[#2A9E6A]">Completed</span>
+                            <span className="ml-1 text-[10px] px-1.5 py-0.5 rounded-full bg-[#2A9E6A]/10 text-[#2A9E6A] font-semibold">{doneBlocks.length} rails</span>
+                          </div>
+                          <div className="space-y-3">
+                            {doneBlocks.length === 0 ? (
+                              <div className="p-4 text-center text-[#999] text-xs italic rounded-lg border border-dashed border-[#2A9E6A]/20">No completed rails yet</div>
+                            ) : doneBlocks.map(renderBlock)}
+                          </div>
+                        </div>
+                      </div>
+                    );
+                    })()}
                   </div>
                   );
                 })()}
@@ -3082,7 +3125,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     <div className={`h-6 w-px ${'bg-[rgba(215,183,151,0.5)]'}`} />
                     <div className="flex flex-col items-center">
                       <span className={`text-[10px] font-['Montserrat'] uppercase tracking-wider ${'text-[#999999]'}`}>Total Value</span>
-                      <span className={`font-bold text-lg font-['JetBrains_Mono'] ${'text-[#C4A77D]'}`}>{formatCurrency(grandTotals.ttlValue)}</span>
+                      <span className={`font-bold text-xs font-['JetBrains_Mono'] ${'text-[#C4A77D]'}`}>{formatCurrency(grandTotals.ttlValue)}</span>
                     </div>
                   </div>
                   <div className="ml-auto">
@@ -3595,6 +3638,26 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             label: t('otbAnalysis.season') || 'Season',
             type: 'single',
             options: seasonOptions.filter((s: any) => s.value !== 'all').map((s: any) => ({ label: s.label, value: s.value }))},
+          {
+            key: 'gender',
+            label: t('common.gender') || 'Gender',
+            type: 'single',
+            options: genderOptions.filter((g: any) => g.value !== 'all').map((g: any) => ({ label: g.label, value: g.value }))},
+          {
+            key: 'category',
+            label: t('common.category') || 'Category',
+            type: 'single',
+            options: categoryOptions.filter((c: any) => c.value !== 'all').map((c: any) => ({ label: c.label, value: c.value }))},
+          {
+            key: 'subCategory',
+            label: t('common.subCategory') || 'Sub Category',
+            type: 'single',
+            options: subCategoryOptions.filter((s: any) => s.value !== 'all').map((s: any) => ({ label: s.label, value: s.value }))},
+          {
+            key: 'rail',
+            label: 'Rail',
+            type: 'single',
+            options: railOptions.filter((r: any) => r.value !== 'all').map((r: any) => ({ label: r.label, value: r.value }))},
         ]}
         values={mobileFilterValues}
         onChange={(key, value) => setMobileFilterValues(prev => ({ ...prev, [key]: value }))}
@@ -3604,6 +3667,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           setBrandFilter((mobileFilterValues.brand as string) || 'all');
           setSeasonGroupFilter((mobileFilterValues.seasonGroup as string) || 'all');
           setSeasonFilter((mobileFilterValues.season as string) || 'all');
+          setGenderFilter((mobileFilterValues.gender as string) || 'all');
+          setCategoryFilter((mobileFilterValues.category as string) || 'all');
+          setSubCategoryFilter((mobileFilterValues.subCategory as string) || 'all');
+          setRailFilter((mobileFilterValues.rail as string) || 'all');
         }}
         onReset={() => {
           setMobileFilterValues({});
@@ -3612,6 +3679,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           setBrandFilter('all');
           setSeasonGroupFilter('all');
           setSeasonFilter('all');
+          setGenderFilter('all');
+          setCategoryFilter('all');
+          setSubCategoryFilter('all');
+          setRailFilter('all');
         }}
       />
       <ConfirmDialog {...dialogProps} />

@@ -148,15 +148,7 @@ const LoginScreen = () => {
 
         {/* Logo Section */}
         <div className="text-center mb-5">
-          <img src="/dafc-logo.png" alt="DAFC" className="h-12 mx-auto mb-1.5 object-contain" />
-          <p className="text-[14px] font-semibold tracking-[0.08em] text-[#5C4A3A] mb-0.5"
-            style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}>
-            {t('login.title')}
-          </p>
-          <p className="text-[12px] font-light tracking-[0.03em] text-[#7A6655]"
-            style={{ fontFamily: 'var(--font-montserrat), sans-serif' }}>
-            {t('login.subtitle')}
-          </p>
+          <img src="/dafc-logo.png" alt="DAFC" className="h-20 mx-auto object-contain" />
         </div>
 
         {/* Login Card */}

@@ -158,6 +158,17 @@ export const masterDataService = {
       console.error('[masterDataService.getSubcategorySizes]', err?.response?.status, err?.message);
       throw err;
     }
+  },
+
+  // Get all currencies
+  async getCurrencies() {
+    try {
+      const response = await api.get('/master/currencies');
+      return extract(response);
+    } catch (err: any) {
+      console.error('[masterDataService.getCurrencies]', err?.response?.status, err?.message);
+      throw err;
+    }
   }
 };
 

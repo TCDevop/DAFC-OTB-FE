@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import toast from 'react-hot-toast';
 import { formatCurrency } from '@/utils/formatters';
-import { budgetService } from '@/services';
+import { budgetService, masterDataService } from '@/services';
 import { invalidateCache } from '@/services/api';
 import { LoadingSpinner, ErrorMessage, EmptyState, ExpandableStatCard } from '@/components/ui';
 import { MobileList, FilterChips, FloatingActionButton, PullToRefresh, FilterBottomSheet, useBottomSheet } from '@/components/mobile';
@@ -41,7 +41,10 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
 
   const [editForm, setEditForm] = useState({ name: '', amount: '', description: '' });
   const [saving, setSaving] = useState(false);
-  const [newForm, setNewForm] = useState({ fiscalYear: new Date().getFullYear() + 1, name: '', totalBudget: '', description: '' });
+  const [newForm, setNewForm] = useState({ fiscalYear: new Date().getFullYear() + 1, name: '', totalBudget: '', description: '', brandId: '', currencyId: '' });
+
+  const [brands, setBrands] = useState<any[]>([]);
+  const [currencies, setCurrencies] = useState<any[]>([]);
 
   // ── Fetch budgets (always fetch all — client-side year filtering) ──
   const fetchBudgets = useCallback(async () => {
@@ -58,6 +61,9 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
         status: (b.status || 'DRAFT').toLowerCase(),
         createdAt: b.created_at || b.createdAt,
         createdBy: typeof b.creator === 'object' ? b.creator?.name : (b.created_by || b.createdBy),
+        brandName: b.brand?.name || '',
+        currencyCode: b.currency?.currency_code || '',
+        currencySymbol: b.currency?.symbol || '',
       }));
       setBudgetData(budgets);
     } catch (err: any) {
@@ -153,14 +159,16 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
   const handleCreate = async () => {
     const totalAmount = parseInt(newForm.totalBudget) || 0;
     if (!newForm.name.trim() || totalAmount <= 0) return;
+    if (!newForm.brandId) { toast.error('Brand is required'); return; }
+    if (!newForm.currencyId) { toast.error('Currency is required'); return; }
     if (totalAmount > 100_000_000_000) { toast.error(t('budget.amountTooLarge') || 'Amount exceeds maximum'); return; }
     setCreating(true);
     try {
-      await budgetService.create({ name: newForm.name.trim(), amount: totalAmount, fiscalYear: newForm.fiscalYear, description: newForm.description || undefined });
+      await budgetService.create({ name: newForm.name.trim(), amount: totalAmount, fiscalYear: newForm.fiscalYear, description: newForm.description || undefined, brandId: newForm.brandId || undefined, currencyId: newForm.currencyId || undefined });
       invalidateCache('/budgets');
       toast.success(t('budget.budgetCreatedSuccess'));
       setShowCreateModal(false);
-      setNewForm({ fiscalYear: new Date().getFullYear() + 1, name: '', totalBudget: '', description: '' });
+      setNewForm({ fiscalYear: new Date().getFullYear() + 1, name: '', totalBudget: '', description: '', brandId: '', currencyId: '' });
       fetchBudgets();
     } catch (err: any) {
       toast.error(err.response?.data?.message || t('budget.failedToCreateBudget'));
@@ -171,6 +179,11 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
 
   // ── Effects ────────────────────────────────────────────────────────
   useEffect(() => { fetchBudgets(); }, [fetchBudgets]);
+
+  useEffect(() => {
+    masterDataService.getBrands().then((data: any) => setBrands(Array.isArray(data) ? data : [])).catch(() => {});
+    masterDataService.getCurrencies().then((data: any) => setCurrencies(Array.isArray(data) ? data : [])).catch(() => {});
+  }, []);
 
   useEffect(() => {
     registerCreateBudget(() => setShowCreateModal(true));
@@ -335,6 +348,8 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
                   <th className="text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] text-[#666]">{t('budget.fiscalYear')}</th>
                   <th className="text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] text-[#666]">{t('budget.budgetName')}</th>
                   <th className="text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] text-[#666]">{t('budget.amount')}</th>
+                  <th className="text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] text-[#666]">Brand</th>
+                  <th className="text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] text-[#666]">Currency</th>
                   <th className="text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] text-[#666]">{t('budget.createdBy')}</th>
                   <th className="text-left px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] text-[#666]">{t('budget.createdOn')}</th>
                   <th className="text-right px-3 py-0.5 text-xs font-semibold tracking-wider font-['Montserrat'] text-[#666]">{t('common.actions')}</th>
@@ -346,6 +361,8 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
                     <td className="px-3 py-0.5"><span className="text-sm font-medium text-[#0A0A0A]">FY{budget.fiscalYear}</span></td>
                     <td className="px-3 py-0.5"><span className="text-sm font-medium text-[#6B4D30] hover:underline cursor-pointer">{budget.budgetName}</span></td>
                     <td className="px-3 py-0.5"><span className="text-sm font-semibold font-['JetBrains_Mono'] text-[#0A0A0A]">{formatCurrency(budget.totalBudget)}</span></td>
+                    <td className="px-3 py-0.5"><span className="text-sm text-[#666]">{budget.brandName || '-'}</span></td>
+                    <td className="px-3 py-0.5"><span className="text-sm text-[#666]">{budget.currencyCode || '-'}</span></td>
                     <td className="px-3 py-0.5"><span className="text-sm text-[#666]">{budget.createdBy || '-'}</span></td>
                     <td className="px-3 py-0.5"><span className="text-sm text-[#666]">{budget.createdAt ? new Date(budget.createdAt).toLocaleDateString('vi-VN') : '-'}</span></td>
                     <td className="px-3 py-0.5" onClick={(e) => e.stopPropagation()}>
@@ -379,7 +396,7 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
                     <td className="px-3 py-1.5"><span className="text-xs font-bold uppercase tracking-wider font-['Montserrat'] text-[#6B4D30]">{t('common.total') || 'TOTAL'}</span></td>
                     <td className="px-3 py-1.5"><span className="text-xs font-medium text-[#666]">{filteredBudgets.length} {t('budget.budgets') || 'budgets'}</span></td>
                     <td className="px-3 py-1.5"><span className="text-sm font-bold font-['JetBrains_Mono'] text-[#6B4D30]">{formatCurrency(filteredBudgets.reduce((s: number, b: any) => s + (Number(b.totalBudget) || 0), 0))}</span></td>
-                    <td colSpan={3} />
+                    <td colSpan={5} />
                   </tr>
                 </tfoot>
               )}
@@ -621,10 +638,36 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
                 />
               </div>
 
+              {/* Brand */}
+              <div>
+                <label className="block text-sm font-medium mb-2 font-['Montserrat'] text-[#0A0A0A]">Brand <span className="text-[#F85149]">*</span></label>
+                <select
+                  value={newForm.brandId}
+                  onChange={(e) => setNewForm({ ...newForm, brandId: e.target.value })}
+                  className="w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] bg-white border-[#C4B5A5] text-[#0A0A0A]"
+                >
+                  <option value="">— Select Brand —</option>
+                  {brands.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
+                </select>
+              </div>
+
+              {/* Currency */}
+              <div>
+                <label className="block text-sm font-medium mb-2 font-['Montserrat'] text-[#0A0A0A]">Currency <span className="text-[#F85149]">*</span></label>
+                <select
+                  value={newForm.currencyId}
+                  onChange={(e) => setNewForm({ ...newForm, currencyId: e.target.value })}
+                  className="w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] bg-white border-[#C4B5A5] text-[#0A0A0A]"
+                >
+                  <option value="">— Select Currency —</option>
+                  {currencies.map((c: any) => <option key={c.id} value={String(c.id)}>{c.currency_code} {c.symbol ? `(${c.symbol})` : ''}</option>)}
+                </select>
+              </div>
+
               {/* Amount */}
               <div>
                 <label className="block text-sm font-medium mb-2 font-['Montserrat'] text-[#0A0A0A]">
-                  {t('budget.amountVND')} <span className="text-[#F85149]">{t('common.required')}</span>
+                  {t('budget.amount')} <span className="text-[#F85149]">{t('common.required')}</span>
                 </label>
                 <input
                   type="text"
@@ -652,16 +695,16 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
             </div>
             <div className="flex items-center justify-end gap-3 p-6 border-t border-[#C4B5A5] bg-[#F2F2F2] rounded-b-2xl">
               <button
-                onClick={() => { setShowCreateModal(false); setNewForm({ fiscalYear: new Date().getFullYear() + 1, name: '', totalBudget: '', description: '' }); }}
+                onClick={() => { setShowCreateModal(false); setNewForm({ fiscalYear: new Date().getFullYear() + 1, name: '', totalBudget: '', description: '', brandId: '', currencyId: '' }); }}
                 className="px-5 py-0.5 text-sm font-medium rounded-lg transition-colors text-[#666] hover:bg-[#E5E5E5]"
               >
                 {t('common.cancel')}
               </button>
               <button
                 onClick={handleCreate}
-                disabled={!newForm.totalBudget || !newForm.name.trim() || creating}
+                disabled={!newForm.totalBudget || !newForm.name.trim() || !newForm.brandId || !newForm.currencyId || creating}
                 className={`px-5 py-0.5 text-sm font-medium text-white rounded-lg transition-colors flex items-center gap-2 ${
-                  !newForm.totalBudget || !newForm.name.trim() || creating ? 'bg-[#2E2E2E] cursor-not-allowed text-[#666]' : 'bg-[#127749] hover:bg-[#2A9E6A]'
+                  !newForm.totalBudget || !newForm.name.trim() || !newForm.brandId || !newForm.currencyId || creating ? 'bg-[#2E2E2E] cursor-not-allowed text-[#666]' : 'bg-[#127749] hover:bg-[#2A9E6A]'
                 }`}
               >
                 {creating && <div className="w-4 h-4 border-2 border-white/30 border-t-white rounded-full animate-spin" />}

@@ -140,7 +140,14 @@ const BudgetAllocateScreen = ({
           fiscalYear: budget.fiscal_year ?? budget.fiscalYear,
           totalBudget: Number(budget.amount ?? budget.totalAmount ?? budget.totalBudget) || 0,
           budgetName: budget.name || budget.budgetCode || budget.budgetName || 'Untitled',
-          status: (budget.status || 'DRAFT').toLowerCase()}));
+          status: (budget.status || 'DRAFT').toLowerCase(),
+          brandId: budget.brand?.id ? String(budget.brand.id) : null,
+          groupBrandId: budget.brand?.group_brand?.id
+            ? String(budget.brand.group_brand.id)
+            : budget.brand?.group_brand_id
+              ? String(budget.brand.group_brand_id)
+              : null,
+        }));
         setApiBudgets(budgetList);
       } catch (err: any) {
         if (!ignore) {
@@ -365,6 +372,15 @@ const BudgetAllocateScreen = ({
 
   // Get selected budget object
   const selectedBudget = availableBudgets.find((b: any) => b.id === selectedBudgetId);
+
+  // Auto-filter brand & group brand when budget changes
+  useEffect(() => {
+    if (!selectedBudgetId) return;
+    const budget = apiBudgets.find((b: any) => b.id === selectedBudgetId);
+    if (!budget) return;
+    if (budget.groupBrandId) setSelectedGroupBrand(budget.groupBrandId);
+    if (budget.brandId) setSelectedBrand(budget.brandId);
+  }, [selectedBudgetId, apiBudgets]);
 
   // Derive versions from plannings prop when budget changes
   useEffect(() => {
