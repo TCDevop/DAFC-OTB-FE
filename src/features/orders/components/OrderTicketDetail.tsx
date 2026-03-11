@@ -109,21 +109,6 @@ function flattenTicketToRows(fullTicket: any): Record<string, any>[] {
 
     for (const sph of (ah.sku_proposal_headers || ah.skuProposalHeaders || [])) {
       const proposals = sph.sku_proposals || sph.skuProposals || [];
-      const sizingHeaders = sph.proposal_sizing_headers || sph.proposalSizingHeaders || [];
-
-      const finalSizing = sizingHeaders.find((sh: any) => sh.is_final_version || sh.isFinalVersion) || sizingHeaders[sizingHeaders.length - 1];
-
-      const sizingBySkuId: Record<string, { sizeLabel: string; qty: number }[]> = {};
-      if (finalSizing) {
-        const sizings = finalSizing.proposal_sizings || finalSizing.proposalSizings || [];
-        for (const ps of sizings) {
-          const skuPropId = String(ps.sku_proposal_id || ps.skuProposalId || '');
-          const sizeLabel = ps.subcategory_size?.name || ps.subcategorySize?.name || ps.subcategory_size_id || ps.subcategorySizeId || '';
-          const qty = Number(ps.proposal_quantity || ps.proposalQuantity || 0);
-          if (!sizingBySkuId[skuPropId]) sizingBySkuId[skuPropId] = [];
-          sizingBySkuId[skuPropId].push({ sizeLabel, qty });
-        }
-      }
 
       for (const sku of proposals) {
         const product = sku.product || {};
@@ -158,10 +143,12 @@ function flattenTicketToRows(fullTicket: any): Record<string, any>[] {
           rrpSGD: srp || '',
         };
 
-        const sizings = sizingBySkuId[skuPropId];
-        if (sizings && sizings.length > 0) {
-          for (const sz of sizings) {
-            rows.push({ _id: idx++, ...baseRow, size: sz.sizeLabel, totalUnits: sz.qty });
+        const sizingRows = sku.proposal_sizings || sku.proposalSizings || [];
+        if (sizingRows.length > 0) {
+          for (const ps of sizingRows) {
+            const sizeLabel = ps.subcategory_size?.name || ps.subcategorySize?.name || String(ps.subcategory_size_id || '');
+            const qty = Number(ps.proposal_quantity || ps.proposalQuantity || 0);
+            rows.push({ _id: idx++, ...baseRow, size: sizeLabel, totalUnits: qty });
           }
         } else {
           rows.push({ _id: idx++, ...baseRow, size: '' });

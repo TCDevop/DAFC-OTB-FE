@@ -21,7 +21,6 @@ interface ProposalTicketReviewProps {
     skuBlocks: any[];
     grandTotals: any;
     stores: any[];
-    sizingChoiceName?: string;
     fiscalYear?: string;
     budgetName?: string;
     budgetAmount?: number;
@@ -45,7 +44,7 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
   const [confirmDialog, setConfirmDialog] = useState<{ warnings: any[] } | null>(null);
 
   const {
-    skuBlocks, grandTotals, stores, budgetId, proposalHeaderIds, sizingChoiceName,
+    skuBlocks, grandTotals, stores, budgetId, proposalHeaderIds,
     fiscalYear, budgetName, budgetAmount, seasonGroup, season, seasonGroupId, seasonId, brandAllocations,
     brandName,
   } = reviewData;
@@ -245,14 +244,6 @@ const ProposalTicketReview = ({ reviewData, onBack, onSubmitted }: ProposalTicke
                 {formatCurrency(grandTotals.ttlValue)}
               </div>
             </div>
-            {sizingChoiceName && (
-            <div>
-              <div className="text-xs text-[#999999]">{t('skuProposal.sizing') || 'Sizing'}</div>
-              <div className="text-lg font-bold font-['JetBrains_Mono'] text-[#0A0A0A]">
-                {sizingChoiceName}
-              </div>
-            </div>
-            )}
           </div>
         </div>
       </div>

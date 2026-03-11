@@ -16,7 +16,6 @@ import { useConfirmDialog } from '@/hooks/useConfirmDialog';
 import { useLanguage } from '@/contexts/LanguageContext';
 import { useAppContext } from '@/contexts/AppContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useSmartScrollState } from '@/hooks/useSmartScrollState';
 import { FilterBottomSheet, useBottomSheet } from '@/components/mobile';
 import { ProductImage, ConfirmDialog, FilterSelect, ScrollToHeader } from '@/components/ui';
 import CreatableSelect from '@/components/ui/CreatableSelect';
@@ -121,6 +120,7 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
       ttlValue: orderQty * itemUnitCost,
       customerTarget: sp.customer_target || sp.customerTarget || prod.customerTarget || 'New',
       imageUrl: prod.image_url || prod.imageUrl || '',
+      proposalSizings: sp.proposal_sizings || sp.proposalSizings || [],
     });
   });
   return blocks;
@@ -209,6 +209,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         }
       }));
       setBrandCategoryMap(map);
+      // Also populate sizeKeyToIdRef from nested subcategory_sizes
+      Object.values(map).forEach((cats: any[]) => {
+        cats.forEach((cat: any) => {
+          (cat.sub_categories || cat.subCategories || []).forEach((sc: any) => {
+            const scName = (sc.name || '').toLowerCase();
+            const scSizes = (sc.subcategory_sizes || sc.subcategorySizes || []);
+            scSizes.forEach((s: any) => { if (s.name && s.id) sizeKeyToIdRef.current[s.name] = String(s.id); });
+          });
+        });
+      });
     };
     loadPerBrand();
   }, [apiBrands]);
@@ -216,15 +226,31 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Load subcategory sizes after masterCategories are available
   useEffect(() => {
     if (masterCategories.length === 0) return;
-    const loadSizes = async () => {
-      const map: Record<string, { id: string; name: string }[]> = {};
+    const map: Record<string, { id: string; name: string }[]> = {};
+    // Use nested subcategory_sizes already included in the categories response
+    masterCategories.forEach((cat: any) => {
+      (cat.sub_categories || cat.subCategories || []).forEach((sc: any) => {
+        const scName = (sc.name || '').toLowerCase();
+        const scSizes = (sc.subcategory_sizes || sc.subcategorySizes || []).map((s: any) => ({
+          id: String(s.id), name: s.name || '',
+        }));
+        if (scSizes.length > 0) {
+          map[scName] = scSizes;
+          scSizes.forEach((s: any) => { if (s.name) sizeKeyToIdRef.current[s.name] = s.id; });
+        }
+      });
+    });
+    if (Object.keys(map).length > 0) {
+      setSubCategorySizesMap(map);
+    } else {
+      // Fallback: fetch sizes via individual API calls if nested data is absent
       const subCats: { id: string; name: string }[] = [];
       masterCategories.forEach((cat: any) => {
         (cat.sub_categories || cat.subCategories || []).forEach((sc: any) => {
           if (sc.id) subCats.push({ id: String(sc.id), name: (sc.name || '').toLowerCase() });
         });
       });
-      await Promise.all(subCats.map(async (sc) => {
+      Promise.all(subCats.map(async (sc) => {
         try {
           const res = await masterDataService.getSubcategorySizes(sc.id);
           const sizes = (Array.isArray(res) ? res : (res?.data || [])).map((s: any) => ({
@@ -232,14 +258,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           }));
           if (sizes.length > 0) {
             map[sc.name] = sizes;
-            // Also populate sizeKeyToIdRef for save payload
-            sizes.forEach((s: any) => { sizeKeyToIdRef.current[s.name] = s.id; });
+            sizes.forEach((s: any) => { if (s.name) sizeKeyToIdRef.current[s.name] = s.id; });
           }
         } catch { /* ignore individual failures */ }
-      }));
-      setSubCategorySizesMap(map);
-    };
-    loadSizes();
+      })).then(() => { setSubCategorySizesMap({ ...map }); });
+    }
   }, [masterCategories]);
 
   // Fetch SKU catalog only (at mount) — handles paginated BE response
@@ -452,9 +475,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
     if (!filtersComplete || matchedAllocateHeaders.length === 0) {
       setBrandProposalHeaders({});
-      setBrandSizingHeaders({});
       setBrandSkuVersion({});
-      setBrandSizingChoice({});
       setSkuBlocks([]);
       return;
     }
@@ -471,9 +492,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       setSkuDataLoading(true);
       try {
         const newHeadersByBrand: Record<string, any[]> = {};
-        const newSizingByBrand: Record<string, any[]> = {};
         const allBlocks: any[] = [];
-        const seenSizingVersions: Record<string, Set<number>> = {};
 
         for (const ah of matchedAllocateHeaders) {
           if (signal.aborted || loadId !== loadProposalsRef.current) return; // stale
@@ -514,25 +533,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               allBlocks.push(...brandBlocks);
             }
 
-            // Build sizing headers from the active (final) proposal only
-            seenSizingVersions[brandId] = new Set();
-            newSizingByBrand[brandId] = [];
-            if (activeProposal) {
-              const headerSizings = activeProposal.proposal_sizing_headers || activeProposal.proposalSizingHeaders || [];
-              headerSizings.forEach((sh: any) => {
-                const ver = sh.version ?? 0;
-                if (!seenSizingVersions[brandId].has(ver)) {
-                  seenSizingVersions[brandId].add(ver);
-                  newSizingByBrand[brandId].push({
-                    id: sh.id,
-                    version: ver,
-                    isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false,
-                    proposalSizings: sh.proposal_sizings || sh.proposalSizings || [],
-                  });
-                }
-              });
-            }
-            newSizingByBrand[brandId]?.sort((a: any, b: any) => a.version - b.version);
 
             // Enrich catalog with unique SKUs from proposal products
             const seenSkus = new Set(skuCatalog.map((c: any) => c.sku));
@@ -644,31 +644,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         if (signal.aborted || loadId !== loadProposalsRef.current) return; // stale
 
         setBrandProposalHeaders(newHeadersByBrand);
-        setBrandSizingHeaders(newSizingByBrand);
         setSkuBlocks(allBlocks);
-        // Hydrate sizing per brand from header-level sizing headers
-        for (const [bId, sizHeaders] of Object.entries(newSizingByBrand)) {
-          const brandBlocks = allBlocks.filter((b: any) => String(b.brandId) === bId);
-          if (brandBlocks.length > 0 && sizHeaders.length > 0) {
-            hydrateSizingData(brandBlocks, sizHeaders);
-          }
-        }
+        hydrateSizingData(allBlocks);
 
-        // Auto-select final or latest version per brand (replace, don't merge stale)
+        // Auto-select final or latest version per brand
         const autoSelected: Record<string, string> = {};
         for (const [bId, headers] of Object.entries(newHeadersByBrand)) {
           const finalH = headers.find((h: any) => h.isFinal);
           autoSelected[bId] = String(finalH ? finalH.id : headers[0]?.id || '');
         }
         setBrandSkuVersion(autoSelected);
-
-        // Auto-select final or latest sizing choice per brand (replace, don't merge stale)
-        const autoSizing: Record<string, string> = {};
-        for (const [bId, headers] of Object.entries(newSizingByBrand)) {
-          const finalH = headers.find((h: any) => h.isFinal);
-          autoSizing[bId] = String(finalH ? finalH.id : headers[0]?.id || '');
-        }
-        setBrandSizingChoice(autoSizing);
       } catch (err: any) {
         // Silently ignore cancelled requests
         if (err?.code === 'ERR_CANCELED' || err?.name === 'AbortError') return;
@@ -695,16 +680,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'card'>('kanban');
   const [lightbox, setLightbox] = useState<{ open: boolean; key: string; tab: 'details' | 'storeOrder' | 'sizing'; item: any; blockKey: string; idx: number; block: any } | null>(null);
   const [customerTargetOptions, setCustomerTargetOptions] = useState<string[]>(['New', 'Existing']);
-  // Per-brand proposal headers (versions) & sizing headers (choices) from API
+  // Per-brand proposal headers (versions) from API
   const [brandProposalHeaders, setBrandProposalHeaders] = useState<Record<string, any[]>>({});
-  const [brandSizingHeaders, setBrandSizingHeaders] = useState<Record<string, any[]>>({});
   const [brandSkuVersion, setBrandSkuVersion] = useState<Record<string, string>>({});
-  const [brandSizingChoice, setBrandSizingChoice] = useState<Record<string, string>>({});
   const [brandSaving, setBrandSaving] = useState<Record<string, boolean>>({});
   // Sizing history data: keyed by `${brandId}_${subCategoryId}` → { size, salesMixPct, stPct }[]
   const [sizingHistoryMap, setSizingHistoryMap] = useState<Record<string, { size: string; salesMixPct: number; stPct: number | null }[]>>({});
-  // Portal dropdown state for version & choice
-  const [openDropdown, setOpenDropdown] = useState<{ type: 'version' | 'choice'; brandId: string } | null>(null);
+  // Portal dropdown state for version
+  const [openDropdown, setOpenDropdown] = useState<{ type: 'version'; brandId: string } | null>(null);
   const [dropdownAnchorEl, setDropdownAnchorEl] = useState<HTMLElement | null>(null);
 
   // Close dropdown on outside click
@@ -733,48 +716,39 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return () => document.removeEventListener('mousedown', handleClick);
   }, [isBudgetDropdownOpen]);
 
-  // Smart Filter Bar — direct DOM toggle, zero re-render
-  const { barRef, handleBarClick } = useSmartScrollState();
+  const barRef = useRef<HTMLDivElement>(null);
 
+
+  // Refetch proposal + sizing headers for a brand from server (ensures UI = DB after mutations)
+  const refetchBrandHeaders = async (brandId: string) => {
+    const ah = matchedAllocateHeaders.find((h: any) => String(h.brandId) === brandId);
+    if (!ah) return;
+    try {
+      const list = await proposalService.getAll({ allocateHeaderId: ah.id });
+      const freshList = Array.isArray(list) ? list : [];
+      // Rebuild proposal headers
+      const mappedProposals = freshList.map((h: any) => ({
+        id: h.id, version: h.version, status: h.status,
+        isFinal: h.is_final_version ?? h.isFinalVersion ?? false,
+      })).sort((a: any, b: any) => b.version - a.version);
+      setBrandProposalHeaders(prev => ({ ...prev, [brandId]: mappedProposals }));
+      const finalHeader = mappedProposals.find((h: any) => h.isFinal);
+      if (finalHeader) setBrandSkuVersion(prev => ({ ...prev, [brandId]: String(finalHeader.id) }));
+    } catch (err) {
+      console.error('[refetchBrandHeaders] failed:', err);
+    }
+  };
 
   const handleSetFinalVersion = async (brandId: string, headerId: any, e: any) => {
     e.stopPropagation();
     try {
       await proposalService.update(String(headerId), { isFinalVersion: true });
-      // Update local state — mark only this header as final within the brand
-      setBrandProposalHeaders(prev => {
-        const updated = { ...prev };
-        if (updated[brandId]) {
-          updated[brandId] = updated[brandId].map((h: any) => ({
-            ...h,
-            isFinal: String(h.id) === String(headerId)}));
-        }
-        return updated;
-      });
-      setBrandSkuVersion(prev => ({ ...prev, [brandId]: String(headerId) }));
+      await refetchBrandHeaders(brandId);
     } catch (err: any) {
       console.error('Failed to set final version:', err);
     }
   };
 
-  const handleSetFinalSizing = async (brandId: string, headerId: any, e: any) => {
-    e.stopPropagation();
-    try {
-      await proposalService.updateSizingHeader(String(headerId), { isFinalVersion: true });
-      setBrandSizingHeaders(prev => {
-        const updated = { ...prev };
-        if (updated[brandId]) {
-          updated[brandId] = updated[brandId].map((h: any) => ({
-            ...h,
-            isFinal: String(h.id) === String(headerId)}));
-        }
-        return updated;
-      });
-      setBrandSizingChoice(prev => ({ ...prev, [brandId]: String(headerId) }));
-    } catch (err: any) {
-      console.error('Failed to set final sizing choice:', err);
-    }
-  };
 
   // Shared helper: resolve selected ID from state map, falling back to final/first header
   const getBrandSelection = (brandId: string, stateMap: Record<string, string>, headersMap: Record<string, any[]>) => {
@@ -786,51 +760,35 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return '';
   };
   const getBrandSkuVersion = (brandId: string) => getBrandSelection(brandId, brandSkuVersion, brandProposalHeaders);
-  const getBrandSizingChoice = (brandId: string) => getBrandSelection(brandId, brandSizingChoice, brandSizingHeaders);
 
-  // Hydrate sizingData state from loaded blocks + header-level sizing headers
-  // Sizing headers are per proposal header; sizing rows link to specific SKU proposals via sku_proposal_id
-  const hydrateSizingData = useCallback((blocks: any[], sizingHeadersForBrand?: any[]) => {
+  // Hydrate sizingData state from blocks — each item carries proposalSizings from the API
+  const hydrateSizingData = useCallback((blocks: any[]) => {
     const loaded: Record<string, any> = {};
 
-    // Build a map: skuProposalId → { blockKey, itemIdx } for fast lookup
-    const skuMap = new Map<string, { key: string }>();
     blocks.forEach((block: any) => {
       const blockKey = buildBlockKey(block);
       (block.items || []).forEach((item: any, idx: number) => {
-        if (item.skuProposalId) {
-          skuMap.set(String(item.skuProposalId), { key: `${blockKey}_${idx}` });
-        }
-      });
-    });
+        const key = `${blockKey}_${idx}`;
+        const rows: any[] = item.proposalSizings || [];
+        if (rows.length === 0) return;
 
-    // Use provided sizing headers or collect from brandSizingHeaders
-    const allSizingHeaders = sizingHeadersForBrand || [];
-    if (allSizingHeaders.length > 0) {
-      allSizingHeaders.forEach((sh: any) => {
-        const choiceKey = String(sh.id);
-        const rows = sh.proposalSizings || sh.proposal_sizings || [];
+        const sizeMap: Record<string, number> = {};
         rows.forEach((ps: any) => {
-          const skuPropId = String(ps.sku_proposal_id || ps.skuProposalId || '');
-          const mapping = skuMap.get(skuPropId);
-          if (!mapping) return;
-
           const sizeName = ps.subcategory_size?.name || ps.subcategorySize?.name || '';
           if (!sizeName) return;
-          // Store sizeName → DB ID mapping for save payload
+          // Cache sizeName → DB ID for save payload
           const sizeDbId = String(ps.subcategory_size_id || ps.subcategorySizeId || ps.subcategory_size?.id || '');
           if (sizeDbId && sizeDbId !== 'undefined') {
             sizeKeyToIdRef.current[sizeName] = sizeDbId;
           }
-
-          if (!loaded[mapping.key]) loaded[mapping.key] = {};
-          if (!loaded[mapping.key][choiceKey]) {
-            loaded[mapping.key][choiceKey] = {};
-          }
-          loaded[mapping.key][choiceKey][sizeName] = Number(ps.proposal_quantity ?? ps.proposalQuantity) || 0;
+          sizeMap[sizeName] = Number(ps.proposal_quantity ?? ps.proposalQuantity) || 0;
         });
+
+        if (Object.keys(sizeMap).length > 0) {
+          loaded[key] = sizeMap;
+        }
       });
-    }
+    });
 
     if (Object.keys(loaded).length > 0) {
       setSizingData(prev => ({ ...prev, ...loaded }));
@@ -848,13 +806,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         const other = prev.filter((b: any) => String(b.brandId) !== brandId);
         return [...other, ...newBrandBlocks];
       });
-      // Update sizing headers and hydrate sizing data from new proposal version
-      const headerSizings = (p.proposal_sizing_headers || p.proposalSizingHeaders || []).map((sh: any) => ({
-        id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? sh.isFinalVersion ?? false,
-        proposalSizings: sh.proposal_sizings || sh.proposalSizings || [],
-      }));
-      setBrandSizingHeaders(prev => ({ ...prev, [brandId]: headerSizings.sort((a: any, b: any) => a.version - b.version) }));
-      hydrateSizingData(newBrandBlocks, headerSizings);
+      hydrateSizingData(newBrandBlocks);
     } catch (err: any) {
       console.error('Failed to load proposal version:', err);
       toast.error('Failed to load version');
@@ -951,6 +903,13 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const [commentPopup, setCommentPopup] = useState<{ text: string; blockKey: string; idx: number; rect: DOMRect } | null>(null);
   const lightboxRef = useRef<HTMLDivElement>(null);
 
+  // Live item from skuBlocks for the currently open lightbox (avoids stale snapshot)
+  const lightboxLiveItem = useMemo(() => {
+    if (!lightbox) return null;
+    const block = skuBlocks.find((b: any) => buildBlockKey(b) === lightbox.blockKey);
+    return block?.items?.[lightbox.idx] ?? lightbox.item;
+  }, [lightbox, skuBlocks]);
+
   // Add SKU Modal state
   const [addSkuModal, setAddSkuModal] = useState<{ open: boolean; blockKey: string; block: any } | null>(null);
 
@@ -963,77 +922,39 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return FALLBACK_SIZE_KEYS;
   }, [subCategorySizesMap]);
 
-  // Helper: get sizing choices for a brand
-  const getBrandSizingChoices = (brandId: string) => brandSizingHeaders[brandId] || [];
-
-  const getDefaultSizing = (brandId?: string, subCategoryName?: string) => {
-    const defaults: Record<string, any> = {};
+  const getDefaultSizing = (subCategoryName?: string) => {
     const sizeKeys = getSizeKeysForSubCategory(subCategoryName || '');
-    const emptyData = buildEmptySizeData(sizeKeys);
-    const choices = brandId ? getBrandSizingChoices(brandId) : [];
-    choices.forEach((c: any) => {
-      defaults[String(c.id)] = { ...emptyData };
-    });
-    // Fallback: always 3 choices (A, B, C) if no choices exist yet
-    if (Object.keys(defaults).length === 0) {
-      defaults['choiceA'] = { ...emptyData };
-      defaults['choiceB'] = { ...emptyData };
-      defaults['choiceC'] = { ...emptyData };
-    }
-    return defaults;
+    return buildEmptySizeData(sizeKeys);
   };
 
   const getSizingKey = (blockKey: any, itemIdx: any) => `${blockKey}_${itemIdx}`;
 
-  const getSizing = (blockKey: any, itemIdx: any, brandId?: string) => {
+  const getSizing = (blockKey: any, itemIdx: any) => {
     const key = getSizingKey(blockKey, itemIdx);
-    return sizingData[key] || getDefaultSizing(brandId);
+    return sizingData[key] || {};
   };
 
-  const updateSizing = (blockKey: any, itemIdx: any, choiceKey: any, size: any, value: any, brandId?: string) => {
+  const updateSizing = (blockKey: any, itemIdx: any, size: any, value: any) => {
     const key = getSizingKey(blockKey, itemIdx);
-    const currentSizing = sizingData[key] || getDefaultSizing(brandId);
     setSizingData((prev: any) => ({
       ...prev,
-      [key]: {
-        ...currentSizing,
-        [choiceKey]: {
-          ...currentSizing[choiceKey],
-          [size]: parseInt(value) || 0
-        }
-      }
+      [key]: { ...(prev[key] || {}), [size]: parseInt(value) || 0 }
     }));
   };
 
-  const choiceLetter = (v: number) => String.fromCharCode(64 + v); // 1→A, 2→B, 3→C
-
-  const calculateSum = (choiceData: any): number => {
-    return Object.values(choiceData).reduce((sum: any, val: any) => sum + (parseInt(val) || 0), 0) as number;
+  const calculateSum = (sizeData: any): number => {
+    return Object.values(sizeData).reduce((sum: any, val: any) => sum + (parseInt(val) || 0), 0) as number;
   };
 
-  // Check if sizing is complete for a given SKU item (any final choice has non-zero quantities)
-  const isSizingComplete = (blockKey: any, itemIdx: any, brandId?: string) => {
-    const sizing = getSizing(blockKey, itemIdx, brandId);
-    const bId = brandId || blockKey.split('_')[0] || '';
-    const choices = getBrandSizingChoices(bId);
-    const finalChoice = choices.find((c: any) => c.isFinal);
-    if (!finalChoice) return false;
-    const choiceData = sizing[String(finalChoice.id)];
-    if (!choiceData) return false;
-    return Object.values(choiceData).some((v: any) => (parseInt(v) || 0) > 0);
+  // Check if sizing is complete for a given SKU item (has any non-zero quantity)
+  const isSizingComplete = (blockKey: any, itemIdx: any) => {
+    const sizing = getSizing(blockKey, itemIdx);
+    return Object.values(sizing).some((v: any) => (parseInt(v) || 0) > 0);
   };
 
-  // Check if any choice has sizing data entered (any value > 0)
-  const hasSizingData = (blockKey: any, itemIdx: any, brandId?: string) => {
-    const sizing = getSizing(blockKey, itemIdx, brandId);
-    const bId = brandId || blockKey.split('_')[0] || '';
-    const choices = getBrandSizingChoices(bId);
-    const choiceKeys = choices.length > 0 ? choices.map((c: any) => String(c.id)) : ['choiceA', 'choiceB', 'choiceC'];
-    for (const ck of choiceKeys) {
-      const choiceData = sizing[ck];
-      if (choiceData && Object.values(choiceData).some((v: any) => (parseInt(v) || 0) > 0)) return true;
-    }
-    return false;
+  // Check if sizing has any data entered
+  const hasSizingData = (blockKey: any, itemIdx: any) => {
+    return isSizingComplete(blockKey, itemIdx);
   };
 
   // Count sizing completion for a block
@@ -1262,15 +1183,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return paths;
   }, [masterCategories]);
 
-  // Build gender options from items' gender field
+  // Build gender options from block gender metadata
   const genderOptions = useMemo(() => {
     const map = new Map<string, string>();
     skuBlocks.forEach((b: any) => {
-      (b.items || []).forEach((item: any) => {
-        // items don't store gender directly; fall back to block metadata
-        const val = b.gender || '';
-        if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
-      });
+      const val = b.gender || '';
+      if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
     });
     return [
       { value: 'all', label: 'All Genders' },
@@ -1347,7 +1265,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     const result: Record<string, any[]> = {};
     displayBrands.forEach((brand: any) => {
       const brandId = String(brand.id);
-      const addedRails = new Set<string>();
+      const addedKeys = new Set<string>();
       const blocks: any[] = [];
       skuBlocks.forEach((block: any) => {
         if (String(block.brandId || 'all') !== brandId) return;
@@ -1366,8 +1284,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           );
           if (!hasMatch) return;
         }
-        if (!addedRails.has(rail)) {
-          addedRails.add(rail);
+        // Dedup by rail+subCategory so null-rail blocks with different subCategories are not merged
+        const fullKey = `${rail}__${(block.subCategory || '').toLowerCase()}`;
+        if (!addedKeys.has(fullKey)) {
+          addedKeys.add(fullKey);
           blocks.push(block);
         }
       });
@@ -1385,17 +1305,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return blocks.flatMap((block: any) => {
       const blockKey = buildBlockKey(block);
       return block.items
-        .filter((item: any, idx: number) => {
-          // Only save SKUs with store order > 0 and sizing data entered
+        .filter((item: any) => {
+          // Save SKUs that have been allocated (order > 0) regardless of sizing
           const totalOrder = Number(item.order) || 0;
-          if (totalOrder <= 0) return false;
-          // Check if any sizing choice has data
-          const key = `${blockKey}_${idx}`;
-          const sd = sizingData[key];
-          if (!sd) return false;
-          return Object.values(sd).some((choiceData: any) =>
-            choiceData && typeof choiceData === 'object' && Object.values(choiceData).some((v: any) => (parseInt(v) || 0) > 0)
-          );
+          return totalOrder > 0;
         })
         .map((item: any) => ({
           productId: String(item.productId || ''),
@@ -1410,76 +1323,39 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     }).filter((p: any) => p.productId);
   }, [skuBlocks, stores, sizingData]);
 
-  // Build header-level sizing payload from brandSizingHeaders + sizingData state
+  // Build sizingRows payload — flat list of {skuProposalProductId, subcategorySizeId, proposalQuantity}
   const buildSizingsPayload = useCallback((brandId: string) => {
-    const headers = brandSizingHeaders[brandId] || [];
-
-    // Use ALL blocks for the brand (unfiltered) so sizing data isn't lost
     const blocks = skuBlocks.filter((b: any) =>
       String(b.brandId || 'all') === brandId && b.items?.length > 0
     );
 
-    // When no sizing headers exist yet, use fallback choice keys matching getDefaultSizing
-    const fallbackChoices = [
-      { id: 'choiceA', version: 1, isFinal: false },
-      { id: 'choiceB', version: 2, isFinal: false },
-      { id: 'choiceC', version: 3, isFinal: false },
-    ];
-    const choices = headers.length > 0 ? headers : fallbackChoices;
-
-    const buildRows = (choiceKey: string) => {
-      const rows: any[] = [];
-      blocks.forEach((block: any) => {
-        const blockKey = buildBlockKey(block);
-        (block.items || []).forEach((item: any, idx: number) => {
-          // Only include sizing for SKUs with store order > 0
-          const totalOrder = Number(item.order) || 0;
-          if (totalOrder <= 0) return;
-          const key = `${blockKey}_${idx}`;
-          const itemSizing = sizingData[key]?.[choiceKey];
-          if (!itemSizing) return;
-
-          // For each size key in the sizing data, look up DB ID and create a row
-          Object.entries(itemSizing).forEach(([sizeName, qty]) => {
-            const numQty = Math.round(Number(qty) || 0);
-            const sizeDbId = sizeKeyToIdRef.current[sizeName];
-            if (numQty > 0 && sizeDbId) {
-              rows.push({
-                skuProposalProductId: String(item.productId),
-                subcategorySizeId: String(sizeDbId),
-                proposalQuantity: numQty,
-              });
-            }
-          });
+    const sizingRows: any[] = [];
+    blocks.forEach((block: any) => {
+      const blockKey = buildBlockKey(block);
+      (block.items || []).forEach((item: any, idx: number) => {
+        const totalOrder = Number(item.order) || 0;
+        if (totalOrder <= 0) return;
+        const key = `${blockKey}_${idx}`;
+        const itemSizing = sizingData[key];
+        if (!itemSizing) return;
+        Object.entries(itemSizing).forEach(([sizeName, qty]) => {
+          const numQty = Math.round(Number(qty) || 0);
+          const sizeDbId = sizeKeyToIdRef.current[sizeName];
+          if (numQty > 0 && sizeDbId) {
+            sizingRows.push({
+              skuProposalProductId: String(item.productId),
+              subcategorySizeId: String(sizeDbId),
+              proposalQuantity: numQty,
+            });
+          } else if (numQty > 0 && !sizeDbId) {
+            console.warn('[SKUProposal] No DB ID for size key:', sizeName, '- sizing row dropped. Available keys:', Object.keys(sizeKeyToIdRef.current));
+          }
         });
       });
-      return rows;
-    };
-
-    // Check if there's any sizing data at all (including fallback keys)
-    const hasSizingData = blocks.some((block: any) => {
-      const blockKey = buildBlockKey(block);
-      return (block.items || []).some((_: any, idx: number) => {
-        const key = `${blockKey}_${idx}`;
-        const sd = sizingData[key];
-        if (!sd) return false;
-        return Object.values(sd).some((choiceData: any) =>
-          choiceData && typeof choiceData === 'object' && Object.values(choiceData).some((v: any) => Number(v) > 0)
-        );
-      });
     });
 
-    if (!hasSizingData) return undefined;
-
-    return choices.map((sh: any) => {
-      const choiceKey = String(sh.id);
-      return {
-        version: Math.round(Number(sh.version) || 1),
-        isFinal: Boolean(sh.isFinal),
-        rows: buildRows(choiceKey),
-      };
-    });
-  }, [skuBlocks, brandSizingHeaders, sizingData]);
+    return sizingRows.length > 0 ? sizingRows : undefined;
+  }, [skuBlocks, sizingData]);
 
   // Save a single brand's proposal data
   const handleSaveBrand = useCallback(async (brandId: string, isNewVersion: boolean) => {
@@ -1504,9 +1380,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         const newHeader = created?.data || created;
         if (newHeader) {
           const newId = String(newHeader.id);
-          // Save full data with allocations + sizing at header level
-          console.log('[handleSaveBrand] create payload', JSON.stringify({ products, sizings }, null, 2));
-          await proposalService.saveFullProposal(newId, { products, sizings });
+          await proposalService.saveFullProposal(newId, { products, sizingRows: sizings });
           setBrandProposalHeaders(prev => ({
             ...prev,
             [brandId]: [
@@ -1514,18 +1388,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               ...(prev[brandId] || []),
             ]}));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
-          // Update sizing headers + hydrate sizing data from saved response
           const detail = await proposalService.getOne(newId);
           const fullDetail = detail?.data || detail;
           if (fullDetail) {
-            const sizingHeaders = (fullDetail.proposal_sizing_headers || []).map((sh: any) => ({
-              id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? false,
-              proposalSizings: sh.proposal_sizings || [],
-            }));
-            sizingHeaders.sort((a: any, b: any) => a.version - b.version);
-            setBrandSizingHeaders(prev => ({ ...prev, [brandId]: sizingHeaders }));
             const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
-            hydrateSizingData(brandBlocks, sizingHeaders);
+            hydrateSizingData(brandBlocks);
           }
           headerId = newId;
         }
@@ -1541,7 +1408,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         if (newHeader) {
           const newId = String(newHeader.id);
           if (products.length > 0) {
-            await proposalService.saveFullProposal(newId, { products, sizings });
+            await proposalService.saveFullProposal(newId, { products, sizingRows: sizings });
           }
           setBrandProposalHeaders(prev => ({
             ...prev,
@@ -1550,18 +1417,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               ...(prev[brandId] || []),
             ]}));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
-          // Reload sizing headers + hydrate sizing data from saved response
           const detail = await proposalService.getOne(newId);
           const fullDetail = detail?.data || detail;
           if (fullDetail) {
-            const sizingHeaders = (fullDetail.proposal_sizing_headers || []).map((sh: any) => ({
-              id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? false,
-              proposalSizings: sh.proposal_sizings || [],
-            }));
-            sizingHeaders.sort((a: any, b: any) => a.version - b.version);
-            setBrandSizingHeaders(prev => ({ ...prev, [brandId]: sizingHeaders }));
             const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
-            hydrateSizingData(brandBlocks, sizingHeaders);
+            hydrateSizingData(brandBlocks);
           }
         }
         invalidateCache('/proposals');
@@ -1569,28 +1429,22 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       } else {
         // Normal save: update existing header (delete + recreate)
         if (products.length > 0) {
-          await proposalService.saveFullProposal(headerId, { products, sizings });
+          await proposalService.saveFullProposal(headerId, { products, sizingRows: sizings });
+          invalidateCache('/proposals');
+          const detail = await proposalService.getOne(headerId);
+          const fullDetail = detail?.data || detail;
+          if (fullDetail) {
+            const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
+            setSkuBlocks(prev => {
+              const other = prev.filter((b: any) => String(b.brandId) !== brandId);
+              return [...other, ...brandBlocks];
+            });
+            hydrateSizingData(brandBlocks);
+          }
+          toast.success('Saved successfully');
+        } else {
+          toast.error('Please add at least one SKU before saving');
         }
-        invalidateCache('/proposals');
-        // Reload saved data from API to ensure local state matches backend
-        const detail = await proposalService.getOne(headerId);
-        const fullDetail = detail?.data || detail;
-        if (fullDetail) {
-          const sizingHeaders = (fullDetail.proposal_sizing_headers || []).map((sh: any) => ({
-            id: sh.id, version: sh.version, isFinal: sh.is_final_version ?? false,
-            proposalSizings: sh.proposal_sizings || [],
-          }));
-          sizingHeaders.sort((a: any, b: any) => a.version - b.version);
-          setBrandSizingHeaders(prev => ({ ...prev, [brandId]: sizingHeaders }));
-          const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
-          // Update skuBlocks with fresh data from backend
-          setSkuBlocks(prev => {
-            const other = prev.filter((b: any) => String(b.brandId) !== brandId);
-            return [...other, ...brandBlocks];
-          });
-          hydrateSizingData(brandBlocks, sizingHeaders);
-        }
-        toast.success('Saved successfully');
       }
     } catch (err: any) {
       const serverMsg = err?.response?.data?.message || err?.userMessage || '';
@@ -1654,9 +1508,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       sum + (block.items || []).reduce((s: number, item: any) => s + (Number(item.order) || 0), 0), 0);
     if (brandOrder === 0) return false;
     const hasFinalVersion = (brandProposalHeaders[brandId] || []).some((h: any) => h.isFinal);
-    const hasFinalChoice = (brandSizingHeaders[brandId] || []).some((h: any) => h.isFinal);
-    return hasFinalVersion && hasFinalChoice;
-  }, [filteredSkuBlocks, brandProposalHeaders, brandSizingHeaders]);
+    return hasFinalVersion;
+  }, [filteredSkuBlocks, brandProposalHeaders]);
 
   const handleSubmitTicketForBrand = useCallback((brandId: string) => {
     if (!onSubmitTicket) return;
@@ -1669,17 +1522,13 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     // Enrich items with sizing data — only include items with order > 0 and sizing entered
     const enrichedBlocks = brandBlocksAll.map((block: any) => {
       const blockKey = buildBlockKey(block);
-      const choices = getBrandSizingChoices(brandId);
-      const finalChoice = choices.find((c: any) => c.isFinal);
-      const choiceKey = finalChoice ? String(finalChoice.id) : (choices[0] ? String(choices[0].id) : 'default');
       const enrichedItems = (block.items || [])
         .map((item: any, origIdx: number) => {
           const totalOrder = Number(item.order) || 0;
           if (totalOrder <= 0) return null;
-          if (!hasSizingData(blockKey, origIdx, brandId)) return null;
-          const sizing = getSizing(blockKey, origIdx, brandId);
-          const choiceSizing = sizing[choiceKey] || {};
-          return { ...item, sizing: choiceSizing };
+          if (!hasSizingData(blockKey, origIdx)) return null;
+          const sizing = getSizing(blockKey, origIdx);
+          return { ...item, sizing };
         })
         .filter(Boolean);
       return { ...block, items: enrichedItems };
@@ -1728,7 +1577,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       brandId,
       brandName,
     });
-  }, [onSubmitTicket, displayBrands, filteredSkuBlocks, getBrandSkuVersion, getBrandSizingChoices, getSizing, stores, matchedAllocateHeaders, apiSeasonGroups, seasonGroupFilter, seasonFilter, budgetFilter, fyFilter, selectedBudget]);
+  }, [onSubmitTicket, displayBrands, filteredSkuBlocks, getBrandSkuVersion, getSizing, stores, matchedAllocateHeaders, apiSeasonGroups, seasonGroupFilter, seasonFilter, budgetFilter, fyFilter, selectedBudget]);
 
   // Export filtered SKU data to CSV
   const handleExportCSV = useCallback(() => {
@@ -2059,16 +1908,13 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   };
 
   return (
-    <div className="space-y-2 md:space-y-3">
-      <div ref={barRef} data-filter-bar className={`sticky -top-3 md:-top-6 z-30 -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-1 md:mb-2 backdrop-blur-sm border-b relative ${'bg-white/95 border-[rgba(215,183,151,0.3)]'}`}>
+    <>
+      <div ref={barRef} data-filter-bar className={`sticky -top-3 md:-top-6 z-[50] -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 backdrop-blur-sm relative border-b ${'bg-white/95 border-[rgba(215,183,151,0.3)]'}`}>
 
         {/* ===== FILTER CONTENT ===== */}
-        <div>
-        <div>
-        <div className="p-2 md:p-3">
         {/* Mobile Filter Button */}
         {isMobile && (
-          <div className="mb-2">
+          <div className="px-3 py-1.5">
             <button
               onClick={openFilter}
               className={`flex items-center gap-2 px-3 py-1.5 rounded-lg text-sm font-medium border ${'bg-[rgba(160,120,75,0.12)] border-[rgba(215,183,151,0.4)] text-[#6B4D30]'}`}
@@ -2081,7 +1927,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
         {!isMobile && <>
           {/* ── Group 1: Global Context Filters ── */}
-          <div className="-mx-2 md:-mx-3 px-3 md:px-6 py-1.5">
+          <div className="px-3 md:px-6 py-1.5">
             <div className="flex items-end gap-1.5">
               <FilterSelect
                 label="FY"
@@ -2246,7 +2092,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
         {/* ── Rail Controls + Summary ── */}
         {displayBrands.length > 0 && (
-          <div className="border-t border-[rgba(215,183,151,0.25)] -mx-2 md:-mx-3 -mb-2 md:-mb-3 px-3 md:px-6 py-1.5 flex items-center gap-1.5">
+          <div className="border-t border-[rgba(215,183,151,0.25)] px-3 md:px-6 py-1.5 flex items-center gap-1.5">
             <div className="flex-1" />
 
             {/* Collapse/Expand (right) */}
@@ -2303,11 +2149,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             </div>
           </div>
         )}
-        </div>{/* end p-2 md:p-3 */}
-        </div>{/* end overflow-hidden min-h-0 */}
-        </div>{/* end grid animation wrapper */}
       </div>
-
       {!filtersComplete ? (
         <div className="flex flex-col items-center justify-center py-20 px-4 animate-fadeIn">
           <div className="empty-state-rings mb-6">
@@ -2462,23 +2304,23 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 {/* Brand Section Header */}
                 <div
                   onClick={() => setCollapsedBrands(prev => ({ ...prev, [brandId]: !isBrandCollapsed }))}
-                  className={`flex items-center gap-3 px-4 py-3 cursor-pointer select-none transition-all ${'bg-gradient-to-r from-[rgba(215,183,151,0.14)] to-transparent hover:from-[rgba(215,183,151,0.22)]'}`}
+                  className={`flex items-center gap-2 px-3 py-2 cursor-pointer select-none transition-all ${'bg-gradient-to-r from-[rgba(215,183,151,0.14)] to-transparent hover:from-[rgba(215,183,151,0.22)]'}`}
                 >
-                  <span className={`p-1 rounded-lg transition-colors ${'bg-[rgba(138,99,64,0.1)] hover:bg-[rgba(138,99,64,0.2)]'}`}>
-                    <ChevronDown size={15} className={`transition-transform duration-200 ${isBrandCollapsed ? '-rotate-90' : ''} ${'text-[#6B4D30]'}`} />
+                  <span className={`p-0.5 rounded transition-colors ${'bg-[rgba(138,99,64,0.1)] hover:bg-[rgba(138,99,64,0.2)]'}`}>
+                    <ChevronDown size={13} className={`transition-transform duration-200 ${isBrandCollapsed ? '-rotate-90' : ''} ${'text-[#6B4D30]'}`} />
                   </span>
-                  <Tag size={16} className={'text-[#6B4D30]'} />
-                  <div className="flex flex-col min-w-0">
+                  <Tag size={13} className={'text-[#6B4D30]'} />
+                  <div className="flex items-baseline gap-2 min-w-0">
                     {brand.group_brand?.name || brand.groupBrand?.name ? (
-                      <span className={`text-[10px] font-medium font-['Montserrat'] uppercase tracking-widest ${'text-[#6B4D30]/60'}`}>
+                      <span className={`text-[9px] font-medium font-['Montserrat'] uppercase tracking-widest ${'text-[#6B4D30]/60'}`}>
                         {brand.group_brand?.name || brand.groupBrand?.name}
                       </span>
                     ) : null}
-                    <span className={`font-semibold text-base font-['Montserrat'] uppercase tracking-wide ${'text-[#1A1A1A]'}`}>
+                    <span className={`font-semibold text-sm font-['Montserrat'] uppercase tracking-wide ${'text-[#1A1A1A]'}`}>
                       {brand.name || brand.code || `Brand ${brand.id}`}
                     </span>
                   </div>
-                  <span className={`text-[11px] font-medium px-2 py-0.5 rounded-full ml-1 ${'text-[#888]'}`}>
+                  <span className={`text-[10px] font-medium px-1.5 py-0.5 rounded-full ml-0.5 ${'text-[#888]'}`}>
                     {brandBlocks.length} Rails &middot; {brandSkuCount} SKUs
                   </span>
                   {/* Per-brand Version & Choice dropdown buttons — only when allocation+planning validated */}
@@ -2513,41 +2355,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                             <>
                               <Sparkles size={11} className="shrink-0" />
                               <span className="whitespace-nowrap">{brandHeaders.length > 0 ? `${brandHeaders.length} Versions` : 'Version'}</span>
-                            </>
-                          )}
-                        </button>
-                      );
-                    })()}
-                    {/* Choice dropdown button */}
-                    {(() => {
-                      const curChoiceId = getBrandSizingChoice(brandId);
-                      const brandChoices = getBrandSizingChoices(brandId);
-                      const curChoice = brandChoices.find((c: any) => String(c.id) === String(curChoiceId));
-                      const isFinal = curChoice?.isFinal ?? false;
-                      const isOpen = openDropdown?.type === 'choice' && openDropdown?.brandId === brandId;
-                      return (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation();
-                            if (isOpen) { setOpenDropdown(null); setDropdownAnchorEl(null); }
-                            else { setOpenDropdown({ type: 'choice', brandId }); setDropdownAnchorEl(e.currentTarget); }
-                          }}
-                          className={`flex items-center gap-1.5 px-2 py-1 rounded text-xs font-medium transition-colors ${
-                            curChoice
-                              ? isFinal
-                                ?'bg-[rgba(215,183,151,0.25)] text-[#6B4D30]':'bg-[rgba(18,119,73,0.15)] text-[#127749]':'bg-[rgba(215,183,151,0.15)] text-[#666666] hover:text-[#333333]'}`}
-                        >
-                          <ChevronDown size={11} className={`shrink-0 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
-                          {curChoice ? (
-                            <>
-                              {isFinal && <Star size={11} className="shrink-0 fill-current" />}
-                              <span className="whitespace-nowrap">Choice {choiceLetter(curChoice.version)}</span>
-                              {isFinal && <span className="px-1 text-[9px] font-bold rounded bg-[#D7B797] text-[#0A0A0A]">FINAL</span>}
-                            </>
-                          ) : (
-                            <>
-                              <Sparkles size={11} className="shrink-0" />
-                              <span className="whitespace-nowrap">{brandChoices.length > 0 ? `${brandChoices.length} Choices` : 'Choice'}</span>
                             </>
                           )}
                         </button>
@@ -2669,7 +2476,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   // Case 5: All conditions met — show full content
                   const hasHistorical = brandBlocks.some((b: any) => b.isHistorical);
                   return (
-                  <div className="space-y-3 p-3">
+                  <div className="space-y-2 p-2">
                     {/* Previous Year Template Banner */}
                     {hasHistorical && (
                       <div className={`flex items-center justify-between gap-3 px-4 py-2.5 rounded-lg border ${'bg-[rgba(107,77,48,0.06)] border-[rgba(215,183,151,0.4)]'}`}>
@@ -2706,19 +2513,19 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       const isCollapsed = collapsed[key];
                       const isEmpty = !block.items || block.items.length === 0;
                       return (
-                        <div key={key} data-rail-card className={`rounded-xl border ${'bg-white border-[rgba(215,183,151,0.2)]'}`} style={{ overflow: 'clip' }}>
+                        <div key={key} data-rail-card className={`rounded-xl border overflow-hidden ${'bg-white border-[rgba(215,183,151,0.2)]'}`}>
                           <button
                             type="button"
                             onClick={() => handleToggle(key)}
                             className={`w-full flex items-center gap-0 ${'bg-[rgba(215,183,151,0.18)] border-b border-[rgba(215,183,151,0.3)]'}`}
                           >
                             <div className={`w-1.5 self-stretch rounded-l-xl ${'bg-[#8A6340]'}`} />
-                            <div className="flex items-center gap-3 px-4 py-2 flex-1">
+                            <div className="flex items-center gap-2 px-3 py-1 flex-1">
                               {<ChevronDown size={14} className={`transition-transform ${isCollapsed ? '-rotate-90' : ''} ${'text-[#6B4D30]'}`} />}
                               <div className="text-left flex-1">
                                 <div className="flex items-center gap-2">
                                   <span className={`text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#8A6340]'}`}>RAIL</span>
-                                  <span className={`font-semibold text-sm ${'text-[#6B4D30]'}`}>{block.rail || block.subCategory}</span>
+                                  <span className={`font-semibold text-xs ${'text-[#6B4D30]'}`}>{block.rail || <span className="italic text-[#aaa] font-normal text-xs">No Rail</span>}</span>
                                   <span className={`text-[9px] px-1.5 py-0.5 rounded ${'bg-[rgba(160,120,75,0.12)] text-[#6B5B4D]'}`}>
                                     {block.items?.length || 0} SKUs
                                   </span>
@@ -2740,25 +2547,25 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                                     ) : null;
                                   })()}
                                 </div>
-                                <div className={`text-xs mt-0.5 ${'text-[#8A6340]'}`}>
+                                <div className={`text-[10px] ${'text-[#8A6340]'}`}>
                                   {block.gender} • {block.category}
                                 </div>
                               </div>
                               {!isEmpty && (
-                                <div className={`hidden md:flex items-center text-xs font-['JetBrains_Mono'] ${'text-[#6B5B4D]'}`}>
-                                  <div className="flex flex-col items-center w-[50px]">
-                                    <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>Order</span>
+                                <div className={`hidden md:flex items-center text-[11px] font-['JetBrains_Mono'] ${'text-[#6B5B4D]'}`}>
+                                  <div className="flex flex-col items-center w-[42px]">
+                                    <span className={`text-[9px] font-['Montserrat'] ${'text-[#999999]'}`}>Order</span>
                                     <span className={`font-semibold ${'text-[#6B4D30]'}`}>{block.items.reduce((s: number, i: any) => s + (i.order || 0), 0)}</span>
                                   </div>
                                   {stores.map((st: any) => (
-                                    <div key={st.code} className="flex flex-col items-center w-[50px]">
-                                      <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>{st.code}</span>
+                                    <div key={st.code} className="flex flex-col items-center w-[42px]">
+                                      <span className={`text-[9px] font-['Montserrat'] ${'text-[#999999]'}`}>{st.code}</span>
                                       <span className="font-semibold">{block.items.reduce((s: number, i: any) => s + ((i.storeQty || {})[st.code] || 0), 0)}</span>
                                     </div>
                                   ))}
-                                  <div className={`h-6 w-px mx-1 ${'bg-[rgba(215,183,151,0.4)]'}`} />
-                                  <div className="flex flex-col items-center min-w-[70px]">
-                                    <span className={`text-[10px] font-['Montserrat'] ${'text-[#999999]'}`}>Value</span>
+                                  <div className={`h-5 w-px mx-1 ${'bg-[rgba(215,183,151,0.4)]'}`} />
+                                  <div className="flex flex-col items-center min-w-[60px]">
+                                    <span className={`text-[9px] font-['Montserrat'] ${'text-[#999999]'}`}>Value</span>
                                     <span className={`font-semibold ${'text-[#127749]'}`}>{formatCurrency(block.items.reduce((s: number, i: any) => s + ((i.order || 0) * (i.unitCost || 0)), 0))}</span>
                                   </div>
                                 </div>
@@ -2770,8 +2577,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 {isEmpty && !isCollapsed && (
                   <div className="overflow-x-auto" style={{ overflowY: 'clip' }}>
                     {(() => {
-                      const labelCls = `px-3 py-1.5 font-semibold font-['Montserrat'] whitespace-nowrap sticky left-0 z-10 ${'bg-white text-[#6B4D30] !border-r-[rgba(160,120,75,0.4)]'}`;
-                      const emptyCls = `px-3 py-1.5 text-center min-w-[140px] ${'bg-white text-[#ccc]'}`;
+                      const labelCls = `px-2 py-1 text-[11px] font-semibold font-['Montserrat'] whitespace-nowrap sticky left-0 z-10 ${'bg-white text-[#6B4D30] !border-r-[rgba(160,120,75,0.4)]'}`;
+                      const emptyCls = `px-2 py-1 text-center min-w-[120px] ${'bg-white text-[#ccc]'}`;
                       const rowLabels = ['Actions', 'Image', 'SKU', 'Name', 'Product Type (L3)', 'Theme', 'Color', 'Composition', 'Unit cost', 'SRP', 'Order', 'Customer Target', 'Comment'];
                       return (
                         <table className={`w-full text-xs border-separate border-spacing-0 ${'[&_td]:border-[rgba(215,183,151,0.2)]'} [&_td]:border`}>
@@ -2779,12 +2586,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                             {rowLabels.map((label, ri) => (
                               <tr key={label}>
                                 <td className={labelCls}>{label}</td>
-                                <td className={`${emptyCls} ${label === 'Image' ? 'py-4' : ''}`}>
+                                <td className={`${emptyCls} ${label === 'Image' ? 'py-2' : ''}`}>
                                   {label === 'Image' ? <span className="text-[11px] italic opacity-50">—</span> : <span className="opacity-30">—</span>}
                                 </td>
                                 {ri === 0 && (
                                   <td rowSpan={999} className={`border-l-2 ${'bg-[rgba(215,183,151,0.04)] border-l-[rgba(215,183,151,0.35)]'}`} style={{ minWidth: 52, verticalAlign: 'middle' }}>
-                                    <div className="flex items-center justify-center h-full" style={{ minHeight: 200 }}>
+                                    <div className="flex items-center justify-center h-full" style={{ minHeight: 140 }}>
                                       <button
                                         type="button"
                                         onClick={() => setAddSkuModal({ open: true, blockKey: key, block })}
@@ -2813,7 +2620,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       const hlBg ='bg-[rgba(160,120,75,0.1)]';
                       const hlLabel ='bg-[#ede4d8]';
                       const normLabel ='bg-white';
-                      const labelBase = `px-3 py-1.5 font-semibold font-['Montserrat'] whitespace-nowrap sticky left-0 z-10 cursor-pointer select-none transition-colors`;
+                      const labelBase = `px-2 py-1 text-[11px] font-semibold font-['Montserrat'] whitespace-nowrap sticky left-0 z-10 cursor-pointer select-none transition-colors`;
                       const labelBorder ='!border-r-[rgba(160,120,75,0.4)]';
                       const labelColor ='text-[#6B4D30]';
                       const isHl = (rowId: string) => highlightedRow === `${key}_${rowId}`;
@@ -2825,28 +2632,28 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       <tbody>
                         {/* Image row (with actions in top-right corner) */}
                         <tr className={trCls('image')}>
-                          <td className={tdLabel('image', 'py-2')} onClick={() => toggleHl('image')}>Image</td>
+                          <td className={tdLabel('image', 'py-1')} onClick={() => toggleHl('image')}>Image</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-2 min-w-[140px] ${'bg-white'}`} style={{ position: 'relative' }}>
-                              <div className="flex justify-end gap-0.5 absolute top-1 right-1">
-                                <button type="button" onClick={() => handleOpenLightbox(`${key}_${String(item.sku) || 'new'}_${idx}`, 'sizing', item, key, idx, block)} className={`p-1 rounded-md transition-colors relative ${'text-[#666666] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`} title="Sizing">
-                                  <Ruler size={14} />
+                            <td key={idx} className={`px-2 py-1 min-w-[120px] ${'bg-white'}`} style={{ position: 'relative' }}>
+                              <div className="flex justify-end gap-0.5 absolute top-0.5 right-0.5">
+                                <button type="button" onClick={() => handleOpenLightbox(`${key}_${String(item.sku) || 'new'}_${idx}`, 'sizing', item, key, idx, block)} className={`p-0.5 rounded-md transition-colors relative ${'text-[#666666] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'}`} title="Sizing">
+                                  <Ruler size={13} />
                                   {hasSizingData(key, idx) && (
-                                    <span className="absolute -top-0.5 -right-0.5 w-3 h-3 bg-[#2A9E6A] rounded-full flex items-center justify-center">
-                                      <Check size={8} className="text-white" />
+                                    <span className="absolute -top-0.5 -right-0.5 w-2.5 h-2.5 bg-[#2A9E6A] rounded-full flex items-center justify-center">
+                                      <Check size={7} className="text-white" />
                                     </span>
                                   )}
                                 </button>
-                                <button type="button" onClick={() => handleDeleteSkuRow(key, idx)} className={`p-1 rounded-md transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.1)]'}`} title={t('proposal.deleteSku')}><Trash2 size={14} /></button>
+                                <button type="button" onClick={() => handleDeleteSkuRow(key, idx)} className={`p-0.5 rounded-md transition-colors ${'text-[#666666] hover:text-[#F85149] hover:bg-[rgba(248,81,73,0.1)]'}`} title={t('proposal.deleteSku')}><Trash2 size={13} /></button>
                               </div>
-                              <div className="mx-auto w-fit pt-3">
-                                <ProductImage subCategory={block.subCategory} sku={item.sku} imageUrl={item.imageUrl} size={64} />
+                              <div className="mx-auto w-fit pt-4">
+                                <ProductImage subCategory={block.subCategory} sku={item.sku} imageUrl={item.imageUrl} size={48} />
                               </div>
                             </td>
                           ))}
                           {/* Add New column */}
                           <td rowSpan={999} className={`border-l-2 ${'bg-[rgba(215,183,151,0.04)] border-l-[rgba(215,183,151,0.35)]'}`} style={{ minWidth: 52, verticalAlign: 'middle' }}>
-                            <div className="flex items-center justify-center h-full" style={{ minHeight: 200 }}>
+                            <div className="flex items-center justify-center h-full" style={{ minHeight: 140 }}>
                               <button
                                 type="button"
                                 onClick={() => setAddSkuModal({ open: true, blockKey: key, block })}
@@ -2863,7 +2670,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         <tr className={trCls('sku')}>
                           <td className={tdLabel('sku')} onClick={() => toggleHl('sku')}>SKU</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-semibold font-['JetBrains_Mono'] ${'text-[#333333]'}`}>
+                            <td key={idx} className={`px-2 py-1 text-center font-semibold font-['JetBrains_Mono'] ${'text-[#333333]'}`}>
                               {item.isNew ? (
                                 <select
                                   value={item.sku}
@@ -2883,56 +2690,56 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         <tr className={trCls('name')}>
                           <td className={tdLabel('name')} onClick={() => toggleHl('name')}>Name</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center ${'text-[#333333]'}`}>{item.name}</td>
+                            <td key={idx} className={`px-2 py-1 text-center ${'text-[#333333]'}`}>{item.name}</td>
                           ))}
                         </tr>
                         {/* Product Type (L3) row */}
                         <tr className={trCls('productType')}>
                           <td className={tdLabel('productType')} onClick={() => toggleHl('productType')}>Product Type (L3)</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center ${'text-[#666666]'}`}>{item.productType}</td>
+                            <td key={idx} className={`px-2 py-1 text-center ${'text-[#666666]'}`}>{item.productType}</td>
                           ))}
                         </tr>
                         {/* Theme row */}
                         <tr className={trCls('theme')}>
                           <td className={tdLabel('theme')} onClick={() => toggleHl('theme')}>Theme</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center ${'text-[#666666]'}`}>{item.theme}</td>
+                            <td key={idx} className={`px-2 py-1 text-center ${'text-[#666666]'}`}>{item.theme}</td>
                           ))}
                         </tr>
                         {/* Color row */}
                         <tr className={trCls('color')}>
                           <td className={tdLabel('color')} onClick={() => toggleHl('color')}>Color</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center ${'text-[#666666]'}`}>{item.color}</td>
+                            <td key={idx} className={`px-2 py-1 text-center ${'text-[#666666]'}`}>{item.color}</td>
                           ))}
                         </tr>
                         {/* Composition row */}
                         <tr className={trCls('composition')}>
                           <td className={tdLabel('composition')} onClick={() => toggleHl('composition')}>Composition</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center max-w-[160px] ${'text-[#666666]'}`} title={item.composition}>{item.composition}</td>
+                            <td key={idx} className={`px-2 py-1 text-center max-w-[140px] ${'text-[#666666]'}`} title={item.composition}>{item.composition}</td>
                           ))}
                         </tr>
                         {/* Unit cost row */}
                         <tr className={trCls('unitCost')}>
                           <td className={tdLabel('unitCost')} onClick={() => toggleHl('unitCost')}>Unit cost</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-['JetBrains_Mono'] ${'text-[#333333]'}`}>{formatCurrency(item.unitCost)}</td>
+                            <td key={idx} className={`px-2 py-1 text-center font-['JetBrains_Mono'] ${'text-[#333333]'}`}>{formatCurrency(item.unitCost)}</td>
                           ))}
                         </tr>
                         {/* SRP row */}
                         <tr className={trCls('srp')}>
                           <td className={tdLabel('srp')} onClick={() => toggleHl('srp')}>SRP</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-medium font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(item.srp)}</td>
+                            <td key={idx} className={`px-2 py-1 text-center font-medium font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(item.srp)}</td>
                           ))}
                         </tr>
                         {/* Order row - always highlighted */}
                         <tr className={trCls('order','bg-[rgba(160,120,75,0.06)]')}>
                           <td className={`${labelBase} font-bold cursor-pointer select-none transition-colors ${labelBorder} ${'text-[#c0392b]'} ${isHl('order') ? hlLabel : ('bg-[#f5efe8]')}`} onClick={() => toggleHl('order')}>Order</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#c0392b]'}`}>{item.order}</td>
+                            <td key={idx} className={`px-2 py-1 text-center font-bold font-['JetBrains_Mono'] ${'text-[#c0392b]'}`}>{item.order}</td>
                           ))}
                         </tr>
                         {/* Dynamic store rows */}
@@ -2944,7 +2751,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                               const isEditingStore = editingCell === storeKey;
                               const storeVal = (item.storeQty || {})[st.code] || 0;
                               return (
-                                <td key={idx} className="px-3 py-1.5 text-center">
+                                <td key={idx} className="px-2 py-1 text-center">
                                   {isEditingStore ? (
                                     <div className="relative group inline-block">
                                       <input
@@ -2976,14 +2783,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         <tr className={trCls('ttlValue','bg-[rgba(160,120,75,0.06)]')}>
                           <td className={`${labelBase} font-bold cursor-pointer select-none transition-colors ${labelBorder} ${'text-[#6B4D30]'} ${isHl('ttlValue') ? hlLabel : ('bg-[#f5efe8]')}`} onClick={() => toggleHl('ttlValue')}>TTL value</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className={`px-3 py-1.5 text-center font-bold font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(item.order * (item.unitCost || 0))}</td>
+                            <td key={idx} className={`px-2 py-1 text-center font-bold font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(item.order * (item.unitCost || 0))}</td>
                           ))}
                         </tr>
                         {/* Customer Target row */}
                         <tr className={trCls('customerTarget')}>
                           <td className={tdLabel('customerTarget')} onClick={() => toggleHl('customerTarget')}>Customer Target</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className="px-3 py-1.5 text-center">
+                            <td key={idx} className="px-2 py-1 text-center">
                               <CreatableSelect
                                 value={item.customerTarget}
                                 options={customerTargetOptions}
@@ -2998,7 +2805,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         <tr className={trCls('comment')}>
                           <td className={tdLabel('comment')} onClick={() => toggleHl('comment')}>Comment</td>
                           {block.items.map((item: any, idx: number) => (
-                            <td key={idx} className="px-3 py-1.5 text-center">
+                            <td key={idx} className="px-2 py-1 text-center">
                               <div className="relative">
                                 <input
                                   type="text"
@@ -3039,11 +2846,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       return total === 0 || completed < total;
                     });
                     if (viewMode === 'list') {
-                      return <div className="space-y-3">{brandBlocks.map(renderBlock)}</div>;
+                      return <div className="space-y-2">{brandBlocks.map(renderBlock)}</div>;
                     }
                     return (
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start">
-                        <div className="rounded-xl border border-[#D97706]/20 bg-[rgba(217,119,6,0.03)] p-3 space-y-3">
+                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start min-w-0">
+                        <div className="rounded-xl border border-[#D97706]/20 bg-[rgba(217,119,6,0.03)] p-3 space-y-3 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-2 px-1 pb-1.5 border-b border-[#D97706]/20">
                             <Clock size={13} className="text-[#D97706]" />
                             <span className="text-[11px] font-bold uppercase tracking-wider font-['Montserrat'] text-[#D97706]">In Progress</span>
@@ -3055,7 +2862,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                             ) : todoBlocks.map(renderBlock)}
                           </div>
                         </div>
-                        <div className="rounded-xl border border-[#2A9E6A]/20 bg-[rgba(42,158,106,0.03)] p-3 space-y-3">
+                        <div className="rounded-xl border border-[#2A9E6A]/20 bg-[rgba(42,158,106,0.03)] p-3 space-y-3 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-2 px-1 pb-1.5 border-b border-[#2A9E6A]/20">
                             <Check size={13} className="text-[#2A9E6A]" />
                             <span className="text-[11px] font-bold uppercase tracking-wider font-['Montserrat'] text-[#2A9E6A]">Completed</span>
@@ -3157,12 +2964,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         </div>
       )}
 
-      {/* Version / Choice Portal Dropdown */}
+      {/* Version Portal Dropdown */}
       {openDropdown && dropdownAnchorEl && typeof document !== 'undefined' && (() => {
         const rect = dropdownAnchorEl.getBoundingClientRect();
-        const isVersion = openDropdown.type === 'version';
-        const items = isVersion ? (brandProposalHeaders[openDropdown.brandId] || []) : (brandSizingHeaders[openDropdown.brandId] || []);
-        const selectedId = isVersion ? getBrandSkuVersion(openDropdown.brandId) : getBrandSizingChoice(openDropdown.brandId);
+        const items = brandProposalHeaders[openDropdown.brandId] || [];
+        const selectedId = getBrandSkuVersion(openDropdown.brandId);
         const dropdownW = 220;
         const overflowRight = rect.right > window.innerWidth - dropdownW;
         return createPortal(
@@ -3179,7 +2985,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             <div className={`border rounded-lg shadow-xl overflow-hidden ${'bg-white border-[#C4B5A5]'}`}>
               <div className={`px-2 py-1 border-b ${'border-[#D4C8BB] bg-[rgba(160,120,75,0.08)]'}`}>
                 <span className={`text-[10px] font-semibold uppercase tracking-wide font-['Montserrat'] ${'text-[#666666]'}`}>
-                  {isVersion ? 'SKU Versions' : 'Sizing Choices'}
+                  SKU Versions
                 </span>
               </div>
               <div className="max-h-48 overflow-y-auto">
@@ -3191,12 +2997,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       key={item.id}
                       onClick={(e) => {
                         e.stopPropagation();
-                        if (isVersion) {
-                          setBrandSkuVersion(prev => ({ ...prev, [openDropdown.brandId]: String(item.id) }));
-                          loadProposalVersion(openDropdown.brandId, String(item.id));
-                        } else {
-                          setBrandSizingChoice(prev => ({ ...prev, [openDropdown.brandId]: String(item.id) }));
-                        }
+                        setBrandSkuVersion(prev => ({ ...prev, [openDropdown.brandId]: String(item.id) }));
+                        loadProposalVersion(openDropdown.brandId, String(item.id));
                         setOpenDropdown(null);
                         setDropdownAnchorEl(null);
                       }}
@@ -3206,7 +3008,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     >
                       <div className="flex items-center gap-1.5 min-w-0 flex-1">
                         {isFinal && <Star size={11} className={'text-[#6B4D30] fill-[#6B4D30] shrink-0'} />}
-                        <span className="font-medium truncate">{isVersion ? `Version ${item.version}` : `Choice ${choiceLetter(item.version)}`}</span>
+                        <span className="font-medium truncate">{`Version ${item.version}`}</span>
                         {isFinal && <span className="px-1 py-px text-[8px] font-bold bg-[#D7B797] text-[#0A0A0A] rounded shrink-0">FINAL</span>}
                       </div>
                       <div className="flex items-center gap-1 shrink-0">
@@ -3214,12 +3016,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                           <button
                             onClick={(e) => {
                               e.stopPropagation();
-                              if (isVersion) handleSetFinalVersion(openDropdown.brandId, item.id, e);
-                              else handleSetFinalSizing(openDropdown.brandId, item.id, e);
+                              handleSetFinalVersion(openDropdown.brandId, item.id, e);
                               setOpenDropdown(null);
                               setDropdownAnchorEl(null);
                             }}
-                            title={isVersion ? 'Set as final version' : 'Set as final choice'}
+                            title="Set as final version"
                             className={`p-0.5 rounded transition-colors ${'text-[#aaa] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.15)]'}`}
                           >
                             <Star size={10} />
@@ -3336,7 +3137,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     </thead>
                     <tbody>
                       {stores.map((st: any, si: number) => {
-                        const storeVal = (lightbox.item.storeQty || {})[st.code] || 0;
+                        const liveItem = lightboxLiveItem || lightbox.item;
+                        const storeVal = (liveItem.storeQty || {})[st.code] || 0;
                         const colors = ['bg-[#D7B797]', 'bg-[#127749]', 'bg-[#58A6FF]', 'bg-[#A371F7]', 'bg-[#E3B341]'];
                         return (
                           <tr key={st.code} className={`border-t ${'border-gray-300'}`}>
@@ -3355,15 +3157,20 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                                 <Pencil size={8} className="absolute left-1.5 top-1/2 -translate-y-1/2 pointer-events-none text-[#8A6340]/30" />
                               </div>
                             </td>
-                            <td className={`px-4 py-2 text-right font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency(storeVal * (lightbox.item.unitCost || 0))}</td>
+                            <td className={`px-4 py-2 text-right font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency(storeVal * (liveItem.unitCost || 0))}</td>
                           </tr>
                         );
                       })}
-                      <tr className={`border-t-2 ${'border-[#D7B797]/40 bg-[rgba(160,120,75,0.12)]'}`}>
-                        <td className={`px-4 py-2 font-semibold ${'text-[#6B4D30]'}`}>{t('skuProposal.total')}</td>
-                        <td className={`px-4 py-2 text-center font-bold font-['JetBrains_Mono'] ${'text-gray-800'}`}>{lightbox.item.order || 0}</td>
-                        <td className={`px-4 py-2 text-right font-bold font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency((lightbox.item.order || 0) * (lightbox.item.unitCost || 0))}</td>
-                      </tr>
+                      {(() => {
+                        const liveItem = lightboxLiveItem || lightbox.item;
+                        return (
+                          <tr className={`border-t-2 ${'border-[#D7B797]/40 bg-[rgba(160,120,75,0.12)]'}`}>
+                            <td className={`px-4 py-2 font-semibold ${'text-[#6B4D30]'}`}>{t('skuProposal.total')}</td>
+                            <td className={`px-4 py-2 text-center font-bold font-['JetBrains_Mono'] ${'text-gray-800'}`}>{liveItem.order || 0}</td>
+                            <td className={`px-4 py-2 text-right font-bold font-['JetBrains_Mono'] ${'text-gray-800'}`}>{formatCurrency((liveItem.order || 0) * (liveItem.unitCost || 0))}</td>
+                          </tr>
+                        );
+                      })()}
                     </tbody>
                   </table>
                 </div>
@@ -3376,9 +3183,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   <div className={`flex flex-wrap items-center gap-3 px-4 py-2 border-b ${'border-[rgba(215,183,151,0.3)] bg-[rgba(215,183,151,0.08)]'}`}>
                     <span className={`font-semibold text-xs font-['Montserrat'] ${'text-[#6B4D30]'}`}>Store Order:</span>
                     {(() => {
-                      const sq = lightbox.item.storeQty || {};
+                      const liveItem = lightboxLiveItem || lightbox.item;
+                      const sq = liveItem.storeQty || {};
                       const entries = Object.entries(sq).filter(([, v]) => true).sort(([a], [b]) => a.localeCompare(b));
-                      const totalOrder = lightbox.item.order || 0;
+                      const totalOrder = liveItem.order || 0;
                       if (entries.length === 0) return <span className="text-xs text-red-500 font-medium">No store orders</span>;
                       return (
                         <>
@@ -3464,81 +3272,36 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         );
                       })()}
                       {(() => {
-                        // Sizing headers are now at the proposal header level (A/B/C shared across all SKUs)
-                        const lbBrandId = lightbox.blockKey.split('_')[0] || 'all';
-                        const headerChoices = (brandSizingHeaders[lbBrandId] || []).map((sh: any) => ({
-                          id: String(sh.id),
-                          version: sh.version ?? 1,
-                          isFinal: sh.isFinal ?? false,
-                        })).sort((a: any, b: any) => a.version - b.version);
-                        const choices = headerChoices.length >= 3 ? headerChoices.slice(0, 3) : [
-                          { id: 'choiceA', version: 1, isFinal: false },
-                          { id: 'choiceB', version: 2, isFinal: false },
-                          { id: 'choiceC', version: 3, isFinal: false },
-                        ];
                         const totalStoreOrder = lightbox.item.order || 0;
-                        return choices.map((choice: any, ci: number) => {
-                          const choiceKey = String(choice.id);
-                          const sizing = getSizing(lightbox.blockKey, lightbox.idx, lbBrandId);
-                          const lbSizeKeys = getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType);
-                          const choiceData = sizing[choiceKey] || buildEmptySizeData(lbSizeKeys);
-                          const choiceSum = calculateSum(choiceData);
-                          const isOver = totalStoreOrder > 0 && choiceSum > totalStoreOrder;
-                          const isFirst = ci === 0;
-                          const commentKey = `${choiceKey}_comment`;
-                          const commentValue = sizing[commentKey] || '';
-                          return (
-                            <tr key={choice.id} className={isFirst
-                              ? ('border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.12)]')
-                              : ('border-b border-[rgba(215,183,151,0.2)] bg-[rgba(18,119,73,0.03)]')
-                            }>
-                              <td className={`px-4 py-2 font-medium ${isFirst ? ('text-[#6B4D30]') : ('text-[#127749]')}`}>
-                                Choice {choiceLetter(choice.version)}{choice.isFinal && <span className="ml-1 text-[10px] font-bold text-[#2A9E6A]">FINAL</span>}
-                              </td>
-                              {lbSizeKeys.map((size: string) => (
-                                <td key={size} className="px-1 py-2">
-                                  <input
-                                    type="number"
-                                    min="0"
-                                    value={parseInt(String(choiceData[size] ?? 0)) || 0}
-                                    onChange={(e) => updateSizing(lightbox.blockKey, lightbox.idx, choiceKey, size, e.target.value, lbBrandId)}
-                                    className={`w-full text-center font-['JetBrains_Mono'] text-sm rounded border py-1 px-1 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
-                                      isOver
-                                        ? 'bg-red-50 border-red-300 text-red-600'
-                                        : isFirst
-                                          ? ('bg-emerald-50 border-emerald-200 text-[#6B4D30]')
-                                          : ('bg-emerald-50 border-emerald-200 text-[#127749]')
-                                    }`}
-                                  />
-                                </td>
-                              ))}
-                              <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${isOver ? 'text-red-600 bg-red-50' : isFirst ? ('text-[#6B4D30] bg-[rgba(215,183,151,0.2)]') : ('text-[#127749] bg-[rgba(18,119,73,0.08)]')}`}>
-                                {choiceSum}
-                                {isOver && <span className="block text-[9px] font-normal">/{totalStoreOrder}</span>}
-                              </td>
-                              <td className="px-1 py-2">
+                        const sizing = getSizing(lightbox.blockKey, lightbox.idx);
+                        const lbSizeKeys = getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType);
+                        const sizingSum = calculateSum(sizing);
+                        const isOver = totalStoreOrder > 0 && sizingSum > totalStoreOrder;
+                        return (
+                          <tr className="border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.12)]">
+                            <td className="px-4 py-2 font-medium text-[#6B4D30]">Sizing</td>
+                            {lbSizeKeys.map((size: string) => (
+                              <td key={size} className="px-1 py-2">
                                 <input
-                                  type="text"
-                                  placeholder="Comment..."
-                                  value={commentValue}
-                                  onChange={(e) => {
-                                    const key = getSizingKey(lightbox.blockKey, lightbox.idx);
-                                    const currentSizing = sizingData[key] || getDefaultSizing(lbBrandId);
-                                    setSizingData((prev: any) => ({
-                                      ...prev,
-                                      [key]: { ...currentSizing, [commentKey]: e.target.value }
-                                    }));
-                                  }}
-                                  className={`w-28 text-xs rounded border py-1 px-2 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] ${
-                                    isFirst
-                                      ? 'bg-emerald-50 border-emerald-200 text-[#6B4D30] placeholder-[#B8A08A]'
-                                      : 'bg-emerald-50 border-emerald-200 text-[#127749] placeholder-[#7BBF9E]'
+                                  type="number"
+                                  min="0"
+                                  value={parseInt(String(sizing[size] ?? 0)) || 0}
+                                  onChange={(e) => updateSizing(lightbox.blockKey, lightbox.idx, size, e.target.value)}
+                                  className={`w-full text-center font-['JetBrains_Mono'] text-sm rounded border py-1 px-1 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none ${
+                                    isOver
+                                      ? 'bg-red-50 border-red-300 text-red-600'
+                                      : 'bg-emerald-50 border-emerald-200 text-[#6B4D30]'
                                   }`}
                                 />
                               </td>
-                            </tr>
-                          );
-                        });
+                            ))}
+                            <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${isOver ? 'text-red-600 bg-red-50' : 'text-[#6B4D30] bg-[rgba(215,183,151,0.2)]'}`}>
+                              {sizingSum}
+                              {isOver && <span className="block text-[9px] font-normal">/{totalStoreOrder}</span>}
+                            </td>
+                            <td></td>
+                          </tr>
+                        );
                       })()}
                     </tbody>
                   </table>
@@ -3552,20 +3315,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               let sizingOverAllocated = false;
               let sizingWithoutOrder = false;
               if (lightbox.tab === 'sizing') {
-                const lbBrandId = lightbox.blockKey.split('_')[0] || 'all';
                 const totalStoreOrder = lightbox.item.order || 0;
-                const headerChoices = (brandSizingHeaders[lbBrandId] || []).map((sh: any) => String(sh.id));
-                const choiceKeys = headerChoices.length >= 3 ? headerChoices.slice(0, 3) : ['choiceA', 'choiceB', 'choiceC'];
-                const sizing = getSizing(lightbox.blockKey, lightbox.idx, lbBrandId);
-                const lbSizeKeys = getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType);
-                let anySizingEntered = false;
-                for (const ck of choiceKeys) {
-                  const choiceData = sizing[ck] || buildEmptySizeData(lbSizeKeys);
-                  const choiceSum = calculateSum(choiceData);
-                  if (choiceSum > 0) anySizingEntered = true;
-                  if (totalStoreOrder > 0 && choiceSum > totalStoreOrder) { sizingOverAllocated = true; }
-                }
-                if (anySizingEntered && totalStoreOrder === 0) { sizingWithoutOrder = true; }
+                const sizing = getSizing(lightbox.blockKey, lightbox.idx);
+                const sizingSum = calculateSum(sizing);
+                if (sizingSum > 0 && totalStoreOrder === 0) { sizingWithoutOrder = true; }
+                if (totalStoreOrder > 0 && sizingSum > totalStoreOrder) { sizingOverAllocated = true; }
               }
               return (
                 <div className={`px-6 py-3 border-t ${'border-[rgba(215,183,151,0.3)]'}`}>
@@ -3745,7 +3499,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         document.body
       )}
       <ScrollToHeader />
-    </div>
+    </>
   );
 };
 

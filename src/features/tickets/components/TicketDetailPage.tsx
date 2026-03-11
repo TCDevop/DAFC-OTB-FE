@@ -151,7 +151,6 @@ const StatusTrackingPanel = ({ approvalHistory, ticket }: any) => (
    HELPERS
 ========================= */
 
-const choiceLetter = (v: number) => String.fromCharCode(64 + v); // 1→A, 2→B, 3→C
 
 /** Build SKU blocks from snapshot_allocate_headers */
 function buildFromSnapshot(snapshotHeaders: any[]) {
@@ -161,8 +160,6 @@ function buildFromSnapshot(snapshotHeaders: any[]) {
   let grandOrder = 0;
   let grandValue = 0;
   let grandSkuCount = 0;
-  let sizingChoiceName = '';
-
   for (const ah of snapshotHeaders) {
     const brandName = ah.brand?.name || 'Unknown';
     const brandId = String(ah.brand_id || ah.brandId || ah.brand?.id || '');
@@ -176,28 +173,6 @@ function buildFromSnapshot(snapshotHeaders: any[]) {
 
     for (const sph of (ah.sku_proposal_headers || ah.skuProposalHeaders || [])) {
       const proposals = sph.sku_proposals || sph.skuProposals || [];
-      const sizingHeaders = sph.proposal_sizing_headers || sph.proposalSizingHeaders || [];
-
-      // Determine final sizing choice
-      const finalSizing = sizingHeaders.find((sh: any) => sh.is_final_version || sh.isFinalVersion) || sizingHeaders[sizingHeaders.length - 1];
-      if (finalSizing && !sizingChoiceName) {
-        sizingChoiceName = `Choice ${choiceLetter(finalSizing.version || sizingHeaders.length)}`;
-      }
-
-      // Build sizing lookup: skuProposalId → { sizeLabel: qty }
-      const sizingBySkuId: Record<string, Record<string, number>> = {};
-      if (finalSizing) {
-        const sizings = finalSizing.proposal_sizings || finalSizing.proposalSizings || [];
-        for (const ps of sizings) {
-          const skuPropId = String(ps.sku_proposal_id || ps.skuProposalId || '');
-          const sizeLabel = ps.subcategory_size?.name || ps.subcategorySize?.name || ps.subcategory_size_id || ps.subcategorySizeId || '';
-          const qty = Number(ps.proposal_quantity || ps.proposalQuantity || 0);
-          if (qty > 0) {
-            if (!sizingBySkuId[skuPropId]) sizingBySkuId[skuPropId] = {};
-            sizingBySkuId[skuPropId][sizeLabel] = qty;
-          }
-        }
-      }
 
       for (const sku of proposals) {
         const product = sku.product || {};
@@ -236,10 +211,17 @@ function buildFromSnapshot(snapshotHeaders: any[]) {
         const srp = Number(sku.srp || 0);
         const unitCost = Number(sku.unit_cost || sku.unitCost || 0);
         const ttlValue = totalOrder * srp;
-        const skuPropId = String(sku.id || '');
+        // Build sizing from proposal_sizings directly on this sku_proposal
+        const sizingRows = sku.proposal_sizings || sku.proposalSizings || [];
+        const sizing: Record<string, number> = {};
+        for (const ps of sizingRows) {
+          const sizeLabel = ps.subcategory_size?.name || ps.subcategorySize?.name || String(ps.subcategory_size_id || ps.subcategorySizeId || '');
+          const qty = Number(ps.proposal_quantity || ps.proposalQuantity || 0);
+          if (qty > 0) sizing[sizeLabel] = qty;
+        }
 
         blockMap[blockKey].items.push({
-          sku: product.sku_code || product.skuCode || product.item_code || product.itemCode || skuPropId,
+          sku: product.sku_code || product.skuCode || product.item_code || product.itemCode || String(sku.id || ''),
           name: product.product_name || product.productName || product.name || '-',
           imageUrl: product.image_url || product.imageUrl || '',
           customerTarget: sku.customer_target || sku.customerTarget || '-',
@@ -248,7 +230,7 @@ function buildFromSnapshot(snapshotHeaders: any[]) {
           orderQty: totalOrder,
           storeQty,
           ttlValue,
-          sizing: sizingBySkuId[skuPropId] || {},
+          sizing,
         });
 
         grandOrder += totalOrder;
@@ -269,7 +251,6 @@ function buildFromSnapshot(snapshotHeaders: any[]) {
     skuBlocks,
     stores,
     grandTotals: { order: grandOrder, ttlValue: grandValue, skuCount: grandSkuCount },
-    sizingChoiceName,
   };
 }
 
@@ -359,7 +340,7 @@ export default function TicketDetailPage({ ticket, onBack, showApprovalActions =
     if (snapHeaders.length > 0) {
       return buildFromSnapshot(snapHeaders);
     }
-    return { brandAllocations: [], skuBlocks: [], stores: [], grandTotals: { order: 0, ttlValue: 0, skuCount: 0 }, sizingChoiceName: '' };
+    return { brandAllocations: [], skuBlocks: [], stores: [], grandTotals: { order: 0, ttlValue: 0, skuCount: 0 } };
   }, [fullTicket]);
 
   // Compare map: skuCode → diff info (only when compare is active)

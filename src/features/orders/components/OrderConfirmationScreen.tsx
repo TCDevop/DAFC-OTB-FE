@@ -42,7 +42,9 @@ const OrderConfirmationScreen = () => {
     setLoading(true);
     setError(null);
     try {
-      const res = await ticketService.getAll({ pageSize: 1000 });
+      // Fetch approved tickets with server-side status filter and reasonable page size
+      // status filter reduces data transfer; pageSize 100 is sufficient for order management
+      const res = await ticketService.getAll({ status: 'APPROVED', pageSize: 100, page: 1 });
       const ticketList = Array.isArray(res) ? res : (res?.data || []);
 
       // Map and filter only approved tickets

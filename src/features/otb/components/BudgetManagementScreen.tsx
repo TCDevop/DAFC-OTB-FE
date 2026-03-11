@@ -46,13 +46,17 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
   const [brands, setBrands] = useState<any[]>([]);
   const [currencies, setCurrencies] = useState<any[]>([]);
 
-  // ── Fetch budgets (always fetch all — client-side year filtering) ──
-  const fetchBudgets = useCallback(async () => {
+  // ── Fetch budgets with server-side year filter + pagination ───────
+  const fetchBudgets = useCallback(async (fiscalYear?: number) => {
     setLoading(true);
     setError(null);
     try {
-      const response = await budgetService.getAll({});
-      const budgets = (Array.isArray(response) ? response : []).map((b: any) => ({
+      const params: Record<string, any> = { page: 1, pageSize: 50 };
+      if (fiscalYear) params.fiscalYear = fiscalYear;
+      const response = await budgetService.getAll(params);
+      // Support both paginated { data: [] } and legacy array responses
+      const rawList = Array.isArray(response) ? response : (response?.data ?? []);
+      const budgets = rawList.map((b: any) => ({
         id: b.id,
         fiscalYear: b.fiscal_year ?? b.fiscalYear,
         totalBudget: Number(b.amount ?? b.totalBudget ?? b.totalAmount) || 0,
@@ -178,7 +182,8 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
   };
 
   // ── Effects ────────────────────────────────────────────────────────
-  useEffect(() => { fetchBudgets(); }, [fetchBudgets]);
+  // Re-fetch when year filter changes (server-side filtering)
+  useEffect(() => { fetchBudgets(selectedYear || undefined); }, [fetchBudgets, selectedYear]);
 
   useEffect(() => {
     masterDataService.getBrands().then((data: any) => setBrands(Array.isArray(data) ? data : [])).catch(() => {});
@@ -197,9 +202,8 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
   }, [selectedBudget?.id]);
 
   // ── Computed ───────────────────────────────────────────────────────
-  const filteredBudgets = useMemo(() => {
-    return budgetData.filter((b: any) => !selectedYear || b.fiscalYear === selectedYear);
-  }, [budgetData, selectedYear]);
+  // Year filter is applied server-side; budgetData already scoped to selectedYear
+  const filteredBudgets = useMemo(() => budgetData, [budgetData]);
 
   const summaryStats = useMemo(() => {
     const total = budgetData.reduce((s: number, b: any) => s + (Number(b.totalBudget) || 0), 0);

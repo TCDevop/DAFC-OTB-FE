@@ -81,18 +81,14 @@ export const proposalService = {
   createAllocations: (data: any) =>
     withErrorLog('createAllocations', async () => extract(await api.post('/proposals/allocations', data))),
 
-  // ─── SIZING HEADERS ───────────────────────────────────────────────────
-
-  getSizingHeadersByProposalHeader: (proposalHeaderId: string) =>
-    withErrorLog('getSizingHeaders', async () => extract(await api.get(`/proposals/${proposalHeaderId}/sizing-headers`))),
-
-  updateSizingHeader: (headerId: string, data: any) =>
-    withErrorLog('updateSizingHeader', async () => extract(await api.patch(`/proposals/sizing-headers/${headerId}`, data))),
-
   // ─── SIZING HISTORY (from sales_sub_category_size_history_agg) ────────
 
   getSizingHistory: (params: { brandId: string; subCategoryId: string; year?: number; seasonId?: string }) =>
     withErrorLog('getSizingHistory', async () => extract(await api.get('/proposals/sizing-history', { params }))),
+
+  /** Per-sub-category SKU allocation+sizing status for the final proposal header of an allocate header */
+  getSkuStatus: (allocateHeaderId: string, opts?: { signal?: AbortSignal }) =>
+    withErrorLog('getSkuStatus', async () => extract(await api.get('/proposals/sku-status', { params: { allocateHeaderId }, signal: opts?.signal }))),
 
   // ─── APPROVAL (delegated) ─────────────────────────────────────────────
 
