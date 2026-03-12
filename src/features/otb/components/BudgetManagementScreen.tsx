@@ -452,10 +452,18 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
               {/* Content */}
               <div className="px-6 py-5 space-y-4 text-sm max-h-[65vh] overflow-y-auto">
                 {/* Read-only info */}
-                <div className="grid grid-cols-3 gap-3 p-3 rounded-xl bg-[#F7F4F1]">
+                <div className="grid grid-cols-2 gap-3 p-3 rounded-xl bg-[#F7F4F1]">
                   <div>
                     <p className="text-xs mb-1 text-[#999]">{t('budget.fiscalYear')}</p>
                     <p className="font-semibold font-['Montserrat']">FY{selectedBudget.fiscalYear}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs mb-1 text-[#999]">Brand</p>
+                    <p className="font-medium truncate">{selectedBudget.brandName || '-'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs mb-1 text-[#999]">Currency</p>
+                    <p className="font-medium">{selectedBudget.currencyCode ? `${selectedBudget.currencyCode}${selectedBudget.currencySymbol ? ` (${selectedBudget.currencySymbol})` : ''}` : '-'}</p>
                   </div>
                   <div>
                     <p className="text-xs mb-1 text-[#999]">{t('budget.createdBy')}</p>
@@ -621,10 +629,39 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
                 </label>
                 <select
                   value={newForm.fiscalYear}
-                  onChange={(e) => setNewForm({ ...newForm, fiscalYear: parseInt(e.target.value) })}
+                  onChange={(e) => {
+                    const fy = parseInt(e.target.value);
+                    const brandName = brands.find((b: any) => String(b.id) === newForm.brandId)?.name || '';
+                    const oldPrefix = `FY${newForm.fiscalYear}-${brandName}`;
+                    const newPrefix = `FY${fy}-${brandName}`;
+                    const name = newForm.name.startsWith(oldPrefix) ? newPrefix + newForm.name.slice(oldPrefix.length) : newForm.name;
+                    setNewForm({ ...newForm, fiscalYear: fy, name: newForm.brandId ? name : newForm.name });
+                  }}
                   className="w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] bg-white border-[#C4B5A5] text-[#0A0A0A]"
                 >
                   {[...new Set([...availableYears, new Date().getFullYear() - 1, new Date().getFullYear(), new Date().getFullYear() + 1])].sort((a, b) => b - a).map((year) => <option key={year} value={year}>{year}</option>)}
+                </select>
+              </div>
+
+              {/* Brand */}
+              <div>
+                <label className="block text-sm font-medium mb-2 font-['Montserrat'] text-[#0A0A0A]">Brand <span className="text-[#F85149]">*</span></label>
+                <select
+                  value={newForm.brandId}
+                  onChange={(e) => {
+                    const brandId = e.target.value;
+                    const brandName = brands.find((b: any) => String(b.id) === brandId)?.name || '';
+                    const prefix = `FY${newForm.fiscalYear}-${brandName}`;
+                    const currentName = newForm.name;
+                    // Auto-update name prefix if user hasn't customized beyond the prefix pattern
+                    const oldPrefix = `FY${newForm.fiscalYear}-${brands.find((b: any) => String(b.id) === newForm.brandId)?.name || ''}`;
+                    const suffix = currentName.startsWith(oldPrefix) ? currentName.slice(oldPrefix.length) : (!currentName || currentName.startsWith('FY') ? '' : `-${currentName}`);
+                    setNewForm({ ...newForm, brandId, name: brandId ? `${prefix}${suffix}` : '' });
+                  }}
+                  className="w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] bg-white border-[#C4B5A5] text-[#0A0A0A]"
+                >
+                  <option value="">— Select Brand —</option>
+                  {brands.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
                 </select>
               </div>
 
@@ -637,22 +674,10 @@ const BudgetManagementScreen = ({ selectedYear, setSelectedYear, onAllocate }: a
                   type="text"
                   value={newForm.name}
                   onChange={(e) => setNewForm({ ...newForm, name: e.target.value })}
-                  placeholder={t('budget.enterBudgetName')}
+                  placeholder={newForm.brandId ? `FY${newForm.fiscalYear}-${brands.find((b: any) => String(b.id) === newForm.brandId)?.name || ''}-...` : t('budget.enterBudgetName')}
                   className="w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] bg-white border-[#C4B5A5] text-[#0A0A0A] placeholder-[#999]"
                 />
-              </div>
-
-              {/* Brand */}
-              <div>
-                <label className="block text-sm font-medium mb-2 font-['Montserrat'] text-[#0A0A0A]">Brand <span className="text-[#F85149]">*</span></label>
-                <select
-                  value={newForm.brandId}
-                  onChange={(e) => setNewForm({ ...newForm, brandId: e.target.value })}
-                  className="w-full px-4 py-0.5 border rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-[#D7B797] focus:border-[#D7B797] bg-white border-[#C4B5A5] text-[#0A0A0A]"
-                >
-                  <option value="">— Select Brand —</option>
-                  {brands.map((b: any) => <option key={b.id} value={String(b.id)}>{b.name}</option>)}
-                </select>
+                {newForm.brandId && <p className="text-xs mt-1 text-[#999]">Format: FY{newForm.fiscalYear}-{brands.find((b: any) => String(b.id) === newForm.brandId)?.name || 'Brand'}-&lt;name&gt;</p>}
               </div>
 
               {/* Currency */}

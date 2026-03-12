@@ -424,13 +424,25 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     });
   }, [historicalData]);
 
+  // Resolve season group/season filter names → DB IDs for API calls
+  const resolvedSeasonIds = useMemo(() => {
+    let seasonGroupId: string | undefined;
+    let seasonId: string | undefined;
+    if (selectedSeasonGroup !== 'all') {
+      const sg = apiSeasonGroups.find((g: any) => g.name === selectedSeasonGroup);
+      if (sg) {
+        seasonGroupId = String(sg.id);
+        if (selectedSeason !== 'all') {
+          const s = (sg.seasons || []).find((s: any) => s.name === selectedSeason);
+          if (s) seasonId = String(s.id);
+        }
+      }
+    }
+    return { seasonGroupId, seasonId };
+  }, [apiSeasonGroups, selectedSeasonGroup, selectedSeason]);
+
   // Season DB id for sales history API call
-  const currentSeasonId = useMemo(() => {
-    if (selectedSeasonGroup === 'all' || selectedSeason === 'all') return undefined;
-    const group = apiSeasonGroups.find((sg: any) => sg.name === selectedSeasonGroup);
-    const seasonRecord = group?.seasons?.find((s: any) => s.name === selectedSeason);
-    return seasonRecord ? String(seasonRecord.id) : undefined;
-  }, [selectedSeasonGroup, selectedSeason, apiSeasonGroups]);
+  const currentSeasonId = resolvedSeasonIds.seasonId;
 
   // Baseline period info: derived from API response (periods[0]) for display + filtering
   const baselinePeriod = useMemo(() => {
@@ -461,7 +473,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const [subCategoryFilter, setSubCategoryFilter] = useState('all');
   const [openCategoryDropdown, setOpenCategoryDropdown] = useState<any>(null);
   // Transaction filter: 'all' | 'has' (có phát sinh) | 'none' (không phát sinh)
-  const [transactionFilter, setTransactionFilter] = useState<'all' | 'has' | 'none'>('all');
+  const [transactionFilter, setTransactionFilter] = useState<'all' | 'has' | 'none'>('has');
 
   // Active tab for Category / Season Type / Gender views
   const [activeTab, setActiveTab] = useState<'category' | 'seasonType' | 'gender'>('category');
@@ -968,14 +980,21 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
         });
       });
 
-      const payload = { allocateHeaderId, categories, seasonTypes, genders };
+      const payload: any = { allocateHeaderId, categories, seasonTypes, genders };
+      if (resolvedSeasonIds.seasonGroupId) payload.seasonGroupId = resolvedSeasonIds.seasonGroupId;
+      if (resolvedSeasonIds.seasonId) payload.seasonId = resolvedSeasonIds.seasonId;
       const existingVersionId = brandSelectedVersion[brandId];
 
       // Helper: refresh version list for this brand after save
       const refreshVersionList = async (selectVersionId?: string) => {
         // Always use allocateHeaderId to scope versions to this specific budget+brand
         invalidateCache('/planning');
-        const filterParams: any = { allocateHeaderId, pageSize: 50 };
+        const filterParams: any = {
+          allocateHeaderId,
+          pageSize: 50,
+          ...(resolvedSeasonIds.seasonGroupId && { seasonGroupId: resolvedSeasonIds.seasonGroupId }),
+          ...(resolvedSeasonIds.seasonId && { seasonId: resolvedSeasonIds.seasonId }),
+        };
         const list = await planningService.getAll(filterParams);
         const mapped = (Array.isArray(list) ? list : []).map((v: any) => ({
           id: String(v.id),
@@ -1108,22 +1127,33 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     const categories: any[] = [{ id: 'all', name: 'All Categories' }];
     const subCategories: any[] = [{ id: 'all', name: 'All Sub-Categories' }];
 
-    categoryStructure.forEach((genderGroup: any) => {
-      genders.push({ id: genderGroup.gender.id, name: genderGroup.gender.name });
-      genderGroup.categories.forEach((cat: any) => {
-        if (!categories.find((c: any) => c.id === cat.id)) {
-          categories.push({ id: cat.id, name: cat.name, genderId: genderGroup.gender.id });
+    // Use brand-specific category structures when brands are selected, otherwise fall back to global
+    const activeBrandIds = selectedBrandIds.length > 0 ? selectedBrandIds : apiBrands.map((b: any) => String(b.id));
+    const structuresToScan: any[][] = activeBrandIds
+      .map(bid => brandCategoryMap[bid] || []).filter(s => s.length > 0);
+    // If no brand-specific structures found, fall back to global
+    if (structuresToScan.length === 0) structuresToScan.push(categoryStructure);
+
+    structuresToScan.forEach(structure => {
+      structure.forEach((genderGroup: any) => {
+        if (!genders.find((g: any) => g.id === genderGroup.gender.id)) {
+          genders.push({ id: genderGroup.gender.id, name: genderGroup.gender.name });
         }
-        cat.subCategories.forEach((subCat: any) => {
-          if (!subCategories.find((sc: any) => sc.id === subCat.id)) {
-            subCategories.push({ id: subCat.id, name: subCat.name, categoryId: cat.id, genderId: genderGroup.gender.id });
+        genderGroup.categories.forEach((cat: any) => {
+          if (!categories.find((c: any) => c.id === cat.id)) {
+            categories.push({ id: cat.id, name: cat.name, genderId: genderGroup.gender.id });
           }
+          (cat.subCategories || []).forEach((subCat: any) => {
+            if (!subCategories.find((sc: any) => sc.id === subCat.id)) {
+              subCategories.push({ id: subCat.id, name: subCat.name, categoryId: cat.id, genderId: genderGroup.gender.id });
+            }
+          });
         });
       });
     });
 
     return { genders, categories, subCategories };
-  }, [categoryStructure]);
+  }, [categoryStructure, brandCategoryMap, selectedBrandIds, apiBrands]);
 
   // Get filtered categories based on gender selection
   const filteredCategoryOptions = useMemo(() => {
@@ -1323,7 +1353,12 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           setBrandSelectedVersion(prev => ({ ...prev, [brandId]: null }));
           return;
         }
-        const filterParams: any = { allocateHeaderId: matchedAH.id, pageSize: 50 };
+        const filterParams: any = {
+          allocateHeaderId: matchedAH.id,
+          pageSize: 50,
+          ...(resolvedSeasonIds.seasonGroupId && { seasonGroupId: resolvedSeasonIds.seasonGroupId }),
+          ...(resolvedSeasonIds.seasonId && { seasonId: resolvedSeasonIds.seasonId }),
+        };
         setBrandLoadingVersions(prev => ({ ...prev, [brandId]: true }));
         try {
           const list = await planningService.getAll(filterParams);
@@ -1350,7 +1385,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     };
     fetchVersions();
     return () => { cancelled = true; };
-  }, [displayBrands, filtersComplete, matchedAllocateHeaders, selectedBudgetId]); // eslint-disable-line react-hooks/exhaustive-deps
+  }, [displayBrands, filtersComplete, matchedAllocateHeaders, selectedBudgetId, resolvedSeasonIds]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Allocate All: validate season + final planning versions, then navigate to SKU Proposal
   const handleAllocateAll = useCallback(() => {
@@ -1607,6 +1642,63 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     registerExport(handleExportExcel);
     return () => { unregisterExport(); };
   }, [handleExportExcel, registerExport, unregisterExport]);
+
+  // Compute brand-level grand totals (%Sales, %Proposed, $OTB) for the brand header
+  const getBrandTotals = useCallback((brandId: string) => {
+    const totals = { salesPct: 0, buyProposed: 0, otbProposed: 0 };
+    const brandBudget = brandAllocatedTotal[brandId] || 0;
+    const catBl = buildBaselineLookup(brandId);
+    const planDataBySub: Record<string, any> = {};
+    if (brandPlanningData[brandId]) {
+      (brandPlanningData[brandId].planning_categories || []).forEach((pc: any) => {
+        const subId = String(pc.subcategory_id || pc.subcategory?.id || pc.sub_category_id || '');
+        if (!subId) return;
+        planDataBySub[subId] = {
+          buyProposed: pc.proposed_buy_pct || 0,
+        };
+      });
+    }
+    const brandGF = getBrandGenderFirst(brandId);
+    // Apply same filters as renderCategoryTab
+    const filtered = brandGF
+      .filter((g: any) => genderFilter === 'all' || g.gender.id === genderFilter)
+      .map((g: any) => ({
+        ...g,
+        categories: g.categories
+          .filter((c: any) => categoryFilter === 'all' || c.category.id === categoryFilter)
+          .map((c: any) => ({
+            ...c,
+            subCategories: c.subCategories.filter((sub: any) => {
+              if (subCategoryFilter !== 'all' && sub.subCategory.id !== subCategoryFilter) return false;
+              if (transactionFilter === 'all') return true;
+              const bl = catBl.bySub[sub.dataKey];
+              const hasT = (bl?.buyPct || 0) !== 0 || (bl?.salesPct || 0) !== 0 || (bl?.stPct || 0) !== 0;
+              return transactionFilter === 'has' ? hasT : !hasT;
+            }),
+          }))
+          .filter((c: any) => c.subCategories.length > 0),
+      }))
+      .filter((g: any) => g.categories.length > 0);
+
+    filtered.forEach((g: any) => {
+      g.categories.forEach((c: any) => {
+        c.subCategories.forEach((sub: any) => {
+          const subCatId = String(sub.subCategory.id);
+          const bl = catBl.bySub[sub.dataKey];
+          const localBP = localData[sub.dataKey]?.buyProposed;
+          const planBP = planDataBySub[subCatId]?.buyProposed;
+          const buyProposed = localBP !== undefined ? localBP : (planBP !== undefined ? planBP : (bl?.salesPct || 0));
+          totals.salesPct += Number(bl?.salesPct) || 0;
+          totals.buyProposed += Number(buyProposed) || 0;
+          if (brandBudget > 0) {
+            totals.otbProposed += Math.round((Number(buyProposed) || 0) / 100 * brandBudget);
+          }
+        });
+      });
+    });
+    return totals;
+  }, [brandAllocatedTotal, buildBaselineLookup, brandPlanningData, getBrandGenderFirst,
+      localData, genderFilter, categoryFilter, subCategoryFilter, transactionFilter]);
 
   // Render Category Tab - Hierarchical Collapsible (Gender -> Category -> SubCategory)
   const renderCategoryTab = (brand?: any) => {
@@ -2636,11 +2728,25 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
               {brand.name || brand.code || `Brand ${brand.id}`}
             </span>
           </div>
-          {filtersComplete && brandAllocatedTotal[brandId] > 0 && (
-            <span className={`px-2 py-0.5 rounded border font-['JetBrains_Mono'] text-xs font-semibold ${'bg-[rgba(18,119,73,0.08)] border-[rgba(18,119,73,0.25)] text-[#127749]'}`}>
-              {formatCurrency(brandAllocatedTotal[brandId])}
-            </span>
-          )}
+          {filtersComplete && brandAllocatedTotal[brandId] > 0 && (() => {
+            const bt = getBrandTotals(brandId);
+            return (
+              <>
+                <span className={`px-2 py-0.5 rounded border font-['JetBrains_Mono'] text-xs font-semibold ${'bg-[rgba(18,119,73,0.08)] border-[rgba(18,119,73,0.25)] text-[#127749]'}`}>
+                  {formatCurrency(brandAllocatedTotal[brandId])}
+                </span>
+                <span className="px-2 py-0.5 rounded border border-[rgba(139,115,85,0.2)] bg-white/60 font-['JetBrains_Mono'] text-xs font-semibold text-[#1A1A1A]">
+                  %Sales <span className="font-bold">{displayPct(bt.salesPct)}</span>
+                </span>
+                <span className="px-2 py-0.5 rounded border border-[rgba(215,183,151,0.4)] bg-[rgba(215,183,151,0.18)] font-['JetBrains_Mono'] text-xs font-semibold text-[#5C4A32]">
+                  %Proposed <span className="font-bold">{displayPct(bt.buyProposed)}</span>
+                </span>
+                <span className="px-2 py-0.5 rounded border border-[rgba(139,115,85,0.25)] bg-[rgba(139,115,85,0.1)] font-['JetBrains_Mono'] text-xs font-semibold text-[#3C2F1E]">
+                  $OTB <span className="font-bold">{formatNumber(bt.otbProposed)}</span>
+                </span>
+              </>
+            );
+          })()}
           <div className="ml-auto flex items-center gap-2" onClick={e => e.stopPropagation()}>
             {(() => {
               const bVersions = brandPlanningVersions[brandId] || [];
@@ -2909,7 +3015,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                         )}
                         {!loadingBudgets && filteredBudgets.length > 0 && (
                           <div
-                            onClick={() => { setSelectedBudgetId('all'); setOpenDropdown(null); }}
+                            onClick={() => { setSelectedBudgetId('all'); setSelectedBrandIds([]); setOpenDropdown(null); }}
                             className={`px-4 py-0.5 flex items-center justify-between cursor-pointer text-sm transition-colors ${selectedBudgetId === 'all'
                               ? 'bg-[rgba(18,119,73,0.1)] text-[#127749]' : 'hover:bg-[rgba(160,120,75,0.18)] text-[#666666]'}`}
                           >
@@ -2925,6 +3031,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                               onClick={() => {
                                 setSelectedBudgetId(budget.id);
                                 if (budget.fiscalYear) setSelectedYear(budget.fiscalYear);
+                                if (budget.brandId) setSelectedBrandIds([String(budget.brandId)]);
                                 setOpenDropdown(null);
                               }}
                               className={`px-4 py-0.5 cursor-pointer transition-colors border-t border-[#D4C8BB] ${isSelected

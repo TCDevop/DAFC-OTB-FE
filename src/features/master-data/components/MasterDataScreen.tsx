@@ -5,7 +5,7 @@ import {
   Search, ChevronLeft, ChevronRight,
   Building2, Package, FolderTree, Tag,
   RefreshCw, Filter, X,
-  Store, Users, Calendar
+  Store, Users, Calendar, Coins
 } from 'lucide-react';
 import { masterDataService } from '@/services';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -116,6 +116,20 @@ const getTypeConfig = (t: any) => ({
       { key: 'is_active', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
     ],
     searchFields: ['name'],
+  },
+  currencies: {
+    title: 'Currencies',
+    icon: Coins,
+    fetchFn: () => masterDataService.getCurrencies(),
+    columns: [
+      { key: 'currency_code', label: 'Code', width: '100px', mono: true },
+      { key: 'currency_name', label: 'Name' },
+      { key: 'symbol', label: 'Symbol', width: '80px' },
+      { key: 'exchange_rate_to_vnd', label: 'Rate to VND', width: '140px', mono: true, render: (v: any) => v ? Number(v).toLocaleString() : '-' },
+      { key: 'created_at', label: 'Created On', width: '140px', render: (v: any) => v ? new Date(v).toLocaleDateString('vi-VN') : '-' },
+      { key: 'is_active', label: t('masterData.colStatus'), render: (v: any) => v !== false ? t('common.active') : t('common.inactive'), badge: true },
+    ],
+    searchFields: ['currency_code', 'currency_name'],
   },
 });
 

@@ -242,7 +242,7 @@ const BudgetAllocateScreen = ({
     allocationValues, setAllocationValues,
     seasonTotalValues, setSeasonTotalValues,
     brandTotalValues, setBrandTotalValues,
-    allocationComments, handleCommentChange,
+    allocationComments, setAllocationComments, handleCommentChange,
     handleAllocationChange, handleSeasonTotalChange, handleBrandTotalChange,
     isDirty, discardChanges, validate, markClean} = allocation;
 
@@ -492,6 +492,33 @@ const BudgetAllocateScreen = ({
         // Capture the reference that will become the new allocationValues state.
         // Effect (484) uses this reference to confirm the change came from DB load, not user edit.
         loadedValuesRef.current = updated;
+        return updated;
+      });
+
+      // Load allocate_comments into allocationComments state
+      setAllocationComments((prev: Record<string, string>) => {
+        const updated = { ...prev };
+        changedBrandIds.forEach((brandId) => {
+          // Clear existing comments for this brand
+          Object.keys(updated).forEach(key => {
+            if (key.startsWith(`${brandId}-`)) delete updated[key];
+          });
+
+          const headerId = brandVersionMap[brandId];
+          if (!headerId) return;
+
+          const header = allocateHeaders.find((h: any) => h.id === headerId);
+          if (!header?.allocate_comments?.length) return;
+
+          header.allocate_comments.forEach((c: any) => {
+            const sgName: string = c.season_group?.name ?? String(c.season_group_id);
+            const seasonName: string = c.season?.name ?? String(c.season_id);
+            const commentKey = `${brandId}-${sgName}-${seasonName}`;
+            if (c.comment) {
+              updated[commentKey] = c.comment;
+            }
+          });
+        });
         return updated;
       });
     });
@@ -942,6 +969,7 @@ const BudgetAllocateScreen = ({
     allocateHeaders,
     brandVersionMap,
     allocationValues,
+    allocationComments,
     stores,
     seasonGroups,
     onSaved: (results: any[]) => {

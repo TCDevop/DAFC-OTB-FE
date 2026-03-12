@@ -4,7 +4,7 @@ import { useMemo, useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import {
   ChevronDown, Package, Pencil, X, Plus, Trash2, Ruler, Clock, Users,
-  Layers, Check, LayoutGrid, List, SlidersHorizontal, Download, Send, Tag, Star, Sparkles,
+  Layers, Check, LayoutGrid, List, SlidersHorizontal, Download, Upload, Send, Tag, Star, Sparkles,
   AlertTriangle, ArrowRight, Save, FilePlus, FileText, Columns2
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
@@ -20,6 +20,10 @@ import { FilterBottomSheet, useBottomSheet } from '@/components/mobile';
 import { ProductImage, ConfirmDialog, FilterSelect, ScrollToHeader } from '@/components/ui';
 import CreatableSelect from '@/components/ui/CreatableSelect';
 import AddSKUModal from './AddSKUModal';
+import {
+  exportSKUProposalExcel, importSKUProposalExcel,
+  type SKUExportBlock, type SizingExportRow, type SKUProposalImportResult,
+} from '../utils/exportSKUProposalExcel';
 
 // Season groups & seasons are now loaded from API (masterDataService.getSeasonGroups)
 
@@ -34,7 +38,7 @@ const CARD_BG_CLASSES = [
 ];
 
 // Fallback size keys (used only when DB sizes haven't loaded yet)
-const FALLBACK_SIZE_KEYS = ['XS', 'S', 'M', 'L', 'XL'];
+const FALLBACK_SIZE_KEYS: string[] = []; // No fallback — empty means master data has no sizes for this subcategory
 const buildEmptySizeData = (sizeKeys: string[]): Record<string, number> => {
   const empty: Record<string, number> = {};
   sizeKeys.forEach(k => { empty[k] = 0; });
@@ -120,6 +124,8 @@ const buildBlocksFromProposal = (proposal: any, brandId: string): any[] => {
       ttlValue: orderQty * itemUnitCost,
       customerTarget: sp.customer_target || sp.customerTarget || prod.customerTarget || 'New',
       imageUrl: prod.image_url || prod.imageUrl || '',
+      comment: sp.comment || '',
+      sizingComment: sp.sizing_comment || sp.sizingComment || '',
       proposalSizings: sp.proposal_sizings || sp.proposalSizings || [],
     });
   });
@@ -434,16 +440,36 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Allocation/Planning validation — checks if budget + season filters are selected
   const filtersComplete = budgetFilter !== 'all' && seasonGroupFilter !== 'all' && seasonFilter !== 'all';
 
+  // Resolve season group/season filter names → DB IDs for API calls
+  const resolvedSeasonIds = useMemo(() => {
+    let seasonGroupId: string | undefined;
+    let seasonId: string | undefined;
+    if (seasonGroupFilter !== 'all') {
+      const sg = apiSeasonGroups.find((g: any) => g.name === seasonGroupFilter);
+      if (sg) {
+        seasonGroupId = String(sg.id);
+        if (seasonFilter !== 'all') {
+          const s = (sg.seasons || []).find((s: any) => s.name === seasonFilter);
+          if (s) seasonId = String(s.id);
+        }
+      }
+    }
+    return { seasonGroupId, seasonId };
+  }, [apiSeasonGroups, seasonGroupFilter, seasonFilter]);
+
   // Match allocate headers by season, deduplicate per brand (prefer final, then latest)
   const matchedAllocateHeaders = useMemo(() => {
     if (!filtersComplete) return [];
     const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
     if (!budget) return [];
-    const allMatched = (budget.allocateHeaders || []).filter((ah: any) =>
-      (ah.budgetAllocates || []).some((ba: any) =>
+    const allMatched = (budget.allocateHeaders || []).filter((ah: any) => {
+      // Filter by brand if a specific brand is selected
+      if (brandFilter !== 'all' && String(ah.brandId) !== String(brandFilter)) return false;
+      // Must have budget allocations for the selected season group + season
+      return (ah.budgetAllocates || []).some((ba: any) =>
         ba.seasonGroupName === seasonGroupFilter && ba.seasonName === seasonFilter
-      )
-    );
+      );
+    });
     // Deduplicate per brand: prefer final version, then latest (by id)
     const byBrand: Record<string, any> = {};
     allMatched.forEach((ah: any) => {
@@ -457,7 +483,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       }
     });
     return Object.values(byBrand);
-  }, [filtersComplete, budgetFilter, apiBudgets, seasonGroupFilter, seasonFilter]);
+  }, [filtersComplete, budgetFilter, brandFilter, apiBudgets, seasonGroupFilter, seasonFilter]);
 
   // Gated proposal loading — only when budget + season filters are complete
   // Uses AbortController to cancel in-flight requests when filters change,
@@ -497,12 +523,18 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         for (const ah of matchedAllocateHeaders) {
           if (signal.aborted || loadId !== loadProposalsRef.current) return; // stale
           const brandId = String(ah.brandId);
-          const proposalsList = await proposalService.getAll({ allocateHeaderId: ah.id }, { signal }).catch((e: any) => {
+          const proposalsList = await proposalService.getAll({
+            allocateHeaderId: ah.id,
+            ...(resolvedSeasonIds.seasonGroupId && { seasonGroupId: resolvedSeasonIds.seasonGroupId }),
+            ...(resolvedSeasonIds.seasonId && { seasonId: resolvedSeasonIds.seasonId }),
+          }, { signal }).catch((e: any) => {
             if (e?.code === 'ERR_CANCELED') throw e;
             return [];
           });
           const list = Array.isArray(proposalsList) ? proposalsList : [];
 
+          // ── 1. Load existing proposals (if any) ──────────────────────────
+          let brandBlocks: any[] = [];
           if (list.length > 0) {
             // Build per-brand proposal headers
             newHeadersByBrand[brandId] = list.map((h: any) => ({
@@ -529,10 +561,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               ? proposals.find((p: any) => String(p.id) === String(finalHeader.id))
               : proposals[0];
             if (activeProposal) {
-              const brandBlocks = buildBlocksFromProposal(activeProposal, brandId);
-              allBlocks.push(...brandBlocks);
+              brandBlocks = buildBlocksFromProposal(activeProposal, brandId);
             }
-
 
             // Enrich catalog with unique SKUs from proposal products
             const seenSkus = new Set(skuCatalog.map((c: any) => c.sku));
@@ -567,78 +597,86 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             if (supplementarySkus.length > 0) {
               setSkuCatalog(prev => [...prev, ...supplementarySkus]);
             }
-          } else {
-            // No proposals found — load recommended SKUs from previous year
-            if (signal.aborted) return;
-            const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
-            const currentFY = budget?.fiscalYear;
-            // Resolve season name for the recommend API (table uses season_name text)
-            // Also resolve brand name from the allocate header
-            const brandObj = apiBrands.find((b: any) => String(b.id) === brandId);
-            const brandName = brandObj?.name || ah.brandName || '';
-            if (currentFY && seasonFilter !== 'all') {
-              try {
-                const recommends = await masterDataService.getProductRecommends({
-                  year: currentFY - 1,
-                  seasonName: seasonFilter,
-                  brandName: brandName || undefined,
-                });
-                const recList = Array.isArray(recommends) ? recommends : (recommends?.data || []);
-                if (recList.length > 0) {
-                  // Build blocks from recommended products, grouped by subcategory
-                  const recBlocks: any[] = [];
-                  recList.forEach((rec: any) => {
-                    const prod = rec.product || {};
-                    const subCat = prod.sub_category || {};
-                    const cat = subCat.category || {};
-                    const genderObj = cat.gender || {};
-                    const rail = (prod.rail || rec.rail || '').trim();
-                    if (!rail) return;
-                    // Keep metadata for display/filters
-                    const gender = (genderObj.name || '').toLowerCase();
-                    const category = (cat.name || rec.category || '').toLowerCase();
-                    const subCategory = (subCat.name || rec.sub_category || '').toLowerCase();
+          }
 
-                    let block = recBlocks.find((b: any) => b.rail === rail);
-                    if (!block) {
-                      block = { brandId, proposalHeaderId: '', rail, gender, category, subCategory, items: [], isRecommended: true };
-                      recBlocks.push(block);
-                    }
-                    block.items.push({
-                      productId: String(prod.id || ''),
-                      skuProposalId: '',
-                      sku: rec.sku || prod.sku_code || '',
-                      name: prod.product_name || prod.name || rec.item_code || '',
-                      collectionName: prod.collection || '',
-                      color: prod.color || '',
-                      colorCode: prod.colorCode || '',
-                      division: cat.name || '',
-                      productType: subCat.name || '',
-                      departmentGroup: '',
-                      fsr: '',
-                      carryForward: 'NEW',
-                      composition: prod.composition || '',
-                      unitCost: Number(prod.unit_cost) || 0,
-                      importTaxPct: 0,
-                      srp: Number(prod.unit_price) || 0,
-                      wholesale: 0, rrp: 0, regionalRrp: 0,
-                      theme: prod.theme || '',
-                      size: '',
-                      order: 0,
-                      storeQty: {},
-                      ttlValue: 0,
-                      customerTarget: 'New',
-                      imageUrl: prod.image_url || '',
-                    });
+          // ── 2. Always load recommended SKUs and merge with proposal blocks ──
+          if (signal.aborted) return;
+          const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
+          const currentFY = budget?.fiscalYear;
+          const brandObj = apiBrands.find((b: any) => String(b.id) === brandId);
+          const brandName = brandObj?.name || ah.brandName || '';
+          if (currentFY && seasonFilter !== 'all') {
+            try {
+              const recommends = await masterDataService.getProductRecommends({
+                year: currentFY - 1,
+                seasonName: seasonFilter,
+                brandName: brandName || undefined,
+              });
+              const recList = Array.isArray(recommends) ? recommends : (recommends?.data || []);
+              if (recList.length > 0) {
+                // Collect existing productIds from proposal blocks for dedup
+                const existingProductIds = new Set<string>();
+                brandBlocks.forEach((b: any) => (b.items || []).forEach((item: any) => {
+                  if (item.productId) existingProductIds.add(String(item.productId));
+                }));
+
+                recList.forEach((rec: any) => {
+                  const prod = rec.product || {};
+                  const subCat = prod.sub_category || {};
+                  const cat = subCat.category || {};
+                  const genderObj = cat.gender || {};
+                  const rail = (prod.rail || rec.rail || '').trim();
+                  if (!rail) return;
+                  const recProductId = String(prod.id || '');
+                  // Skip if this product already exists in proposal blocks
+                  if (recProductId && existingProductIds.has(recProductId)) return;
+
+                  const gender = (genderObj.name || '').toLowerCase();
+                  const category = (cat.name || rec.category || '').toLowerCase();
+                  const subCategory = (subCat.name || rec.sub_category || '').toLowerCase();
+
+                  // Find existing block by rail (from proposal or previously added recommend)
+                  let block = brandBlocks.find((b: any) => b.rail === rail);
+                  if (!block) {
+                    block = { brandId, proposalHeaderId: '', rail, gender, category, subCategory, items: [], isRecommended: true };
+                    brandBlocks.push(block);
+                  }
+                  block.items.push({
+                    productId: recProductId,
+                    skuProposalId: '',
+                    sku: rec.sku || prod.sku_code || '',
+                    name: prod.product_name || prod.name || rec.item_code || '',
+                    collectionName: prod.collection || '',
+                    color: prod.color || '',
+                    colorCode: prod.colorCode || '',
+                    division: cat.name || '',
+                    productType: subCat.name || '',
+                    departmentGroup: '',
+                    fsr: '',
+                    carryForward: 'NEW',
+                    composition: prod.composition || '',
+                    unitCost: Number(prod.unit_cost) || 0,
+                    importTaxPct: 0,
+                    srp: Number(prod.unit_price) || 0,
+                    wholesale: 0, rrp: 0, regionalRrp: 0,
+                    theme: prod.theme || '',
+                    size: '',
+                    order: 0,
+                    storeQty: {},
+                    ttlValue: 0,
+                    customerTarget: 'New',
+                    imageUrl: prod.image_url || '',
+                    isRecommended: true,
                   });
-                  allBlocks.push(...recBlocks);
-                }
-              } catch (err: any) {
-                if (err?.code === 'ERR_CANCELED') throw err;
-                console.error('[SKUProposal] Failed to load product recommends:', err?.message);
+                });
               }
+            } catch (err: any) {
+              if (err?.code === 'ERR_CANCELED') throw err;
+              console.error('[SKUProposal] Failed to load product recommends:', err?.message);
             }
           }
+
+          allBlocks.push(...brandBlocks);
         }
 
         if (signal.aborted || loadId !== loadProposalsRef.current) return; // stale
@@ -871,6 +909,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   }, [skuContext, onContextUsed]);
 
   const [skuBlocks, setSkuBlocks] = useState<any[]>([]);
+  // Refs that always hold the latest state — used by save callbacks to avoid stale closures
+  const skuBlocksRef = useRef<any[]>([]);
+  const sizingDataRef = useRef<Record<string, any>>({});
 
   // When context is provided and data loads but no proposal blocks exist,
   // build blocks from the SKU catalog matching the context's subCategory
@@ -914,11 +955,23 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const [addSkuModal, setAddSkuModal] = useState<{ open: boolean; blockKey: string; block: any } | null>(null);
 
   const [sizingData, setSizingData] = useState<Record<string, any>>({});
+  // Keep refs in sync — assign during render (not useEffect) so they're always current
+  skuBlocksRef.current = skuBlocks;
+  sizingDataRef.current = sizingData;
 
   // Get size column names for a subcategory (from DB), fallback to FALLBACK_SIZE_KEYS
+  // Also ensures sizeKeyToIdRef is populated for every returned size name
   const getSizeKeysForSubCategory = useCallback((subCategoryName: string): string[] => {
     const sizes = subCategorySizesMap[(subCategoryName || '').toLowerCase()];
-    if (sizes && sizes.length > 0) return sizes.map(s => s.name);
+    if (sizes && sizes.length > 0) {
+      // Ensure ref is populated for every size (defensive against race conditions)
+      sizes.forEach(s => {
+        if (s.name && s.id && !sizeKeyToIdRef.current[s.name]) {
+          sizeKeyToIdRef.current[s.name] = String(s.id);
+        }
+      });
+      return sizes.map(s => s.name);
+    }
     return FALLBACK_SIZE_KEYS;
   }, [subCategorySizesMap]);
 
@@ -1198,8 +1251,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
   // Build category options from items' division field (not block metadata)
   const categoryOptions = useMemo(() => {
+    const activeBrandIds = new Set(displayBrands.map((b: any) => String(b.id)));
     const map = new Map<string, string>();
     skuBlocks.forEach((b: any) => {
+      if (!activeBrandIds.has(String(b.brandId))) return;
       (b.items || []).forEach((item: any) => {
         const val = item.division || '';
         if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
@@ -1209,12 +1264,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       { value: 'all', label: 'All Categories' },
       ...Array.from(map.entries()).map(([value, label]) => ({ value, label })),
     ];
-  }, [skuBlocks]);
+  }, [skuBlocks, displayBrands]);
 
-  // Build sub-category options from items' productType field, filtered by selected category
+  // Build sub-category options from items' productType field, filtered by selected brand & category
   const subCategoryOptions = useMemo(() => {
+    const activeBrandIds = new Set(displayBrands.map((b: any) => String(b.id)));
     const map = new Map<string, string>();
     skuBlocks.forEach((b: any) => {
+      if (!activeBrandIds.has(String(b.brandId))) return;
       (b.items || []).forEach((item: any) => {
         if (categoryFilter !== 'all' && (item.division || '').toLowerCase() !== categoryFilter.toLowerCase()) return;
         const val = item.productType || '';
@@ -1225,12 +1282,14 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       { value: 'all', label: 'All Sub Categories' },
       ...Array.from(map.entries()).map(([value, label]) => ({ value, label })),
     ];
-  }, [categoryFilter, skuBlocks]);
+  }, [categoryFilter, skuBlocks, displayBrands]);
 
   const railOptions = useMemo(() => {
+    const activeBrandIds = new Set(displayBrands.map((b: any) => String(b.id)));
     const seen = new Map<string, string>();
     skuBlocks.forEach((b: any) => {
       if (!b.rail) return;
+      if (!activeBrandIds.has(String(b.brandId))) return;
       const key = b.rail.toLowerCase();
       if (!seen.has(key)) seen.set(key, b.rail);
     });
@@ -1238,7 +1297,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       { value: 'all', label: 'All Rails' },
       ...Array.from(seen.entries()).map(([value, label]) => ({ value, label })),
     ];
-  }, [skuBlocks]);
+  }, [skuBlocks, displayBrands]);
 
   const filteredSkuBlocks = useMemo(() => {
     return skuBlocks.filter((block: any) => {
@@ -1299,11 +1358,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Build products payload from ALL blocks for a brand (ignoring active filters
   // so that save-full doesn't delete products outside the current filter view)
   const buildProductsPayload = useCallback((brandId: string) => {
-    const blocks = skuBlocks.filter((b: any) =>
+    // Read from ref to guarantee latest state (avoids stale closure in save chain)
+    const currentBlocks = skuBlocksRef.current;
+    const blocks = currentBlocks.filter((b: any) =>
       String(b.brandId || 'all') === brandId && b.items?.length > 0
     );
     return blocks.flatMap((block: any) => {
-      const blockKey = buildBlockKey(block);
       return block.items
         .filter((item: any) => {
           // Save SKUs that have been allocated (order > 0) regardless of sizing
@@ -1315,32 +1375,75 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           customerTarget: String(item.customerTarget || 'New'),
           unitCost: Number(item.unitCost) || 0,
           srp: Number(item.srp) || 0,
+          comment: item.comment || '',
+          sizingComment: item.sizingComment || '',
           allocations: stores.map((store: any) => ({
             storeId: String(store.id),
             quantity: Number(item.storeQty?.[(store.code || '').toUpperCase()]) || 0,
           })).filter((a: any) => a.quantity > 0),
         }));
     }).filter((p: any) => p.productId);
-  }, [skuBlocks, stores, sizingData]);
+  }, [stores]);
+
+  // Resolve DB ID for a size name — checks ref first, then falls back to subCategorySizesMap
+  const resolveSizeDbId = useCallback((sizeName: string, subCategoryName?: string): string | undefined => {
+    // Primary: check the ref (populated from master data + hydrate)
+    const fromRef = sizeKeyToIdRef.current[sizeName];
+    if (fromRef) return String(fromRef);
+    // Fallback: search subCategorySizesMap by subcategory name
+    if (subCategoryName) {
+      const sizes = subCategorySizesMap[(subCategoryName || '').toLowerCase()];
+      const match = sizes?.find(s => s.name === sizeName);
+      if (match?.id) {
+        // Cache it in the ref for future lookups
+        sizeKeyToIdRef.current[sizeName] = String(match.id);
+        return String(match.id);
+      }
+    }
+    // Last resort: search ALL subcategory sizes for this name
+    for (const sizes of Object.values(subCategorySizesMap)) {
+      const match = sizes.find(s => s.name === sizeName);
+      if (match?.id) {
+        sizeKeyToIdRef.current[sizeName] = String(match.id);
+        return String(match.id);
+      }
+    }
+    return undefined;
+  }, [subCategorySizesMap]);
 
   // Build sizingRows payload — flat list of {skuProposalProductId, subcategorySizeId, proposalQuantity}
+  // Reads from refs to guarantee latest state (avoids stale closure in save chain)
   const buildSizingsPayload = useCallback((brandId: string) => {
-    const blocks = skuBlocks.filter((b: any) =>
+    const currentBlocks = skuBlocksRef.current;
+    const currentSizing = sizingDataRef.current;
+    const blocks = currentBlocks.filter((b: any) =>
       String(b.brandId || 'all') === brandId && b.items?.length > 0
     );
 
     const sizingRows: any[] = [];
+    let debugItemsWithSizing = 0;
+    let debugItemsSkippedNoOrder = 0;
+    let debugSizeDroppedNoId = 0;
     blocks.forEach((block: any) => {
       const blockKey = buildBlockKey(block);
+      const subCatName = block.subCategory || '';
       (block.items || []).forEach((item: any, idx: number) => {
         const totalOrder = Number(item.order) || 0;
-        if (totalOrder <= 0) return;
         const key = `${blockKey}_${idx}`;
-        const itemSizing = sizingData[key];
+        const itemSizing = currentSizing[key];
+        const hasSizing = itemSizing && Object.values(itemSizing).some((v: any) => (Number(v) || 0) > 0);
+        if (hasSizing) debugItemsWithSizing++;
+        if (totalOrder <= 0) {
+          if (hasSizing) {
+            debugItemsSkippedNoOrder++;
+            console.warn('[buildSizingsPayload] Item has sizing data but order=0, skipped:', { key, productId: item.productId, order: totalOrder, sizing: itemSizing });
+          }
+          return;
+        }
         if (!itemSizing) return;
         Object.entries(itemSizing).forEach(([sizeName, qty]) => {
           const numQty = Math.round(Number(qty) || 0);
-          const sizeDbId = sizeKeyToIdRef.current[sizeName];
+          const sizeDbId = resolveSizeDbId(sizeName, subCatName || item.productType);
           if (numQty > 0 && sizeDbId) {
             sizingRows.push({
               skuProposalProductId: String(item.productId),
@@ -1348,14 +1451,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               proposalQuantity: numQty,
             });
           } else if (numQty > 0 && !sizeDbId) {
-            console.warn('[SKUProposal] No DB ID for size key:', sizeName, '- sizing row dropped. Available keys:', Object.keys(sizeKeyToIdRef.current));
+            debugSizeDroppedNoId++;
+            console.warn('[buildSizingsPayload] No DB ID for size key:', sizeName, 'subCategory:', subCatName, 'productType:', item.productType, '- sizing row dropped. Ref keys:', Object.keys(sizeKeyToIdRef.current), 'subCategorySizesMap keys:', Object.keys(subCategorySizesMap));
           }
         });
       });
     });
 
+    console.log('[buildSizingsPayload]', { brandId, blocks: blocks.length, itemsWithSizing: debugItemsWithSizing, skippedNoOrder: debugItemsSkippedNoOrder, droppedNoId: debugSizeDroppedNoId, builtRows: sizingRows.length, sizingDataKeys: Object.keys(currentSizing).length });
     return sizingRows.length > 0 ? sizingRows : undefined;
-  }, [skuBlocks, sizingData]);
+  }, [resolveSizeDbId, subCategorySizesMap]);
 
   // Save a single brand's proposal data
   const handleSaveBrand = useCallback(async (brandId: string, isNewVersion: boolean) => {
@@ -1365,6 +1470,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     try {
       const products = buildProductsPayload(brandId);
       const sizings = buildSizingsPayload(brandId);
+
+      console.log('[SKUProposal Save]', { brandId, productsCount: products.length, sizingsCount: sizings?.length || 0 });
 
       // No existing version → create header then save full data (products + allocations + sizing)
       if (!headerId) {
@@ -1376,6 +1483,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         const proposals = products.map((p: any) => ({ productId: p.productId, customerTarget: p.customerTarget || 'New', unitCost: p.unitCost || 0, srp: p.srp || 0 }));
         const createPayload: any = { proposals };
         if (matchedAH) createPayload.allocateHeaderId = String(matchedAH.id);
+        if (resolvedSeasonIds.seasonGroupId) createPayload.seasonGroupId = resolvedSeasonIds.seasonGroupId;
+        if (resolvedSeasonIds.seasonId) createPayload.seasonId = resolvedSeasonIds.seasonId;
         const created = await proposalService.create(createPayload);
         const newHeader = created?.data || created;
         if (newHeader) {
@@ -1579,69 +1688,208 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     });
   }, [onSubmitTicket, displayBrands, filteredSkuBlocks, getBrandSkuVersion, getSizing, stores, matchedAllocateHeaders, apiSeasonGroups, seasonGroupFilter, seasonFilter, budgetFilter, fyFilter, selectedBudget]);
 
-  // Export filtered SKU data to CSV
-  const handleExportCSV = useCallback(() => {
-    const rows = filteredSkuBlocks.flatMap((block: any) =>
-      block.items.map((item: any) => ({
-        skuCode: item.sku || '',
-        productName: item.name || '',
-        rail: block.rail || '',
-        gender: block.gender || '',
-        category: block.category || '',
-        subCategory: block.subCategory || '',
-        size: item.size || '',
-        color: item.color || '',
-        srp: item.srp || 0,
-        orderQty: item.order || 0,
-        totalValue: item.ttlValue || 0}))
-    );
+  // Export filtered SKU data to Excel (2 sheets: SKU Proposal + Sizing)
+  const handleExportExcel = useCallback(async () => {
+    const currentBlocks = skuBlocksRef.current;
+    const currentSizing = sizingDataRef.current;
+    const blocksToExport = filteredSkuBlocks.length > 0 ? filteredSkuBlocks : currentBlocks;
 
-    if (rows.length === 0) {
+    if (blocksToExport.length === 0 || blocksToExport.every((b: any) => !b.items?.length)) {
       toast.error(t('skuProposal.noDataToExport') || 'No data to export');
       return;
     }
 
-    const headers = ['SKU Code', 'Product Name', 'Rail', 'Gender', 'Category', 'Sub-Category', 'Size', 'Color', 'SRP', 'Order Qty', 'Total Value'];
+    // Determine brand name for filename
+    const firstBrandId = blocksToExport[0]?.brandId;
+    const brandObj = apiBrands.find((b: any) => String(b.id) === String(firstBrandId));
+    const brandName = brandObj?.name || 'All';
 
-    const escapeCSV = (val: any) => {
-      const str = String(val ?? '');
-      if (str.includes(',') || str.includes('"') || str.includes('\n')) {
-        return `"${str.replace(/"/g, '""')}"`;
+    // Build SKU blocks payload
+    const exportBlocks: SKUExportBlock[] = blocksToExport.map((block: any) => ({
+      brandId: String(block.brandId || 'all'),
+      brandName: apiBrands.find((b: any) => String(b.id) === String(block.brandId))?.name || '',
+      rail: block.rail || '',
+      gender: block.gender || '',
+      category: block.category || '',
+      subCategory: block.subCategory || '',
+      items: (block.items || []).map((item: any) => ({
+        productId: String(item.productId || ''),
+        sku: item.sku || '',
+        name: item.name || '',
+        color: item.color || '',
+        colorCode: item.colorCode || '',
+        productType: item.productType || '',
+        customerTarget: item.customerTarget || 'New',
+        unitCost: item.unitCost || 0,
+        srp: item.srp || 0,
+        order: item.order || 0,
+        ttlValue: item.ttlValue || 0,
+        storeQty: item.storeQty || {},
+      })),
+    }));
+
+    // Build sizing rows payload — one row per item that has sizing or order > 0
+    const sizingExportRows: SizingExportRow[] = [];
+
+    // Sort helper for size names
+    const sizeOrder = ['XXS', 'XS', 'S', 'M', 'L', 'XL', 'XXL', '2XL', '3XL', '4XL', '5XL'];
+    const sortSizes = (names: string[]) => names.sort((a, b) => {
+      const ia = sizeOrder.indexOf(a);
+      const ib = sizeOrder.indexOf(b);
+      if (ia >= 0 && ib >= 0) return ia - ib;
+      if (ia >= 0) return -1;
+      if (ib >= 0) return 1;
+      return a.localeCompare(b);
+    });
+
+    blocksToExport.forEach((block: any) => {
+      const blockKey = buildBlockKey(block);
+      // Get size keys for this block's subcategory
+      const subCatSizes = subCategorySizesMap[(block.subCategory || '').toLowerCase()];
+      const subCatSizeNames = subCatSizes ? subCatSizes.map(s => s.name) : [];
+
+      (block.items || []).forEach((item: any, idx: number) => {
+        const key = `${blockKey}_${idx}`;
+        const itemSizing = currentSizing[key] || {};
+        // Merge subcategory sizes + any extra sizes from sizing data
+        const sizeSet = new Set([...subCatSizeNames, ...Object.keys(itemSizing)]);
+        const sizeKeys = sortSizes(Array.from(sizeSet));
+        // Skip sizing export if no sizes configured in master data
+        if (sizeKeys.length === 0) return;
+
+        sizingExportRows.push({
+          productId: String(item.productId || ''),
+          sku: item.sku || '',
+          name: item.name || '',
+          rail: block.rail || '',
+          subCategory: block.subCategory || '',
+          order: item.order || 0,
+          sizes: itemSizing,
+          sizeKeys,
+        });
+      });
+    });
+
+    const sizeColumns: string[] = []; // kept for payload compat
+
+    const storeCodes = stores.map((s: any) => (s.code || '').toUpperCase()).filter(Boolean);
+
+    try {
+      const filename = await exportSKUProposalExcel({
+        brandName,
+        blocks: exportBlocks,
+        storeCodes,
+        sizingRows: sizingExportRows,
+        sizeColumns,
+      });
+      const totalItems = exportBlocks.reduce((sum, b) => sum + b.items.length, 0);
+      toast.success(`Exported ${totalItems} SKUs to ${filename}`);
+    } catch (err: any) {
+      console.error('[SKUProposal] Export failed:', err);
+      toast.error('Failed to export Excel');
+    }
+  }, [filteredSkuBlocks, apiBrands, stores, subCategorySizesMap, t]);
+
+  // Import Excel — apply store quantities and sizing data from file
+  const importFileRef = useRef<HTMLInputElement>(null);
+
+  const handleImportExcel = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    // Reset input so the same file can be re-imported
+    if (importFileRef.current) importFileRef.current.value = '';
+
+    showLoading('Importing Excel...');
+    try {
+      const result: SKUProposalImportResult = await importSKUProposalExcel(file);
+
+      if (result.errors.length > 0) {
+        toast.error(`Import errors:\n${result.errors.join('\n')}`);
+        return;
       }
-      return str;
-    };
+      if (result.warnings.length > 0) {
+        result.warnings.forEach(w => console.warn('[Import]', w));
+      }
 
-    const csvContent = [
-      headers.join(','),
-      ...rows.map((row: any) =>
-        [row.skuCode, row.productName, row.rail, row.gender, row.category, row.subCategory, row.size, row.color, row.srp, row.orderQty, row.totalValue]
-          .map(escapeCSV)
-          .join(',')
-      )
-    ].join('\n');
+      // Build lookup maps
+      const skuMap = new Map(result.skuRows.map(r => [r.productId, r]));
+      const sizingMap = new Map(result.sizingRows.map(r => [r.productId, r]));
 
-    const BOM = '\uFEFF';
-    const blob = new Blob([BOM + csvContent], { type: 'text/csv;charset=utf-8;' });
-    const url = URL.createObjectURL(blob);
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const filename = `DAFC_SKU_Proposal_${dateStr}.csv`;
+      let updatedSKUs = 0;
+      let updatedSizing = 0;
 
-    const link = document.createElement('a');
-    link.href = url;
-    link.download = filename;
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
-    URL.revokeObjectURL(url);
+      // Apply store quantities to skuBlocks
+      setSkuBlocks((prev: any[]) => prev.map((block: any) => {
+        const updatedItems = block.items.map((item: any) => {
+          const imported = skuMap.get(String(item.productId));
+          if (!imported) return item;
+          updatedSKUs++;
 
-    toast.success(t('skuProposal.exportSuccess') || `Exported ${rows.length} SKUs to ${filename}`);
-  }, [filteredSkuBlocks, t]);
+          const newStoreQty = { ...(item.storeQty || {}) };
+          // Overwrite store quantities from import
+          Object.entries(imported.storeQty).forEach(([code, qty]) => {
+            newStoreQty[code] = qty;
+          });
+          // Also update stores that are in the system but were 0 in import (clear them)
+          stores.forEach((store: any) => {
+            const code = (store.code || '').toUpperCase();
+            if (code && imported.storeQty[code] === undefined) {
+              // If the import had the store column but value was 0, set to 0
+              // Only clear if import had data for this product
+              newStoreQty[code] = imported.storeQty[code] ?? newStoreQty[code] ?? 0;
+            }
+          });
+
+          const newOrder = Object.values(newStoreQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+          const newTtlValue = newOrder * (item.unitCost || 0);
+          return {
+            ...item,
+            storeQty: newStoreQty,
+            order: newOrder,
+            ttlValue: newTtlValue,
+            customerTarget: imported.customerTarget || item.customerTarget,
+          };
+        });
+        return { ...block, items: updatedItems };
+      }));
+
+      // Apply sizing data
+      if (sizingMap.size > 0) {
+        setSizingData((prev: Record<string, any>) => {
+          const next = { ...prev };
+          const currentBlocks = skuBlocksRef.current;
+          currentBlocks.forEach((block: any) => {
+            const blockKey = buildBlockKey(block);
+            (block.items || []).forEach((item: any, idx: number) => {
+              const imported = sizingMap.get(String(item.productId));
+              if (!imported) return;
+              updatedSizing++;
+              const key = `${blockKey}_${idx}`;
+              next[key] = { ...(next[key] || {}), ...imported.sizes };
+            });
+          });
+          return next;
+        });
+      }
+
+      const msgs: string[] = [];
+      if (updatedSKUs > 0) msgs.push(`${updatedSKUs} SKUs updated`);
+      if (updatedSizing > 0) msgs.push(`${updatedSizing} sizing entries imported`);
+      if (result.warnings.length > 0) msgs.push(`${result.warnings.length} warnings`);
+      toast.success(msgs.length > 0 ? `Import complete: ${msgs.join(', ')}` : 'Import complete (no changes)');
+    } catch (err: any) {
+      console.error('[SKUProposal] Import failed:', err);
+      toast.error(`Import failed: ${err?.message || 'Unknown error'}`);
+    } finally {
+      hideLoading();
+    }
+  }, [stores, showLoading, hideLoading]);
 
   // Register export handler with AppContext (for header Export button)
   useEffect(() => {
-    registerExport(handleExportCSV);
+    registerExport(handleExportExcel);
     return () => { unregisterExport(); };
-  }, [handleExportCSV, registerExport, unregisterExport]);
+  }, [handleExportExcel, registerExport, unregisterExport]);
 
   const handleStartEdit = (cellKey: any, currentValue: any) => {
     setEditingCell(cellKey);
@@ -1971,7 +2219,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       )}
                       {!loadingBudgets && filteredBudgets.length > 0 && (
                         <div
-                          onClick={() => { setBudgetFilter('all'); setIsBudgetDropdownOpen(false); }}
+                          onClick={() => { setBudgetFilter('all'); setBrandFilter('all'); setIsBudgetDropdownOpen(false); }}
                           className={`px-4 py-0.5 flex items-center justify-between cursor-pointer text-sm transition-colors ${budgetFilter === 'all'
                             ? 'bg-[rgba(18,119,73,0.1)] text-[#127749]' : 'hover:bg-[rgba(160,120,75,0.18)] text-[#666666]'}`}
                         >
@@ -1985,6 +2233,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                           onClick={() => {
                             setBudgetFilter(budget.id);
                             if (budget.fiscalYear) setFyFilter(String(budget.fiscalYear));
+                            if (budget.brandId) setBrandFilter(String(budget.brandId));
                             setIsBudgetDropdownOpen(false);
                           }}
                           className={`px-4 py-0.5 cursor-pointer transition-colors border-t border-[#D4C8BB] ${budgetFilter === budget.id
@@ -2146,6 +2395,33 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               >
                 <LayoutGrid size={13} />
               </button>
+            </div>
+
+            {/* Export / Import Excel */}
+            <div className="flex items-center gap-1">
+              <button
+                type="button"
+                onClick={handleExportExcel}
+                title="Export Excel"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-[#C4B5A5] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] transition-colors"
+              >
+                <Download size={12} /> Export
+              </button>
+              <button
+                type="button"
+                onClick={() => importFileRef.current?.click()}
+                title="Import Excel"
+                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-[#C4B5A5] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] transition-colors"
+              >
+                <Upload size={12} /> Import
+              </button>
+              <input
+                ref={importFileRef}
+                type="file"
+                accept=".xlsx,.xls"
+                onChange={handleImportExcel}
+                className="hidden"
+              />
             </div>
           </div>
         )}
@@ -3065,7 +3341,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
 
             {/* Tab Buttons */}
             <div className={`flex border-b ${'border-[rgba(215,183,151,0.3)]'}`}>
-              {([['details', t('skuProposal.showDetails')], ['storeOrder', `${t('skuProposal.storeOrder')} (${lightbox.item.order || 0})`], ['sizing', t('skuProposal.sizing')]] as const).map(([tabId, label]) => (
+              {([['details', t('skuProposal.showDetails')], ['storeOrder', `${t('skuProposal.storeOrder')} (${(lightboxLiveItem || lightbox.item).order || 0})`], ['sizing', t('skuProposal.sizing')]] as const).map(([tabId, label]) => (
                 <button
                   key={tabId}
                   type="button"
@@ -3208,6 +3484,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       );
                     })()}
                   </div>
+                  {getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType).length === 0 ? (
+                    <div className="flex items-center gap-2 px-4 py-6 bg-amber-50 border border-amber-200 rounded-lg text-amber-700 text-sm font-['Montserrat']">
+                      <svg className="w-5 h-5 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20"><path fillRule="evenodd" d="M8.257 3.099c.765-1.36 2.722-1.36 3.486 0l5.58 9.92c.75 1.334-.213 2.98-1.742 2.98H4.42c-1.53 0-2.493-1.646-1.743-2.98l5.58-9.92zM11 13a1 1 0 11-2 0 1 1 0 012 0zm-1-8a1 1 0 00-1 1v3a1 1 0 002 0V6a1 1 0 00-1-1z" clipRule="evenodd" /></svg>
+                      <span>Master Data chưa có danh sách size cho subcategory <strong>"{lightbox.block?.subCategory || lightbox.item.productType}"</strong>. Vui lòng cập nhật Size trong Master Data.</span>
+                    </div>
+                  ) : (
                   <table className="w-full text-sm">
                     <thead className="sticky top-0 z-10">
                       <tr className={'bg-[rgba(215,183,151,0.2)] text-[#6B4D30]'}>
@@ -3250,11 +3532,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                               <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% Sales mix</td>
                               {lbSizes.map((sz: string) => (
                                 <td key={sz} className="px-1 py-2 text-center font-['JetBrains_Mono'] text-xs text-[#666]">
-                                  {`${histBySize[sz]?.salesMixPct || 0}%`}
+                                  {`${parseFloat((histBySize[sz]?.salesMixPct || 0).toFixed(1))}%`}
                                 </td>
                               ))}
                               <td className={`px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] ${'bg-[rgba(160,120,75,0.12)]'}`}>
-                                {`${salesMixSum}%`}
+                                {`${parseFloat(salesMixSum.toFixed(1))}%`}
                               </td>
                               <td></td>
                             </tr>
@@ -3262,7 +3544,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                               <td className={`px-4 py-2 font-medium ${'text-[#333333]'}`}>% ST</td>
                               {lbSizes.map((sz: string) => (
                                 <td key={sz} className="px-1 py-2 text-center font-['JetBrains_Mono'] text-xs text-[#666]">
-                                  {`${histBySize[sz]?.stPct ?? 0}%`}
+                                  {`${parseFloat((histBySize[sz]?.stPct ?? 0).toFixed(1))}%`}
                                 </td>
                               ))}
                               <td className={`px-4 py-2 text-center font-['JetBrains_Mono'] ${'text-[#999999] bg-[rgba(160,120,75,0.12)]'}`}>0.0%</td>
@@ -3272,12 +3554,30 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                         );
                       })()}
                       {(() => {
-                        const totalStoreOrder = lightbox.item.order || 0;
+                        const liveItem = lightboxLiveItem || lightbox.item;
+                        const totalStoreOrder = liveItem.order || 0;
                         const sizing = getSizing(lightbox.blockKey, lightbox.idx);
-                        const lbSizeKeys = getSizeKeysForSubCategory(lightbox.block?.subCategory || lightbox.item.productType);
+                        const lbSizeKeys = getSizeKeysForSubCategory(lightbox.block?.subCategory || liveItem.productType);
                         const sizingSum = calculateSum(sizing);
                         const isOver = totalStoreOrder > 0 && sizingSum > totalStoreOrder;
                         return (
+                          <>
+                          <tr className="border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.06)]">
+                            <td className="px-4 py-2 font-medium text-[#6B4D30]">% Sale mix OTB</td>
+                            {lbSizeKeys.map((size: string) => {
+                              const sizeQty = Number(sizing[size] || 0);
+                              const pct = sizingSum > 0 ? (sizeQty / sizingSum) * 100 : 0;
+                              return (
+                                <td key={size} className="px-1 py-2 text-center font-['JetBrains_Mono'] text-xs text-[#6B4D30]">
+                                  {`${parseFloat(pct.toFixed(1))}%`}
+                                </td>
+                              );
+                            })}
+                            <td className="px-4 py-2 text-center font-semibold font-['JetBrains_Mono'] text-[#6B4D30] bg-[rgba(215,183,151,0.2)]">
+                              {sizingSum > 0 ? '100%' : '0%'}
+                            </td>
+                            <td></td>
+                          </tr>
                           <tr className="border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.12)]">
                             <td className="px-4 py-2 font-medium text-[#6B4D30]">Sizing</td>
                             {lbSizeKeys.map((size: string) => (
@@ -3299,12 +3599,22 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                               {sizingSum}
                               {isOver && <span className="block text-[9px] font-normal">/{totalStoreOrder}</span>}
                             </td>
-                            <td></td>
+                            <td className="px-1 py-2">
+                              <input
+                                type="text"
+                                value={liveItem.sizingComment || ''}
+                                onChange={(e) => handleSelectChange(lightbox.blockKey, lightbox.idx, 'sizingComment', e.target.value)}
+                                placeholder="Sizing comment..."
+                                className="w-full text-xs rounded border border-[#C4B5A5] py-1 px-2 focus:outline-none focus:ring-2 focus:ring-[rgba(215,183,151,0.4)] bg-white text-[#333] placeholder-[#999]"
+                              />
+                            </td>
                           </tr>
+                          </>
                         );
                       })()}
                     </tbody>
                   </table>
+                  )}
                 </div>
               )}
             </div>
@@ -3315,7 +3625,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               let sizingOverAllocated = false;
               let sizingWithoutOrder = false;
               if (lightbox.tab === 'sizing') {
-                const totalStoreOrder = lightbox.item.order || 0;
+                const liveItem = lightboxLiveItem || lightbox.item;
+                const totalStoreOrder = liveItem.order || 0;
                 const sizing = getSizing(lightbox.blockKey, lightbox.idx);
                 const sizingSum = calculateSum(sizing);
                 if (sizingSum > 0 && totalStoreOrder === 0) { sizingWithoutOrder = true; }
@@ -3332,7 +3643,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   {sizingOverAllocated && (
                     <div className="flex items-center gap-2 mb-2 px-3 py-2 rounded-lg bg-red-50 border border-red-200 text-red-700 text-sm">
                       <AlertTriangle size={16} className="flex-shrink-0" />
-                      <span>Sizing total exceeds store order ({lightbox.item.order}). Please adjust before confirming.</span>
+                      <span>Sizing total exceeds store order ({(lightboxLiveItem || lightbox.item).order}). Please adjust before confirming.</span>
                     </div>
                   )}
                   <div className="flex justify-end gap-3">

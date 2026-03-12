@@ -63,19 +63,18 @@ export function formatNumber(value: number | string | null | undefined): string 
   return new Intl.NumberFormat('en-US', { maximumFractionDigits: 0 }).format(Math.round(num));
 }
 
-// Format percentage display (no sign, no rounding — show exact value)
+// Format percentage display (no sign, rounded to 1 decimal)
 export function displayPct(value: number | string | null | undefined): string {
   const num = Number(value) || 0;
-  // Remove trailing zeros but keep all meaningful decimals
-  const str = parseFloat(num.toFixed(10)).toString();
+  const str = parseFloat(num.toFixed(1)).toString();
   return `${str}%`;
 }
 
-// Format percentage with optional sign (for changes/variance, no rounding)
+// Format percentage with optional sign (for changes/variance, rounded to 1 decimal)
 export function formatPercent(value: number | string | null | undefined): string {
   const num = Number(value) || 0;
   const sign = num > 0 ? '+' : '';
-  const str = parseFloat(num.toFixed(10)).toString();
+  const str = parseFloat(num.toFixed(1)).toString();
   return `${sign}${str}%`;
 }
 

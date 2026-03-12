@@ -43,6 +43,7 @@ interface UseBudgetAllocateSaveOptions {
   allocateHeaders: any[];    // full headers with budget_allocates (store/season_group/season)
   brandVersionMap: Record<string, any>;   // brand.id (string key) → headerId
   allocationValues: Record<string, any>;  // "brandId-sgName-seasonName" → { storeCode: amount }
+  allocationComments: Record<string, string>; // "brandId-sgName-seasonName" → comment
   stores: Store[];
   seasonGroups: SeasonGroup[];            // master season groups with seasons (for new rows)
   onSaved?: (results: any[]) => void;
@@ -71,12 +72,17 @@ function buildNameToIdMap(
   const map = new Map<string, { sgId: string; seasonId: string }>();
 
   // 1. From existing header records (most authoritative — IDs come directly from DB)
+  // Note: budget_allocates may use Prisma `select` so FK fields (season_group_id) may be absent;
+  // fall back to nested relation .id (e.g. a.season_group?.id)
   (header?.budget_allocates ?? []).forEach((a: any) => {
-    const sgName: string = a.season_group?.name ?? String(a.season_group_id);
-    const seasonName: string = a.season?.name ?? String(a.season_id);
+    const sgId = a.season_group_id ?? a.season_group?.id;
+    const seasonId = a.season_id ?? a.season?.id;
+    const sgName: string = a.season_group?.name ?? String(sgId);
+    const seasonName: string = a.season?.name ?? String(seasonId);
+    if (sgId == null || seasonId == null) return; // skip if we can't resolve IDs
     map.set(`${sgName}${SEP}${seasonName}`, {
-      sgId: String(a.season_group_id),
-      seasonId: String(a.season_id),
+      sgId: String(sgId),
+      seasonId: String(seasonId),
     });
   });
 
@@ -99,6 +105,7 @@ export function useBudgetAllocateSave({
   allocateHeaders,
   brandVersionMap,
   allocationValues,
+  allocationComments,
   stores,
   seasonGroups,
   onSaved,
@@ -169,6 +176,41 @@ export function useBudgetAllocateSave({
     [allocateHeaders, allocationValues, stores, seasonGroups],
   );
 
+  // Build comments payload for a brand, resolving names to IDs.
+  const buildComments = useCallback(
+    (brandId: any, headerId: any): { seasonGroupId: string; seasonId: string; comment: string }[] => {
+      const header = allocateHeaders.find((h: any) =>
+        h.id === headerId || Number(h.id) === Number(headerId)
+      );
+      const nameToId = buildNameToIdMap(header, seasonGroups);
+      const comments: { seasonGroupId: string; seasonId: string; comment: string }[] = [];
+      const prefix = `${brandId}-`;
+
+      for (const [key, comment] of Object.entries(allocationComments)) {
+        if (!key.startsWith(prefix)) continue;
+        if (!comment) continue; // skip empty comments
+        const sgAndSeason = key.slice(prefix.length);
+
+        let ids: { sgId: string; seasonId: string } | undefined;
+        for (const [nameKey, idPair] of nameToId.entries()) {
+          const [sgName, seasonName] = nameKey.split('|||');
+          if (sgAndSeason === `${sgName}-${seasonName}`) {
+            ids = idPair;
+            break;
+          }
+        }
+        if (!ids) continue;
+
+        // Deduplicate: only keep first comment per (sgId, seasonId) pair
+        if (!comments.some(c => c.seasonGroupId === ids!.sgId && c.seasonId === ids!.seasonId)) {
+          comments.push({ seasonGroupId: ids.sgId, seasonId: ids.seasonId, comment });
+        }
+      }
+      return comments;
+    },
+    [allocateHeaders, allocationComments, seasonGroups],
+  );
+
   const save = useCallback(async () => {
     if (!budgetId || displayBrands.length === 0) {
       toast('No budget or brands selected', { icon: 'ℹ️' });
@@ -191,9 +233,11 @@ export function useBudgetAllocateSave({
           continue;
         }
 
+        const comments = buildComments(brand.id, headerId ?? null);
+
         if (headerId) {
           // Existing header → PUT (overwrite)
-          const result = await budgetService.saveAllocation(String(headerId), allocations);
+          const result = await budgetService.saveAllocation(String(headerId), allocations, comments);
           results.push(result);
         } else {
           // No existing header → POST (create new allocate header)
@@ -201,6 +245,7 @@ export function useBudgetAllocateSave({
             String(budgetId),
             String(brand.id),
             allocations,
+            comments,
           );
           results.push(result);
         }
@@ -219,7 +264,7 @@ export function useBudgetAllocateSave({
     } finally {
       setSaving(false);
     }
-  }, [budgetId, displayBrands, brandVersionMap, allocateHeaders, seasonGroups, buildAllocations, stores, allocationValues, onSaved]);
+  }, [budgetId, displayBrands, brandVersionMap, allocateHeaders, seasonGroups, buildAllocations, buildComments, stores, allocationValues, allocationComments, onSaved]);
 
   const saveAsNew = useCallback(async () => {
     if (!budgetId || displayBrands.length === 0) {
@@ -243,10 +288,12 @@ export function useBudgetAllocateSave({
           continue;
         }
 
+        const comments = buildComments(brand.id, headerId ?? null);
         const result = await budgetService.saveAsNewAllocation(
           String(budgetId),
           String(brand.id),
           allocations,
+          comments,
         );
         results.push(result);
       }
@@ -264,7 +311,7 @@ export function useBudgetAllocateSave({
     } finally {
       setSaving(false);
     }
-  }, [budgetId, displayBrands, brandVersionMap, allocateHeaders, seasonGroups, buildAllocations, onSaved]);
+  }, [budgetId, displayBrands, brandVersionMap, allocateHeaders, seasonGroups, buildAllocations, buildComments, allocationComments, onSaved]);
 
   return { save, saveAsNew, saving };
 }

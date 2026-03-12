@@ -8,7 +8,7 @@ import {
   ClipboardList, ClipboardCheck, Ticket, Home, LogOut,
   Settings, Crown, PanelLeftClose,
   Database, Building2, FolderTree, Tag,
-  Upload, Store, Users, Calendar
+  Upload, Store, Users, Calendar, Coins
 } from 'lucide-react';
 import { ROUTE_MAP } from '@/utils/routeMap';
 import { useLanguage } from '@/contexts/LanguageContext';
@@ -350,6 +350,7 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
                     { id: 'master-stores', label: t('nav.stores'), icon: Store },
                     { id: 'master-genders', label: t('nav.genders'), icon: Users },
                     { id: 'master-season-groups', label: t('nav.seasonGroups'), icon: Calendar },
+                    { id: 'master-currencies', label: 'Currencies', icon: Coins },
                   ].map((item: any) => {
                     const isActive = currentScreen === item.id;
                     return (

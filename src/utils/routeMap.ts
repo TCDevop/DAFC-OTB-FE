@@ -16,6 +16,7 @@ export const ROUTE_MAP: Record<string, string> = {
   'master-stores': '/master-data/stores',
   'master-genders': '/master-data/genders',
   'master-season-groups': '/master-data/season-groups',
+  'master-currencies': '/master-data/currencies',
   'approval-config': '/approval-config',
   'approvals': '/tickets',
   'order-confirmation': '/order-confirmation',

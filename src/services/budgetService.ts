@@ -103,9 +103,9 @@ export const budgetService = {
   },
 
   // Save (overwrite) existing allocate header rows
-  async saveAllocation(headerId: string, allocations: { storeId: string; seasonGroupId: string; seasonId: string; budgetAmount: number }[]) {
+  async saveAllocation(headerId: string, allocations: { storeId: string; seasonGroupId: string; seasonId: string; budgetAmount: number }[], comments?: { seasonGroupId: string; seasonId: string; comment: string }[]) {
     try {
-      const response = await api.put(`/budgets/allocations/${headerId}`, { allocations });
+      const response = await api.put(`/budgets/allocations/${headerId}`, { allocations, comments });
       return extract(response);
     } catch (err: any) {
       console.error('[budgetService.saveAllocation]', headerId, err?.response?.status, err?.message);
@@ -114,9 +114,9 @@ export const budgetService = {
   },
 
   // Save as new allocate header version for a brand
-  async saveAsNewAllocation(budgetId: string, brandId: string, allocations: { storeId: string; seasonGroupId: string; seasonId: string; budgetAmount: number }[]) {
+  async saveAsNewAllocation(budgetId: string, brandId: string, allocations: { storeId: string; seasonGroupId: string; seasonId: string; budgetAmount: number }[], comments?: { seasonGroupId: string; seasonId: string; comment: string }[]) {
     try {
-      const response = await api.post(`/budgets/${budgetId}/allocations`, { brandId, allocations });
+      const response = await api.post(`/budgets/${budgetId}/allocations`, { brandId, allocations, comments });
       return extract(response);
     } catch (err: any) {
       console.error('[budgetService.saveAsNewAllocation]', budgetId, err?.response?.status, err?.message);
