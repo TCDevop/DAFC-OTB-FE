@@ -1101,23 +1101,21 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   const toggleSubCategoryExpanded = (catId: any, subCatId: any, brandId?: string) => {
     const rawKey = `${catId}_${subCatId}`;
     const key = brandId ? `${brandId}::${rawKey}` : rawKey;
-    setExpandedSubCategories((prev: any) => ({ ...prev, [key]: prev[key] === false ? true : false }));
+    setExpandedSubCategories((prev: any) => ({ ...prev, [key]: !prev[key] }));
   };
 
   const handleToggleAll = (brandId?: string) => {
     const key = brandId || '__global__';
-    const isCollapsed = allCollapsedPerBrand[key] || false;
+    const isCollapsed = allCollapsedPerBrand[key] !== false;
     setAllCollapsedPerBrand(prev => ({ ...prev, [key]: !isCollapsed }));
-    const newCats: Record<string, boolean> = {};
     const newSubCats: Record<string, boolean> = {};
     const prefix = brandId ? `${brandId}::` : '';
-    genderFirstStructure.forEach((genderEntry: any) => {
-      newCats[`${prefix}${genderEntry.gender.id}`] = isCollapsed;
+    const structure = brandId ? getBrandGenderFirst(brandId) : genderFirstStructure;
+    structure.forEach((genderEntry: any) => {
       genderEntry.categories.forEach((catEntry: any) => {
         newSubCats[`${prefix}${genderEntry.gender.id}_${catEntry.category.id}`] = isCollapsed;
       });
     });
-    setExpandedCategories(prev => ({ ...prev, ...newCats }));
     setExpandedSubCategories(prev => ({ ...prev, ...newSubCats }));
   };
 
@@ -1995,7 +1993,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   {genderEntry.categories.map((catEntry: any) => {
                     const rawCatKey = `${genderEntry.gender.id}_${catEntry.category.id}`;
                     const catKey = brandId ? `${brandId}::${rawCatKey}` : rawCatKey;
-                    const isCatExpanded = expandedSubCategories[catKey] !== false;
+                    const isCatExpanded = expandedSubCategories[catKey] === true;
                     const catTotals = calculateCategoryTotals(catEntry);
                     const skuStatusMap = brandId ? (brandSkuStatus[brandId] || {}) : {};
                     const isCatFullyAllocated = catEntry.subCategories.length > 0 && catEntry.subCategories.every((sub: any) => {
@@ -2798,8 +2796,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                 onClick={(e) => { e.stopPropagation(); handleToggleAll(brandId); }}
                 className={`shrink-0 flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
               >
-                <ChevronDown size={12} className={`transition-transform ${allCollapsedPerBrand[brandId] ? '-rotate-90' : ''}`} />
-                {allCollapsedPerBrand[brandId] ? 'Expand' : 'Collapse'}
+                <ChevronDown size={12} className={`transition-transform ${allCollapsedPerBrand[brandId] !== false ? '-rotate-90' : ''}`} />
+                {allCollapsedPerBrand[brandId] !== false ? 'Expand' : 'Collapse'}
               </button>
             )}
             {isCollapsed && (
@@ -3343,8 +3341,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   value={transactionFilter}
                   options={[
                     { value: 'all', label: 'All' },
-                    { value: 'has', label: 'Has Transactions' },
-                    { value: 'none', label: 'No Transactions' },
+                    { value: 'has', label: 'Yes' },
+                    { value: 'none', label: 'No' },
                   ]}
                   onChange={(val: any) => setTransactionFilter(val)}
                 />
