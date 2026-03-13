@@ -838,6 +838,14 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   // Save or create new planning version for a brand
   const handleSaveBrand = async (brand: any, isNewVersion: boolean) => {
     const brandId = String(brand.id);
+    const brandBudgetCheck = brandAllocatedTotal[brandId] || 0;
+    if (brandBudgetCheck > 0) {
+      const bt = getBrandTotals(brandId);
+      if (bt.otbProposed > brandBudgetCheck) {
+        toast.error(`$OTB (${formatNumber(bt.otbProposed)}) vượt quá ngân sách phân bổ (${formatNumber(brandBudgetCheck)}) của ${brand.name || brandId}`);
+        return;
+      }
+    }
     setBrandSaving(prev => ({ ...prev, [brandId]: true }));
     showLoading(isNewVersion ? 'Saving as new version...' : 'Saving...');
     try {
@@ -1884,7 +1892,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                     </colgroup>
                     <tbody>
                       <tr>
-                        <td className="px-3 py-0.5">
+                        <td className="pl-1 pr-3 py-0.5">
                           <div className="flex items-center gap-2">
                             <button className={`shrink-0 p-0.5 rounded transition-colors ${'bg-[rgba(138,99,64,0.1)] hover:bg-[rgba(138,99,64,0.2)]'}`}>
                               <ChevronDown size={14} className={`transition-transform duration-200 ${isGenderExpanded ? '' : '-rotate-90'} ${'text-[#6B4D30]'}`} />
@@ -1893,7 +1901,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                               ? <CheckCircle2 size={16} className="shrink-0 text-[#22c55e]" strokeWidth={2.5} />
                               : <Users size={14} className={'shrink-0 text-[#6B4D30]'} />
                             }
-                            <span className={`truncate font-semibold text-[11px] font-['Montserrat'] uppercase tracking-wide ${'text-[#5C4A3A]'}`}>{genderEntry.gender.name}</span>
+                            <span className={`truncate font-semibold text-[11px] font-['Montserrat'] tracking-wide ${'text-[#5C4A3A]'}`}>{genderEntry.gender.name}</span>
                           </div>
                         </td>
                         <td className={`px-2 py-0.5 text-center ${'text-[#5C4A3A]'}`}>
@@ -2007,7 +2015,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                         {isCatExpanded ? (
                           <div
                             onClick={() => toggleSubCategoryExpanded(genderEntry.gender.id, catEntry.category.id, brandId || undefined)}
-                            className={`flex items-center gap-2 md:gap-3 px-3 md:px-4 py-0.5 cursor-pointer transition-all ${'bg-[rgba(160,120,75,0.12)] hover:bg-[rgba(215,183,151,0.2)]'}`}
+                            className={`flex items-center gap-2 md:gap-3 pl-6 md:pl-7 pr-3 py-0.5 cursor-pointer transition-all ${'bg-[rgba(160,120,75,0.12)] hover:bg-[rgba(215,183,151,0.2)]'}`}
                           >
                             <button className={`shrink-0 p-0.5 rounded transition-colors ${'bg-[rgba(215,183,151,0.2)] hover:bg-[rgba(215,183,151,0.3)]'}`}>
                               <ChevronDown size={13} className={`transition-transform duration-200 ${'text-[#6B4D30]'}`} />
@@ -2016,7 +2024,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                               ? <CheckCircle2 size={15} className="shrink-0 text-[#22c55e]" strokeWidth={2.5} />
                               : <Tag size={13} className={'shrink-0 text-[#6B4D30]'} />
                             }
-                            <span className={`font-semibold text-xs uppercase tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
+                            <span className={`font-semibold text-xs tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
                               {catEntry.category.name}
                             </span>
                           </div>
@@ -2049,7 +2057,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                               </colgroup>
                               <tbody>
                                 <tr>
-                                  <td className="px-3 py-0.5">
+                                  <td className="pl-6 pr-3 py-0.5">
                                     <div className="flex items-center gap-2">
                                       <button className={`shrink-0 p-0.5 rounded transition-colors ${'bg-[rgba(215,183,151,0.2)] hover:bg-[rgba(215,183,151,0.3)]'}`}>
                                         <ChevronDown size={13} className={`transition-transform duration-200 -rotate-90 ${'text-[#6B4D30]'}`} />
@@ -2058,7 +2066,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                         ? <CheckCircle2 size={15} className="shrink-0 text-[#22c55e]" strokeWidth={2.5} />
                                         : <Tag size={13} className={'shrink-0 text-[#6B4D30]'} />
                                       }
-                                      <span className={`truncate font-semibold text-xs uppercase tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
+                                      <span className={`truncate font-semibold text-xs tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
                                         {catEntry.category.name}
                                       </span>
                                     </div>
@@ -2327,7 +2335,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   <ChevronDown size={18} className={`transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'} ${'text-[#6B4D30]'}`} />
                 </button>
                 <Bookmark size={18} className={'text-[#6B4D30]'} />
-                <span className={`font-semibold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#5C4A3A]'}`}>{section.name}</span>
+                <span className={`font-semibold text-xs font-['Montserrat'] tracking-wide ${'text-[#5C4A3A]'}`}>{section.name}</span>
                 <span className={`ml-auto text-xs md:text-sm ${'text-[#6B4D30]'}`}>
                   {activeStores.length} stores
                 </span>
@@ -2530,7 +2538,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                   <ChevronDown size={18} className={`transition-transform duration-200 ${isExpanded ? '' : '-rotate-90'} ${'text-[#6B4D30]'}`} />
                 </button>
                 <Users size={18} className={'text-[#6B4D30]'} />
-                <span className={`font-semibold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#5C4A3A]'}`}>{gender.name}</span>
+                <span className={`font-semibold text-xs font-['Montserrat'] tracking-wide ${'text-[#5C4A3A]'}`}>{gender.name}</span>
                 <span className={`ml-auto text-xs md:text-sm ${'text-[#6B4D30]'}`}>
                   {activeStores.length} stores
                 </span>
@@ -2717,17 +2725,18 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
             {(() => {
               const groupBrandName = brand.group_brand?.name || brand.groupBrand?.name || brand.groupName || null;
               return groupBrandName ? (
-                <span className={`text-[10px] font-medium font-['Montserrat'] uppercase tracking-widest ${'text-[#6B4D30]/60'}`}>
+                <span className={`text-[10px] font-medium font-['Montserrat'] tracking-widest ${'text-[#6B4D30]/60'}`}>
                   {groupBrandName}
                 </span>
               ) : null;
             })()}
-            <span className={`font-bold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#1A1A1A]'}`}>
+            <span className={`font-bold text-xs font-['Montserrat'] tracking-wide ${'text-[#1A1A1A]'}`}>
               {brand.name || brand.code || `Brand ${brand.id}`}
             </span>
           </div>
           {filtersComplete && brandAllocatedTotal[brandId] > 0 && (() => {
             const bt = getBrandTotals(brandId);
+            const isOtbOver = bt.otbProposed > brandAllocatedTotal[brandId];
             return (
               <>
                 <span className={`px-2 py-0.5 rounded border font-['JetBrains_Mono'] text-xs font-semibold ${'bg-[rgba(18,119,73,0.08)] border-[rgba(18,119,73,0.25)] text-[#127749]'}`}>
@@ -2739,9 +2748,18 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                 <span className="px-2 py-0.5 rounded border border-[rgba(215,183,151,0.4)] bg-[rgba(215,183,151,0.18)] font-['JetBrains_Mono'] text-xs font-semibold text-[#5C4A32]">
                   %Proposed <span className="font-bold">{displayPct(bt.buyProposed)}</span>
                 </span>
-                <span className="px-2 py-0.5 rounded border border-[rgba(139,115,85,0.25)] bg-[rgba(139,115,85,0.1)] font-['JetBrains_Mono'] text-xs font-semibold text-[#3C2F1E]">
-                  $OTB <span className="font-bold">{formatNumber(bt.otbProposed)}</span>
-                </span>
+                {isOtbOver ? (
+                  <span className="relative inline-block">
+                    <span className="animate-ping-sm absolute inset-0 rounded bg-red-500 opacity-30" />
+                    <span className="relative px-2 py-0.5 rounded border border-red-600 bg-red-600 text-white font-['JetBrains_Mono'] text-xs font-semibold">
+                      $OTB <span className="font-bold">{formatNumber(bt.otbProposed)}</span>
+                    </span>
+                  </span>
+                ) : (
+                  <span className="px-2 py-0.5 rounded border border-[rgba(139,115,85,0.25)] bg-[rgba(139,115,85,0.1)] font-['JetBrains_Mono'] text-xs font-semibold text-[#3C2F1E]">
+                    $OTB <span className="font-bold">{formatNumber(bt.otbProposed)}</span>
+                  </span>
+                )}
               </>
             );
           })()}
@@ -2824,68 +2842,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
               {activeTab === 'gender' && renderGenderTab(brand)}
             </div>
 
-            {/* Save / Save as New Version footer — or warning if no final AllocateHeader */}
-            {(() => {
-              const hasFinalAH = matchedAllocateHeaders.some((ah: any) => String(ah.brandId) === brandId && ah.isFinal);
-              if (!hasFinalAH) {
-                // Find the budget that contains this brand for navigation
-                const brandBudget = apiBudgets.find((b: any) =>
-                  (b.allocateHeaders || []).some((ah: any) => String(ah.brandId) === brandId)
-                );
-                const groupBrandId = brand.group_brand_id || brand.groupBrandId || brand.group_brand?.id || null;
-                return (
-                  <div className={`flex flex-col items-center gap-2 px-4 py-3 border-t ${'border-[#C4B5A5] bg-[rgba(227,179,65,0.08)]'}`}>
-                    <div className="flex items-center gap-2">
-                      <AlertTriangle size={14} className={'text-[#B8860B]'} />
-                      <span className={`text-xs font-['Montserrat'] font-medium ${'text-[#8B6914]'}`}>
-                        This brand has not been allocated yet. Please complete Budget Allocation first.
-                      </span>
-                    </div>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        setAllocationData({
-                          id: brandBudget?.id || (selectedBudgetId !== 'all' ? selectedBudgetId : null),
-                          budgetName: brandBudget?.budgetName || '',
-                          year: selectedYear !== 'all' ? selectedYear : null,
-                          groupBrandId: groupBrandId,
-                          brandId: brandId,
-                          seasonGroupId: selectedSeasonGroup !== 'all' ? selectedSeasonGroup : null,
-                          seasonId: selectedSeason !== 'all' ? selectedSeason : null});
-                        router.push('/planning');
-                      }}
-                      className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all ${'bg-[#6B4D30] border-[#6B4D30] text-white hover:bg-[#5C4028] hover:border-[#5C4028]'}`}
-                    >
-                      Go to Budget Allocation
-                      <ArrowRight size={13} />
-                    </button>
-                  </div>
-                );
-              }
-              return (
-                <div className={`flex items-center justify-end gap-2 px-4 py-2 border-t ${'border-[#C4B5A5] bg-[#F9F7F5]'}`}>
-                  {brandSaving[brandId] && (
-                    <span className={`text-xs font-['Montserrat'] ${'text-[#999999]'}`}>Saving...</span>
-                  )}
-                  <button
-                    disabled={brandSaving[brandId]}
-                    onClick={(e) => { e.stopPropagation(); handleSaveBrand(brand, false); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${'bg-[rgba(160,120,75,0.1)] border-[rgba(160,120,75,0.35)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] hover:border-[rgba(160,120,75,0.5)]'}`}
-                  >
-                    <Save size={13} />
-                    Save
-                  </button>
-                  <button
-                    disabled={brandSaving[brandId]}
-                    onClick={(e) => { e.stopPropagation(); handleSaveBrand(brand, true); }}
-                    className={`flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] border transition-all disabled:opacity-50 disabled:cursor-not-allowed ${'bg-[#6B4D30] border-[#6B4D30] text-white hover:bg-[#5C4028] hover:border-[#5C4028]'}`}
-                  >
-                    <FilePlus size={13} />
-                    Save as New Version
-                  </button>
-                </div>
-              );
-            })()}
           </div>
         )}
       </div>
@@ -3446,22 +3402,19 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
           {/* Per-Brand Sections inside tab container */}
           <div className="p-3 space-y-3">
             {displayBrands.map((brand: any) => renderBrandSection(brand))}
-
-            {/* Allocate All Footer */}
-            {filtersComplete && displayBrands.length > 0 && (
-              <div className={`rounded-xl border overflow-hidden ${'border-[rgba(215,183,151,0.3)] bg-white'}`}>
-                <div className="flex items-center justify-end gap-3 px-4 py-2.5">
-                  <button
-                    onClick={handleAllocateAll}
-                    className={`shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] transition-all ${'bg-[rgba(18,119,73,0.12)] border border-[#127749] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]'}`}
-                  >
-                    <ChevronRight size={14} />
-                    Allocate All
-                  </button>
-                </div>
-              </div>
-            )}
           </div>
+
+          {filtersComplete && displayBrands.length > 0 && (
+            <div className="flex justify-end px-3 pb-3">
+              <button
+                onClick={handleAllocateAll}
+                className={`flex items-center gap-1 px-3 py-1 rounded-lg text-xs font-semibold font-['Montserrat'] transition-all ${'bg-[rgba(18,119,73,0.12)] border border-[#127749] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]'}`}
+              >
+                <ChevronRight size={12} />
+                Allocate All
+              </button>
+            </div>
+          )}
         </div>
       )}
 

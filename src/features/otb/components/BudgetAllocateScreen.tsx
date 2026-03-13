@@ -18,7 +18,7 @@ import { useLanguage } from '@/contexts/LanguageContext';
 import { useIsMobile } from '@/hooks/useIsMobile';
 import { FilterBottomSheet, useBottomSheet } from '@/components/mobile';
 import { TableSkeleton, ScrollToHeader } from '@/components/ui';
-import { useAllocationState, BRAND_BUDGET_CAP_PCT } from '../hooks/useAllocationState';
+import { useAllocationState } from '../hooks/useAllocationState';
 import { useBudgetAllocateSave } from '../hooks/useBudgetAllocateSave';
 import { useClipboardPaste } from '../hooks/useClipboardPaste';
 import AllocationProgressBar from './AllocationProgressBar';
@@ -818,18 +818,6 @@ const BudgetAllocateScreen = ({
     }));
   };
 
-  // Collapse all brands
-  const collapseAll = useCallback(() => {
-    const map: Record<string, boolean> = {};
-    brandList.forEach((b: any) => { map[b.id] = true; });
-    setCollapsedBrands(map);
-  }, [brandList]);
-
-  // Expand all brands and groups
-  const expandAll = useCallback(() => {
-    setCollapsedBrands({});
-    setCollapsedGroups({});
-  }, []);
 
   // Filter table rows by selected brand/group brand
   const displayBrands = useMemo(() => {
@@ -923,44 +911,6 @@ const BudgetAllocateScreen = ({
     [validate, totalBudget, totalAllocated, brandNames],
   );
 
-  // Allocate All: validate season group, season, and final versions, then navigate with full context
-  // (must be after displayBrands, allocateHeaders, brandNames are initialized)
-  const handleAllocateAll = useCallback(() => {
-    if (!selectedSeasonGroup) {
-      toast('Please select a Season Group before proceeding', { icon: '⚠️' });
-      return;
-    }
-    if (!selectedSeason) {
-      toast('Please select a Season before proceeding', { icon: '⚠️' });
-      return;
-    }
-    // Check that all displayed brands have a final version
-    const brandsWithoutFinal = displayBrands.filter((brand: any) => {
-      const brandHeaders = allocateHeaders.filter((h: any) =>
-        Number(h.brand_id ?? h.brandId) === Number(brand.id)
-      );
-      return !brandHeaders.some((h: any) => h.is_final_version ?? h.isFinalVersion);
-    });
-    if (brandsWithoutFinal.length > 0) {
-      const names = brandsWithoutFinal.map((b: any) => brandNames[b.id] || b.name || String(b.id)).join(', ');
-      toast(`The following brands have no final version: ${names}. Please set a final version before proceeding.`, { icon: '⚠️', duration: 5000 });
-      return;
-    }
-    // Navigate to OTB Analysis, passing budget + season context
-    if (onOpenOtbAnalysis) {
-      onOpenOtbAnalysis({
-        budgetId: selectedBudgetId,
-        budgetName: selectedBudget?.budgetName || fallbackBudgetName || null,
-        fiscalYear: selectedBudget?.fiscalYear || selectedYear,
-        totalBudget: selectedBudget?.totalBudget || 0,
-        status: selectedBudget?.status,
-        seasonGroup: selectedSeasonGroup,
-        season: selectedSeason,
-        brandId: selectedBrand || null});
-    }
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [selectedSeasonGroup, selectedSeason, displayBrands, allocateHeaders, brandNames,
-      onOpenOtbAnalysis, selectedBudgetId, selectedBudget, fallbackBudgetName, selectedYear, selectedBrand]);
 
   // Budget allocation save / save-as-new (needs displayBrands, allocateHeaders, brandVersionMap)
   const { save: saveAllocation, saveAsNew: saveAsNewAllocation, saving: allocSaving } = useBudgetAllocateSave({
@@ -1076,48 +1026,31 @@ const BudgetAllocateScreen = ({
 
   const selectedVersion = versions.find((v: any) => v.id === selectedVersionId);
 
-  // VAL-01: Check per-brand budget cap and show warning toast before save/submit
-  const checkBrandCapAndWarn = useCallback(() => {
-    if (totalBudget <= 0) return;
-    const capPct = Math.round(BRAND_BUDGET_CAP_PCT * 100);
-    const perBrand: Record<string, number> = {};
-    Object.entries(allocationValues).forEach(([key, storeValues]: [string, any]) => {
-      const brandId = key.split('-')[0];
-      if (!brandId || !storeValues || typeof storeValues !== 'object') return;
-      Object.values(storeValues).forEach((val: any) => {
-        if (typeof val === 'number' && val > 0) {
-          perBrand[brandId] = (perBrand[brandId] || 0) + val;
-        }
-      });
-    });
-    Object.entries(perBrand).forEach(([brandId, total]) => {
-      const pct = Math.round((total / totalBudget) * 100);
-      if (pct > capPct) {
-        const label = brandNames[brandId] || brandId;
-        toast(t('planning.brandBudgetCapWarning', { brand: label, pct: String(pct), cap: String(capPct) }), { icon: '\u26A0\uFE0F' });
-      }
-    });
-  }, [allocationValues, totalBudget, brandNames, t]);
-
   const handleSaveDraft = useCallback(async () => {
-    checkBrandCapAndWarn();
+    if (validationIssues.some((i) => i.type === 'error')) {
+      toast.error(t('planning.errorOverBudget', { amount: (totalAllocated - totalBudget).toLocaleString() }));
+      return;
+    }
     showLoading('Saving...');
     try {
       await saveAllocation();
     } finally {
       hideLoading();
     }
-  }, [checkBrandCapAndWarn, saveAllocation, showLoading, hideLoading]);
+  }, [validationIssues, totalAllocated, totalBudget, saveAllocation, showLoading, hideLoading, t]);
 
   const handleSaveAsNew = useCallback(async () => {
-    checkBrandCapAndWarn();
+    if (validationIssues.some((i) => i.type === 'error')) {
+      toast.error(t('planning.errorOverBudget', { amount: (totalAllocated - totalBudget).toLocaleString() }));
+      return;
+    }
     showLoading('Saving as new version...');
     try {
       await saveAsNewAllocation();
     } finally {
       hideLoading();
     }
-  }, [checkBrandCapAndWarn, saveAsNewAllocation, showLoading, hideLoading]);
+  }, [validationIssues, totalAllocated, totalBudget, saveAsNewAllocation, showLoading, hideLoading, t]);
 
   // Register save handlers in AppHeader — unregister on unmount
   useEffect(() => {
@@ -1490,19 +1423,6 @@ const BudgetAllocateScreen = ({
                   </button>
                 )}
 
-                {/* Collapse — right-aligned */}
-                {(selectedBudget || selectedBudgetId) && (
-                  <button
-                    onClick={() => {
-                      const allCollapsed = brandList.length > 0 && brandList.every((b: any) => collapsedBrands[b.id]);
-                      if (allCollapsed) expandAll(); else collapseAll();
-                    }}
-                    className={`ml-auto shrink-0 flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors ${'border-[rgba(215,183,151,0.4)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)]'}`}
-                  >
-                    <ChevronDown size={12} className={`transition-transform ${brandList.length > 0 && brandList.every((b: any) => collapsedBrands[b.id]) ? '-rotate-90' : ''}`} />
-                    {brandList.length > 0 && brandList.every((b: any) => collapsedBrands[b.id]) ? 'Expand' : 'Collapse'}
-                  </button>
-                )}
               </div>
               )}
       </div>
@@ -1592,7 +1512,7 @@ const BudgetAllocateScreen = ({
                                   size={14}
                                   className={`transition-transform duration-200 text-[#8A6340] ${!isBrandCollapsed ? 'rotate-90' : ''}`}
                                 />
-                                <span className="font-bold text-xs font-['Montserrat'] uppercase tracking-wide text-[#0A0A0A]">{brand.name}</span>
+                                <span className="font-bold text-xs font-['Montserrat'] tracking-wide text-[#0A0A0A]">{brand.name}</span>
                                 <span className="text-[11px] text-[#8A6340] font-['JetBrains_Mono']">
                                   {stores.map((s: any) => `${s.code}: ${formatCurrency(brandTotals[s.id] || 0)}`).join(' ')}
                                   {' '}Total: {formatCurrency(brandTotals.sum)}
@@ -1674,7 +1594,7 @@ const BudgetAllocateScreen = ({
                                         <td className={`sticky left-0 z-20 w-[260px] min-w-[260px] max-w-[260px] px-2 md:px-3 py-1 ${'bg-[rgba(160,120,75,0.06)]'}`}>
                                           <div className="flex items-center gap-2">
                                             <span className="text-sm" style={{ color: seasonGroup === 'SS' ? '#E3B341' : '#D7B797' }}>■</span>
-                                            <span className={`font-semibold text-xs font-['Montserrat'] uppercase tracking-wide ${'text-[#4A3728]'}`}>{dynamicSeasonConfig[seasonGroup]?.name}</span>
+                                            <span className={`font-semibold text-xs font-['Montserrat'] tracking-wide ${'text-[#4A3728]'}`}>{dynamicSeasonConfig[seasonGroup]?.name}</span>
                                           </div>
                                         </td>
                                         {(() => {
@@ -1842,13 +1762,6 @@ const BudgetAllocateScreen = ({
                 totalAllocated={totalAllocated}
               />
             </div>
-            <button
-              onClick={handleAllocateAll}
-              className={`shrink-0 flex items-center gap-1.5 px-4 py-1.5 rounded-lg text-xs font-semibold font-['Montserrat'] transition-all ${'bg-[rgba(18,119,73,0.12)] border border-[#127749] text-[#127749] hover:bg-[rgba(18,119,73,0.2)]'}`}
-            >
-              <ChevronRight size={14} />
-              Allocate All
-            </button>
           </div>
         </div>
       )}

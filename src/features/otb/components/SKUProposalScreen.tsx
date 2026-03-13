@@ -2588,11 +2588,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                   <Tag size={13} className={'text-[#6B4D30]'} />
                   <div className="flex items-baseline gap-2 min-w-0">
                     {brand.group_brand?.name || brand.groupBrand?.name ? (
-                      <span className={`text-[9px] font-medium font-['Montserrat'] uppercase tracking-widest ${'text-[#6B4D30]/60'}`}>
+                      <span className={`text-[9px] font-medium font-['Montserrat'] tracking-widest ${'text-[#6B4D30]/60'}`}>
                         {brand.group_brand?.name || brand.groupBrand?.name}
                       </span>
                     ) : null}
-                    <span className={`font-semibold text-sm font-['Montserrat'] uppercase tracking-wide ${'text-[#1A1A1A]'}`}>
+                    <span className={`font-semibold text-sm font-['Montserrat'] tracking-wide ${'text-[#1A1A1A]'}`}>
                       {brand.name || brand.code || `Brand ${brand.id}`}
                     </span>
                   </div>

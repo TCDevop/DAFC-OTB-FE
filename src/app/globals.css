@@ -881,6 +881,14 @@ button:active:not(:disabled) {
   }
 }
 
+/* ===== PING-SM: subtle ripple (scale 1.15x only) ===== */
+@keyframes ping-sm {
+  75%, 100% { transform: scale(1.15); opacity: 0; }
+}
+.animate-ping-sm {
+  animation: ping-sm 1.2s cubic-bezier(0, 0, 0.2, 1) infinite;
+}
+
 /* ===== MOBILE-SPECIFIC STYLES ===== */
 @media (max-width: 767px) {
   button, a, input, select, textarea, [role="button"] { touch-action: manipulation; }

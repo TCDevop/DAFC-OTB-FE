@@ -763,7 +763,7 @@ const PlanningDetailPage = ({
                 <tr className={groupRowClass}>
                   <td className="px-3 py-1.5" colSpan={8}>
                     <div className="flex items-center gap-2">
-                      <span className={`font-bold text-[11px] uppercase tracking-wider ${groupLabelText}`}>{colData.section.name}</span>
+                      <span className={`font-bold text-[11px] tracking-wider ${groupLabelText}`}>{colData.section.name}</span>
                       <Info size={10} className={textMuted} />
                     </div>
                   </td>
@@ -873,7 +873,7 @@ const PlanningDetailPage = ({
                 <tr className={groupRowClass}>
                   <td className="px-3 py-1.5" colSpan={7}>
                     <div className="flex items-center gap-2">
-                      <span className={`font-bold text-[11px] uppercase tracking-wider ${groupLabelText}`}>{genData.gender.name}</span>
+                      <span className={`font-bold text-[11px] tracking-wider ${groupLabelText}`}>{genData.gender.name}</span>
                       <Info size={10} className={textMuted} />
                     </div>
                   </td>
@@ -1149,7 +1149,7 @@ const PlanningDetailPage = ({
                     />
                   </button>
                   <Users size={18} className="text-white" />
-                  <span className="font-semibold text-xs uppercase tracking-wide text-white">{genderGroup.gender.name}</span>
+                  <span className="font-semibold text-xs tracking-wide text-white">{genderGroup.gender.name}</span>
                   <span className="ml-auto md:ml-0 text-white/80 text-xs md:text-sm">
                     {genderGroup.categories.length} {t('planningDetail.category').toLowerCase()}
                   </span>
@@ -1304,8 +1304,8 @@ const PlanningDetailPage = ({
                       : 'bg-gradient-to-r from-[#F5EDE0] to-[#FAF7F2] border border-[#E8DFD3]'
                   }`}>
                     <div className="flex flex-col md:flex-row md:items-center justify-between gap-1 md:gap-0">
-                      <span className={`font-semibold text-xs uppercase tracking-wide ${isFemale ? 'text-pink-800' : 'text-[#5C4A32]'}`}>
-                        {t('planningDetail.total')} {genderGroup.gender.name.toUpperCase()}
+                      <span className={`font-semibold text-xs tracking-wide ${isFemale ? 'text-pink-800' : 'text-[#5C4A32]'}`}>
+                        {t('planningDetail.total')} {genderGroup.gender.name}
                       </span>
                       <div className={`flex flex-wrap items-center gap-2 md:gap-6 text-xs md:text-sm ${isFemale ? 'text-pink-700' : 'text-[#6B553A]'}`}>
                         <span>% Buy: <strong>{displayPct(genderTotals.buyPct)}</strong></span>
