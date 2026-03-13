@@ -39,6 +39,10 @@ interface AppContextType {
   unregisterExport: () => void;
   triggerExport: () => void;
   hasExportHandler: boolean;
+  registerImport: (handler: () => void) => void;
+  unregisterImport: () => void;
+  triggerImport: () => void;
+  hasImportHandler: boolean;
   headerSubtitle: string | null;
   setHeaderSubtitle: (subtitle: string | null) => void;
   // Global loading overlay
@@ -150,6 +154,26 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
+  // Import handler: screens register their import callback, AppHeader triggers it
+  const importHandlerRef = useRef<(() => void) | null>(null);
+  const [hasImportHandler, setHasImportHandler] = useState(false);
+
+  const registerImport = useCallback((handler: () => void) => {
+    importHandlerRef.current = handler;
+    setHasImportHandler(true);
+  }, []);
+
+  const unregisterImport = useCallback(() => {
+    importHandlerRef.current = null;
+    setHasImportHandler(false);
+  }, []);
+
+  const triggerImport = useCallback(() => {
+    if (importHandlerRef.current) {
+      importHandlerRef.current();
+    }
+  }, []);
+
   // Header subtitle — screens can set to show e.g. "Ferragamo - Brand X" in breadcrumb
   const [headerSubtitle, setHeaderSubtitle] = useState<string | null>(null);
 
@@ -199,6 +223,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     unregisterExport,
     triggerExport,
     hasExportHandler,
+    registerImport,
+    unregisterImport,
+    triggerImport,
+    hasImportHandler,
     headerSubtitle,
     setHeaderSubtitle,
     loading,

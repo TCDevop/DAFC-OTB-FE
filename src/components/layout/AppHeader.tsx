@@ -40,7 +40,8 @@ import {
   Activity,
   Loader2,
   Printer,
-  Download
+  Download,
+  Upload
 } from 'lucide-react';
 
 // Screen configuration builder (uses t() for translations)
@@ -191,7 +192,7 @@ const AppHeader = ({
   const router = useRouter();
   const { t, language, setLanguage } = useLanguage();
   const { isMobile } = useIsMobile();
-  const { triggerSave, hasSaveHandler, triggerSaveAsNew, hasSaveAsNewHandler, triggerCreateBudget, triggerExport, hasExportHandler } = useAppContext();
+  const { triggerSave, hasSaveHandler, triggerSaveAsNew, hasSaveAsNewHandler, triggerCreateBudget, triggerExport, hasExportHandler, triggerImport, hasImportHandler } = useAppContext();
   const SCREEN_CONFIG: any = useMemo(() => getScreenConfig(t), [t]);
   const onNavigate = (screenId: any) => {
     const route = ROUTE_MAP[screenId];
@@ -789,6 +790,15 @@ const AppHeader = ({
               >
                 <Download size={14} />
               </button>
+              {hasImportHandler && (
+                <button
+                  onClick={triggerImport}
+                  className="no-print px-1.5 py-1 rounded-lg transition-colors text-[#666] hover:bg-[rgba(160,120,75,0.12)] hover:text-[#6B4D30]"
+                  title="Import"
+                >
+                  <Upload size={14} />
+                </button>
+              )}
               {currentScreen === 'budget-management' ? (
                 <button
                   onClick={triggerCreateBudget}

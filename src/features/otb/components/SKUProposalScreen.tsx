@@ -136,7 +136,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const router = useRouter();
-  const { setAllocationData, setOtbAnalysisContext, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, registerExport, unregisterExport, showLoading, hideLoading } = useAppContext();
+  const { setAllocationData, setOtbAnalysisContext, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, registerExport, unregisterExport, registerImport, unregisterImport, showLoading, hideLoading } = useAppContext();
   const { dialogProps, confirm } = useConfirmDialog();
   const { isOpen: filterOpen, open: openFilter, close: closeFilter } = useBottomSheet();
   const [mobileFilterValues, setMobileFilterValues] = useState<Record<string, string | string[]>>({});
@@ -562,6 +562,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               : proposals[0];
             if (activeProposal) {
               brandBlocks = buildBlocksFromProposal(activeProposal, brandId);
+              captureSnapshotFromBlocks(brandId, brandBlocks);
             }
 
             // Enrich catalog with unique SKUs from proposal products
@@ -599,7 +600,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             }
           }
 
-          // ── 2. Always load recommended SKUs and merge with proposal blocks ──
+          // ── 2. Load recommended SKUs only when no existing DB version ──
+          if (list.length === 0) {
           if (signal.aborted) return;
           const budget = apiBudgets.find((b: any) => b.id === budgetFilter);
           const currentFY = budget?.fiscalYear;
@@ -675,6 +677,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               console.error('[SKUProposal] Failed to load product recommends:', err?.message);
             }
           }
+          } // end: no existing DB version
 
           allBlocks.push(...brandBlocks);
         }
@@ -833,6 +836,31 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     }
   }, []);
 
+  // Capture a snapshot of the DB state for a brand (called after load/save)
+  // Reads sizing from raw proposalSizings embedded in items (not from React state)
+  const captureSnapshotFromBlocks = useCallback((brandId: string, blocks: any[]) => {
+    const snapshot: Record<string, any> = {};
+    blocks.forEach((block: any) => {
+      (block.items || []).forEach((item: any) => {
+        if (!item.productId || !item.skuProposalId) return;
+        const sizingMap: Record<string, number> = {};
+        (item.proposalSizings || []).forEach((ps: any) => {
+          const name = ps.subcategory_size?.name || ps.subcategorySize?.name || '';
+          if (name) sizingMap[name] = Number(ps.proposal_quantity ?? ps.proposalQuantity) || 0;
+        });
+        snapshot[String(item.productId)] = {
+          order: Number(item.order) || 0,
+          storeQty: { ...(item.storeQty || {}) },
+          customerTarget: item.customerTarget || 'New',
+          comment: item.comment || '',
+          sizingComment: item.sizingComment || '',
+          sizing: sizingMap,
+        };
+      });
+    });
+    brandSnapshotRef.current[brandId] = snapshot;
+  }, []);
+
   // Load a specific proposal version for a brand (called when version dropdown changes)
   const loadProposalVersion = useCallback(async (brandId: string, headerId: string) => {
     try {
@@ -840,6 +868,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       const p = response?.data || response;
       if (!p) return;
       const newBrandBlocks = buildBlocksFromProposal(p, brandId);
+      captureSnapshotFromBlocks(brandId, newBrandBlocks);
       setSkuBlocks(prev => {
         const other = prev.filter((b: any) => String(b.brandId) !== brandId);
         return [...other, ...newBrandBlocks];
@@ -849,7 +878,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       console.error('Failed to load proposal version:', err);
       toast.error('Failed to load version');
     }
-  }, [hydrateSizingData]);
+  }, [hydrateSizingData, captureSnapshotFromBlocks]);
 
   // Computed labels for collapsed bar badges
   const budgetDisplayName = useMemo(() => {
@@ -912,6 +941,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Refs that always hold the latest state — used by save callbacks to avoid stale closures
   const skuBlocksRef = useRef<any[]>([]);
   const sizingDataRef = useRef<Record<string, any>>({});
+  // Snapshot of DB state per brand — used for delta diffing on save
+  const brandSnapshotRef = useRef<Record<string, Record<string, any>>>({});
 
   // When context is provided and data loads but no proposal blocks exist,
   // build blocks from the SKU catalog matching the context's subCategory
@@ -1355,23 +1386,33 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return result;
   }, [displayBrands, skuBlocks, genderFilter, railFilter, categoryFilter, subCategoryFilter]);
 
-  // Build products payload from ALL blocks for a brand (ignoring active filters
-  // so that save-full doesn't delete products outside the current filter view)
+  // Build products payload — only include SKUs that need DB writes:
+  // already persisted (skuProposalId), user-ordered (order > 0), or manually added (isNew)
   const buildProductsPayload = useCallback((brandId: string) => {
-    // Read from ref to guarantee latest state (avoids stale closure in save chain)
     const currentBlocks = skuBlocksRef.current;
+    const currentSizing = sizingDataRef.current;
     const blocks = currentBlocks.filter((b: any) =>
       String(b.brandId || 'all') === brandId && b.items?.length > 0
     );
     return blocks.flatMap((block: any) => {
+      const blockKey = buildBlockKey(block);
       return block.items
-        .filter((item: any) => {
-          // Save SKUs that have been allocated (order > 0) regardless of sizing
-          const totalOrder = Number(item.order) || 0;
-          return totalOrder > 0;
+        .filter((item: any, idx: number) => {
+          if (!item.productId) return false;
+          // Already in DB — must keep (delete+recreate will remove it otherwise)
+          if (item.skuProposalId) return true;
+          // User placed an order
+          if ((Number(item.order) || 0) > 0) return true;
+          // User manually added this item (not a recommendation)
+          if (item.isNew) return true;
+          // User has sizing data for this item
+          const key = `${blockKey}_${idx}`;
+          const itemSizing = currentSizing[key];
+          if (itemSizing && Object.values(itemSizing).some((v: any) => (Number(v) || 0) > 0)) return true;
+          return false;
         })
         .map((item: any) => ({
-          productId: String(item.productId || ''),
+          productId: String(item.productId),
           customerTarget: String(item.customerTarget || 'New'),
           unitCost: Number(item.unitCost) || 0,
           srp: Number(item.srp) || 0,
@@ -1382,7 +1423,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
             quantity: Number(item.storeQty?.[(store.code || '').toUpperCase()]) || 0,
           })).filter((a: any) => a.quantity > 0),
         }));
-    }).filter((p: any) => p.productId);
+    });
   }, [stores]);
 
   // Resolve DB ID for a size name — checks ref first, then falls back to subCategorySizesMap
@@ -1421,46 +1462,103 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     );
 
     const sizingRows: any[] = [];
-    let debugItemsWithSizing = 0;
-    let debugItemsSkippedNoOrder = 0;
-    let debugSizeDroppedNoId = 0;
     blocks.forEach((block: any) => {
       const blockKey = buildBlockKey(block);
       const subCatName = block.subCategory || '';
       (block.items || []).forEach((item: any, idx: number) => {
-        const totalOrder = Number(item.order) || 0;
+        if ((Number(item.order) || 0) <= 0) return; // sizing requires order
         const key = `${blockKey}_${idx}`;
         const itemSizing = currentSizing[key];
-        const hasSizing = itemSizing && Object.values(itemSizing).some((v: any) => (Number(v) || 0) > 0);
-        if (hasSizing) debugItemsWithSizing++;
-        if (totalOrder <= 0) {
-          if (hasSizing) {
-            debugItemsSkippedNoOrder++;
-            console.warn('[buildSizingsPayload] Item has sizing data but order=0, skipped:', { key, productId: item.productId, order: totalOrder, sizing: itemSizing });
-          }
-          return;
-        }
         if (!itemSizing) return;
         Object.entries(itemSizing).forEach(([sizeName, qty]) => {
           const numQty = Math.round(Number(qty) || 0);
+          if (numQty <= 0) return;
           const sizeDbId = resolveSizeDbId(sizeName, subCatName || item.productType);
-          if (numQty > 0 && sizeDbId) {
+          if (sizeDbId) {
             sizingRows.push({
               skuProposalProductId: String(item.productId),
               subcategorySizeId: String(sizeDbId),
               proposalQuantity: numQty,
             });
-          } else if (numQty > 0 && !sizeDbId) {
-            debugSizeDroppedNoId++;
-            console.warn('[buildSizingsPayload] No DB ID for size key:', sizeName, 'subCategory:', subCatName, 'productType:', item.productType, '- sizing row dropped. Ref keys:', Object.keys(sizeKeyToIdRef.current), 'subCategorySizesMap keys:', Object.keys(subCategorySizesMap));
           }
         });
       });
     });
 
-    console.log('[buildSizingsPayload]', { brandId, blocks: blocks.length, itemsWithSizing: debugItemsWithSizing, skippedNoOrder: debugItemsSkippedNoOrder, droppedNoId: debugSizeDroppedNoId, builtRows: sizingRows.length, sizingDataKeys: Object.keys(currentSizing).length });
     return sizingRows.length > 0 ? sizingRows : undefined;
   }, [resolveSizeDbId, subCategorySizesMap]);
+
+  // Compute delta between current state and the DB snapshot for a brand
+  const computeDelta = useCallback((brandId: string) => {
+    const snapshot = brandSnapshotRef.current[brandId] || {};
+    const currentBlocks = skuBlocksRef.current.filter((b: any) => String(b.brandId) === brandId);
+    const currentSizing = sizingDataRef.current;
+
+    const upserted: any[] = [];
+    const sizingRows: any[] = [];
+    const deletedProductIds: string[] = [];
+    const currentProductIds = new Set<string>();
+
+    currentBlocks.forEach((block: any) => {
+      const blockKey = buildBlockKey(block);
+      const subCatName = block.subCategory || '';
+      (block.items || []).forEach((item: any, idx: number) => {
+        if (!item.productId) return;
+        const productId = String(item.productId);
+        currentProductIds.add(productId);
+
+        const key = `${blockKey}_${idx}`;
+        const itemSizing = currentSizing[key] || {};
+        const snap = snapshot[productId];
+        const hasOrder = (Number(item.order) || 0) > 0;
+
+        if (!snap) {
+          // New item — only include if user has acted on it
+          const hasSizing = Object.values(itemSizing).some((v: any) => (Number(v) || 0) > 0);
+          if (!hasOrder && !item.isNew && !hasSizing) return;
+        } else {
+          // Existing DB item — skip if nothing changed
+          const changed =
+            (Number(item.order) || 0) !== (snap.order || 0) ||
+            JSON.stringify(item.storeQty || {}) !== JSON.stringify(snap.storeQty || {}) ||
+            (item.customerTarget || 'New') !== snap.customerTarget ||
+            (item.comment || '') !== snap.comment ||
+            (item.sizingComment || '') !== snap.sizingComment ||
+            JSON.stringify(itemSizing) !== JSON.stringify(snap.sizing || {});
+          if (!changed) return;
+        }
+
+        upserted.push({
+          productId,
+          customerTarget: item.customerTarget || 'New',
+          unitCost: Number(item.unitCost) || 0,
+          srp: Number(item.srp) || 0,
+          comment: item.comment || '',
+          sizingComment: item.sizingComment || '',
+          allocations: stores.map((store: any) => ({
+            storeId: String(store.id),
+            quantity: Number(item.storeQty?.[(store.code || '').toUpperCase()]) || 0,
+          })).filter((a: any) => a.quantity > 0),
+        });
+
+        if (hasOrder) {
+          Object.entries(itemSizing).forEach(([sizeName, qty]) => {
+            const numQty = Math.round(Number(qty) || 0);
+            if (numQty <= 0) return;
+            const sizeDbId = resolveSizeDbId(sizeName, subCatName || item.productType);
+            if (sizeDbId) sizingRows.push({ skuProposalProductId: productId, subcategorySizeId: String(sizeDbId), proposalQuantity: numQty });
+          });
+        }
+      });
+    });
+
+    // Items in snapshot but removed from UI
+    Object.keys(snapshot).forEach(productId => {
+      if (!currentProductIds.has(productId)) deletedProductIds.push(productId);
+    });
+
+    return { upserted, sizingRows, deletedProductIds };
+  }, [stores, resolveSizeDbId]);
 
   // Save a single brand's proposal data
   const handleSaveBrand = useCallback(async (brandId: string, isNewVersion: boolean) => {
@@ -1468,13 +1566,10 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     setBrandSaving(prev => ({ ...prev, [brandId]: true }));
     showLoading(isNewVersion ? 'Saving as new version...' : 'Saving...');
     try {
-      const products = buildProductsPayload(brandId);
-      const sizings = buildSizingsPayload(brandId);
-
-      console.log('[SKUProposal Save]', { brandId, productsCount: products.length, sizingsCount: sizings?.length || 0 });
-
-      // No existing version → create header then save full data (products + allocations + sizing)
+      // ── Case 1: No existing version → create header + full save ────────
       if (!headerId) {
+        const products = buildProductsPayload(brandId);
+        const sizings = buildSizingsPayload(brandId);
         if (products.length === 0) {
           toast.error('Please add at least one SKU before saving');
           return;
@@ -1490,28 +1585,25 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         if (newHeader) {
           const newId = String(newHeader.id);
           await proposalService.saveFullProposal(newId, { products, sizingRows: sizings });
-          setBrandProposalHeaders(prev => ({
-            ...prev,
-            [brandId]: [
-              { id: newId, version: newHeader.version || 1, status: 'DRAFT', isFinal: false },
-              ...(prev[brandId] || []),
-            ]}));
+          setBrandProposalHeaders(prev => ({ ...prev, [brandId]: [{ id: newId, version: newHeader.version || 1, status: 'DRAFT', isFinal: false }, ...(prev[brandId] || [])] }));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
           const detail = await proposalService.getOne(newId);
           const fullDetail = detail?.data || detail;
           if (fullDetail) {
             const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
+            captureSnapshotFromBlocks(brandId, brandBlocks);
             hydrateSizingData(brandBlocks);
           }
-          headerId = newId;
         }
         invalidateCache('/proposals');
         toast.success('Created new version');
         return;
       }
 
+      // ── Case 2: Save as new version — copy + full save of current state ─
       if (isNewVersion) {
-        // Save as new: copy header → save FE data to the NEW header (old header untouched)
+        const products = buildProductsPayload(brandId);
+        const sizings = buildSizingsPayload(brandId);
         const result = await proposalService.copyProposal(headerId);
         const newHeader = result?.data || result;
         if (newHeader) {
@@ -1519,42 +1611,41 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           if (products.length > 0) {
             await proposalService.saveFullProposal(newId, { products, sizingRows: sizings });
           }
-          setBrandProposalHeaders(prev => ({
-            ...prev,
-            [brandId]: [
-              { id: newId, version: newHeader.version, status: 'DRAFT', isFinal: false },
-              ...(prev[brandId] || []),
-            ]}));
+          setBrandProposalHeaders(prev => ({ ...prev, [brandId]: [{ id: newId, version: newHeader.version, status: 'DRAFT', isFinal: false }, ...(prev[brandId] || [])] }));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
           const detail = await proposalService.getOne(newId);
           const fullDetail = detail?.data || detail;
           if (fullDetail) {
             const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
+            captureSnapshotFromBlocks(brandId, brandBlocks);
             hydrateSizingData(brandBlocks);
           }
         }
         invalidateCache('/proposals');
         toast.success('Saved as new version');
-      } else {
-        // Normal save: update existing header (delete + recreate)
-        if (products.length > 0) {
-          await proposalService.saveFullProposal(headerId, { products, sizingRows: sizings });
-          invalidateCache('/proposals');
-          const detail = await proposalService.getOne(headerId);
-          const fullDetail = detail?.data || detail;
-          if (fullDetail) {
-            const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
-            setSkuBlocks(prev => {
-              const other = prev.filter((b: any) => String(b.brandId) !== brandId);
-              return [...other, ...brandBlocks];
-            });
-            hydrateSizingData(brandBlocks);
-          }
-          toast.success('Saved successfully');
-        } else {
-          toast.error('Please add at least one SKU before saving');
-        }
+        return;
       }
+
+      // ── Case 3: Normal save — delta only (changed / new / deleted SKUs) ─
+      const { upserted, sizingRows, deletedProductIds } = computeDelta(brandId);
+      if (upserted.length === 0 && deletedProductIds.length === 0) {
+        toast.success('No changes to save');
+        return;
+      }
+      await proposalService.saveDeltaProposal(headerId, { upserted, sizingRows, deletedProductIds });
+      invalidateCache('/proposals');
+      const detail = await proposalService.getOne(headerId);
+      const fullDetail = detail?.data || detail;
+      if (fullDetail) {
+        const brandBlocks = buildBlocksFromProposal(fullDetail, brandId);
+        captureSnapshotFromBlocks(brandId, brandBlocks);
+        setSkuBlocks(prev => {
+          const other = prev.filter((b: any) => String(b.brandId) !== brandId);
+          return [...other, ...brandBlocks];
+        });
+        hydrateSizingData(brandBlocks);
+      }
+      toast.success('Saved successfully');
     } catch (err: any) {
       const serverMsg = err?.response?.data?.message || err?.userMessage || '';
       console.error(`Failed to ${isNewVersion ? 'save as new version' : 'save'} proposal:`, err, '\n  → server:', serverMsg);
@@ -1563,7 +1654,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       setBrandSaving(prev => ({ ...prev, [brandId]: false }));
       hideLoading();
     }
-  }, [buildProductsPayload, buildSizingsPayload, getBrandSkuVersion, matchedAllocateHeaders, showLoading, hideLoading]);
+  }, [buildProductsPayload, buildSizingsPayload, computeDelta, captureSnapshotFromBlocks, getBrandSkuVersion, matchedAllocateHeaders, showLoading, hideLoading]);
 
   // Save all brands (used by AppContext header button)
   const handleSave = useCallback(async () => {
@@ -1891,6 +1982,12 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return () => { unregisterExport(); };
   }, [handleExportExcel, registerExport, unregisterExport]);
 
+  // Register import handler with AppContext (for header Import button)
+  useEffect(() => {
+    registerImport(() => { importFileRef.current?.click(); });
+    return () => { unregisterImport(); };
+  }, [registerImport, unregisterImport]);
+
   const handleStartEdit = (cellKey: any, currentValue: any) => {
     setEditingCell(cellKey);
     setEditValue(currentValue?.toString() ?? '');
@@ -2176,7 +2273,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         {!isMobile && <>
           {/* ── Group 1: Global Context Filters ── */}
           <div className="px-3 md:px-6 py-1.5">
-            <div className="flex items-end gap-1.5">
+            <div className="flex flex-wrap items-end gap-1.5">
               <FilterSelect
                 label="FY"
                 icon={Clock}
@@ -2186,7 +2283,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 placeholder="All FY"
               />
               {/* Budget Dropdown — matches BudgetAllocate design */}
-              <div className="relative min-w-0" ref={budgetDropdownRef}>
+              <div className="relative min-w-[140px]" ref={budgetDropdownRef}>
                 <label className="block text-[10px] uppercase tracking-[0.06em] font-bold mb-0.5 text-[#8A6340]">
                   Budget
                 </label>
@@ -2287,10 +2384,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 placeholder={t('budget.allSeasons') || 'All Seasons'}
               />
 
-              {/* Separator */}
-              <div className="w-px self-stretch bg-[rgba(215,183,151,0.4)] shrink-0 mx-0.5" />
-
-              {/* Gender, Category, SubCategory, Rail filters */}
+              {/* Gender filter stays in row 1 */}
               <FilterSelect
                 icon={Users}
                 label={t('common.gender') || 'Gender'}
@@ -2299,50 +2393,53 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 onChange={(v: string) => { setGenderFilter(v); setCategoryFilter('all'); setSubCategoryFilter('all'); }}
                 placeholder={t('common.allGenders') || 'All Genders'}
               />
-              <FilterSelect
-                icon={Tag}
-                label={t('common.category') || 'Category'}
-                value={categoryFilter}
-                options={categoryOptions}
-                onChange={(v: string) => { setCategoryFilter(v); setSubCategoryFilter('all'); }}
-                placeholder={t('common.allCategories') || 'All Categories'}
-              />
-              <FilterSelect
-                icon={Tag}
-                label={t('common.subCategory') || 'Sub Category'}
-                value={subCategoryFilter}
-                options={subCategoryOptions}
-                onChange={setSubCategoryFilter}
-                placeholder={t('common.allSubCategories') || 'All SubCategories'}
-              />
-              <FilterSelect
-                icon={Layers}
-                label="Rail"
-                value={railFilter}
-                options={railOptions}
-                onChange={setRailFilter}
-                placeholder="All Rails"
-              />
-
-              {hasActiveSkuFilter && (
-                <button
-                  type="button"
-                  onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); setRailFilter('all'); }}
-                  className="shrink-0 p-1 rounded transition-colors text-[#666] hover:text-[#F85149] hover:bg-red-50"
-                  title="Clear filters"
-                >
-                  <X size={14} />
-                </button>
-              )}
 
             </div>
           </div>
         </>}
 
-        {/* ── Rail Controls + Summary ── */}
-        {displayBrands.length > 0 && (
-          <div className="border-t border-[rgba(215,183,151,0.25)] px-3 md:px-6 py-1.5 flex items-center gap-1.5">
+        {/* ── Secondary Filters + Controls ── */}
+        {!isMobile && (
+          <div className="border-t border-[rgba(215,183,151,0.25)] px-3 md:px-6 py-1.5 flex items-center gap-1.5 flex-wrap">
+            {/* Category, SubCategory, Rail — appear here on all screen sizes */}
+            <FilterSelect
+              icon={Tag}
+              label={t('common.category') || 'Category'}
+              value={categoryFilter}
+              options={categoryOptions}
+              onChange={(v: string) => { setCategoryFilter(v); setSubCategoryFilter('all'); }}
+              placeholder={t('common.allCategories') || 'All Categories'}
+            />
+            <FilterSelect
+              icon={Tag}
+              label={t('common.subCategory') || 'Sub Category'}
+              value={subCategoryFilter}
+              options={subCategoryOptions}
+              onChange={setSubCategoryFilter}
+              placeholder={t('common.allSubCategories') || 'All SubCategories'}
+            />
+            <FilterSelect
+              icon={Layers}
+              label="Rail"
+              value={railFilter}
+              options={railOptions}
+              onChange={setRailFilter}
+              placeholder="All Rails"
+            />
+            {hasActiveSkuFilter && (
+              <button
+                type="button"
+                onClick={() => { setGenderFilter('all'); setCategoryFilter('all'); setSubCategoryFilter('all'); setRailFilter('all'); }}
+                className="shrink-0 p-1 rounded transition-colors text-[#666] hover:text-[#F85149] hover:bg-red-50"
+                title="Clear filters"
+              >
+                <X size={14} />
+              </button>
+            )}
+
             <div className="flex-1" />
+
+            {displayBrands.length > 0 && <>
 
             {/* Collapse/Expand (right) */}
             <button
@@ -2397,32 +2494,16 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               </button>
             </div>
 
-            {/* Export / Import Excel */}
-            <div className="flex items-center gap-1">
-              <button
-                type="button"
-                onClick={handleExportExcel}
-                title="Export Excel"
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-[#C4B5A5] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] transition-colors"
-              >
-                <Download size={12} /> Export
-              </button>
-              <button
-                type="button"
-                onClick={() => importFileRef.current?.click()}
-                title="Import Excel"
-                className="flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border border-[#C4B5A5] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)] transition-colors"
-              >
-                <Upload size={12} /> Import
-              </button>
-              <input
-                ref={importFileRef}
-                type="file"
-                accept=".xlsx,.xls"
-                onChange={handleImportExcel}
-                className="hidden"
-              />
-            </div>
+            </>}
+
+            {/* Hidden file input for import (triggered via header button) */}
+            <input
+              ref={importFileRef}
+              type="file"
+              accept=".xlsx,.xls"
+              onChange={handleImportExcel}
+              className="hidden"
+            />
           </div>
         )}
       </div>
@@ -3125,7 +3206,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                       return <div className="space-y-2">{brandBlocks.map(renderBlock)}</div>;
                     }
                     return (
-                      <div className="grid grid-cols-1 xl:grid-cols-2 gap-3 items-start min-w-0">
+                      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 items-start min-w-0">
                         <div className="rounded-xl border border-[#D97706]/20 bg-[rgba(217,119,6,0.03)] p-3 space-y-3 min-w-0 overflow-hidden">
                           <div className="flex items-center gap-2 px-1 pb-1.5 border-b border-[#D97706]/20">
                             <Clock size={13} className="text-[#D97706]" />

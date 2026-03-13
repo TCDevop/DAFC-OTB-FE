@@ -50,6 +50,9 @@ export const proposalService = {
   saveFullProposal: (headerId: string, data: any) =>
     withErrorLog('saveFullProposal', async () => extract(await api.put(`/proposals/${headerId}/save-full`, data))),
 
+  saveDeltaProposal: (headerId: string, data: any) =>
+    withErrorLog('saveDeltaProposal', async () => extract(await api.patch(`/proposals/${headerId}/save-delta`, data))),
+
   copyProposal: (headerId: string) =>
     withErrorLog('copyProposal', async () => extract(await api.post(`/proposals/${headerId}/copy`))),
 

@@ -21,7 +21,6 @@ import { useAppContext } from '@/contexts/AppContext';
 import { exportOTBExcel } from '../utils/exportOTBExcel';
 import type { CatRow, CollectionRow, GenderRow } from '../utils/exportOTBExcel';
 import { useIsMobile } from '@/hooks/useIsMobile';
-import { useSmartScrollState } from '@/hooks/useSmartScrollState';
 
 // (Season groups & seasons loaded from API via masterDataService.getSeasonGroups)
 
@@ -228,7 +227,6 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   }, [apiStores]);
 
   // Smart Filter Bar — direct DOM toggle, zero re-render
-  const { barRef, handleBarClick } = useSmartScrollState();
 
   // sessionStorage auto-fill removed — all filters default to 'all'
 
@@ -2024,7 +2022,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                               ? <CheckCircle2 size={15} className="shrink-0 text-[#22c55e]" strokeWidth={2.5} />
                               : <Tag size={13} className={'shrink-0 text-[#6B4D30]'} />
                             }
-                            <span className={`font-semibold text-xs tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
+                            <span className={`font-semibold text-[11px] tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
                               {catEntry.category.name}
                             </span>
                           </div>
@@ -2066,7 +2064,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                         ? <CheckCircle2 size={15} className="shrink-0 text-[#22c55e]" strokeWidth={2.5} />
                                         : <Tag size={13} className={'shrink-0 text-[#6B4D30]'} />
                                       }
-                                      <span className={`truncate font-semibold text-xs tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
+                                      <span className={`truncate font-semibold text-[11px] tracking-wide font-['Montserrat'] ${'text-[#6B4D30]'}`}>
                                         {catEntry.category.name}
                                       </span>
                                     </div>
@@ -2190,7 +2188,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                                             ? <CheckCircle2 size={14} className="text-[#22c55e]" strokeWidth={2.5} />
                                             : <Layers size={12} className={'text-[#999999]'} />
                                           }
-                                          <span className={'text-[#1A1A1A]'}>{subEntry.subCategory.name}</span>
+                                          <span className={'text-[11px] text-[#1A1A1A]'}>{subEntry.subCategory.name}</span>
                                         </div>
                                       </td>
                                       <td className={`px-2 py-0.5 text-center font-['JetBrains_Mono'] ${'text-[#666666]'}`}>{displayPct(rowData.buyPct)}</td>
@@ -2851,7 +2849,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
   return (
     <div className="space-y-2">
       {/* Filter Toolbar — hides entirely on scroll */}
-      <div ref={barRef} className={`sticky -top-3 md:-top-6 z-30 -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 border-b backdrop-blur-sm relative ${'bg-white/95 border-[rgba(215,183,151,0.3)]'}`}>
+      <div className={`sticky -top-3 md:-top-6 z-30 -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 border-b backdrop-blur-sm relative ${'bg-white/95 border-[rgba(215,183,151,0.3)]'}`}>
 
         {/* ===== FILTER CONTENT ===== */}
         <div>
