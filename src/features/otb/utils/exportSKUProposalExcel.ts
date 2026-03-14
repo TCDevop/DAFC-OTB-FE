@@ -127,7 +127,7 @@ function buildSKUSheet(wb: ExcelJS.Workbook, blocks: SKUExportBlock[], storeCode
 
   // Fixed columns + dynamic store columns
   const fixedHeaders = [
-    'Product ID', 'Rail', 'SKU Code', 'SKU Name', 'Color',
+    'Product ID', 'SKU Code', 'SKU Name', 'Color',
     'Product Type', 'Customer Target', 'Unit Cost', 'SRP',
   ];
   const storeHeaders = storeCodes.map(c => c.toUpperCase());
@@ -156,14 +156,13 @@ function buildSKUSheet(wb: ExcelJS.Workbook, blocks: SKUExportBlock[], storeCode
 
   // Column widths
   ws.getColumn(1).width = 12; // Product ID
-  ws.getColumn(2).width = 18; // Rail
-  ws.getColumn(3).width = 16; // SKU Code
-  ws.getColumn(4).width = 30; // SKU Name
-  ws.getColumn(5).width = 14; // Color
-  ws.getColumn(6).width = 16; // Product Type
-  ws.getColumn(7).width = 14; // Customer Target
-  ws.getColumn(8).width = 12; // Unit Cost
-  ws.getColumn(9).width = 12; // SRP
+  ws.getColumn(2).width = 16; // SKU Code
+  ws.getColumn(3).width = 30; // SKU Name
+  ws.getColumn(4).width = 14; // Color
+  ws.getColumn(5).width = 16; // Product Type
+  ws.getColumn(6).width = 14; // Customer Target
+  ws.getColumn(7).width = 12; // Unit Cost
+  ws.getColumn(8).width = 12; // SRP
   storeCodes.forEach((_, i) => { ws.getColumn(storeStartCol + i).width = 10; });
   ws.getColumn(storeStartCol + storeCodes.length).width = 12;     // Order Qty
   ws.getColumn(storeStartCol + storeCodes.length + 1).width = 14; // Total Value
@@ -187,7 +186,6 @@ function buildSKUSheet(wb: ExcelJS.Workbook, blocks: SKUExportBlock[], storeCode
       let c = 1;
 
       dCell(ws, dataRow, c++, item.productId, { align: 'left', bg: rowBg });
-      dCell(ws, dataRow, c++, block.rail, { align: 'left', bg: rowBg });
       dCell(ws, dataRow, c++, item.sku, { align: 'left', bg: rowBg });
       dCell(ws, dataRow, c++, item.name, { align: 'left', bg: rowBg });
       dCell(ws, dataRow, c++, item.color, { align: 'left', bg: rowBg });
@@ -231,7 +229,7 @@ const SKU_HEADER_MARKER = 'SKU_HEADER';
 
 function buildSizingSheet(wb: ExcelJS.Workbook, sizingRows: SizingExportRow[], brandName: string) {
   const ws = wb.addWorksheet('Sizing Proposal');
-  const COLS = 5; // Product ID | Rail | Sub-Category | Size | Qty
+  const COLS = 3; // Product ID | Size | Qty
 
   // Row 1: title
   ws.mergeCells(1, 1, 1, COLS);
@@ -242,10 +240,8 @@ function buildSizingSheet(wb: ExcelJS.Workbook, sizingRows: SizingExportRow[], b
 
   // Column widths
   ws.getColumn(1).width = 14; // Product ID
-  ws.getColumn(2).width = 18; // Rail
-  ws.getColumn(3).width = 22; // Sub-Category
-  ws.getColumn(4).width = 12; // Size
-  ws.getColumn(5).width = 12; // Qty
+  ws.getColumn(2).width = 12; // Size
+  ws.getColumn(3).width = 12; // Qty
 
   let row = 3; // start after title + blank row
 
@@ -255,13 +251,11 @@ function buildSizingSheet(wb: ExcelJS.Workbook, sizingRows: SizingExportRow[], b
     if (sizeKeys.length === 0) return;
 
     // ── SKU header row (brown background) ──────────────────────────────────
-    // Col 1-2: Product ID label+value (used by import to identify the SKU)
-    // Col 3-5: merged — SKU name, rail, sub-category info
+    // Col 1: SKU_HEADER_MARKER (import anchor), Col 2: productId, Col 3: merged info
     dCell(ws, row, 1, SKU_HEADER_MARKER, { bold: true, bg: SKU_BG, align: 'left' });
     dCell(ws, row, 2, sku.productId, { bold: true, bg: SKU_BG, align: 'left' });
-    ws.mergeCells(row, 3, row, COLS);
     const infoCell = ws.getCell(row, 3);
-    infoCell.value = `SKU: ${sku.sku} — ${sku.name}  |  Rail: ${sku.rail}  |  ${sku.subCategory}  |  Order: ${sku.order}`;
+    infoCell.value = sku.name;
     infoCell.font = { ...DATA_FONT, bold: true, color: { argb: 'FF3D2B1A' } };
     infoCell.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: SKU_BG } };
     infoCell.alignment = LEFT;
@@ -270,12 +264,9 @@ function buildSizingSheet(wb: ExcelJS.Workbook, sizingRows: SizingExportRow[], b
 
     // ── Size table header ──────────────────────────────────────────────────
     hCell(ws, row, 1, 'Product ID');
-    hCell(ws, row, 2, 'Rail');
-    hCell(ws, row, 3, 'Sub-Category');
-    hCell(ws, row, 4, 'Size');
-    hCell(ws, row, 5, 'Qty', EDITABLE_BG);
-    // Qty header — editable style
-    const qtyHeader = ws.getCell(row, 5);
+    hCell(ws, row, 2, 'Size');
+    hCell(ws, row, 3, 'Qty', EDITABLE_BG);
+    const qtyHeader = ws.getCell(row, 3);
     qtyHeader.font = { ...HEADER_FONT, color: { argb: 'FF3D2B1A' } };
     qtyHeader.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: EDITABLE_BG } };
     row++;
@@ -288,22 +279,20 @@ function buildSizingSheet(wb: ExcelJS.Workbook, sizingRows: SizingExportRow[], b
       const rowBg = idx % 2 === 0 ? undefined : 'FFF7F2ED';
 
       dCell(ws, row, 1, sku.productId, { align: 'left', bg: rowBg });
-      dCell(ws, row, 2, sku.rail, { align: 'left', bg: rowBg });
-      dCell(ws, row, 3, sku.subCategory, { align: 'left', bg: rowBg });
-      dCell(ws, row, 4, sizeName, { align: 'center', bold: true, bg: rowBg });
-      dCell(ws, row, 5, qty, { fmt: NUM_FMT, bg: EDITABLE_BG });
+      dCell(ws, row, 2, sizeName, { align: 'center', bold: true, bg: rowBg });
+      dCell(ws, row, 3, qty, { fmt: NUM_FMT, bg: EDITABLE_BG });
       row++;
     });
 
     // ── Total row ──────────────────────────────────────────────────────────
-    ws.mergeCells(row, 1, row, 4);
+    ws.mergeCells(row, 1, row, 2);
     const totalLabel = ws.getCell(row, 1);
-    totalLabel.value = `Total (${sku.sku})`;
+    totalLabel.value = 'Total';
     totalLabel.font = { ...DATA_FONT, bold: true, italic: true };
     totalLabel.alignment = { horizontal: 'right', vertical: 'middle' };
     totalLabel.border = CELL_BORDER;
     totalLabel.fill = { type: 'pattern', pattern: 'solid', fgColor: { argb: 'FFEEE5DB' } };
-    dCell(ws, row, 5, sizeTotal, { fmt: NUM_FMT, bold: true, bg: 'FFEEE5DB' });
+    dCell(ws, row, 3, sizeTotal, { fmt: NUM_FMT, bold: true, bg: 'FFEEE5DB' });
     row++;
 
     // ── Blank separator row ────────────────────────────────────────────────
@@ -395,11 +384,12 @@ export async function importSKUProposalExcel(file: File): Promise<SKUProposalImp
           if (val > 0) storeQty[code.toUpperCase()] = val;
         });
 
+        const skuCodeCol = headers.findIndex(h => h === 'SKU Code');
         skuRows.push({
           productId: pid,
-          rail: String(row.getCell(railCol >= 0 ? railCol : 0).value || '').trim(),
-          sku: String(row.getCell(headers.findIndex(h => h === 'SKU Code') >= 0 ? headers.findIndex(h => h === 'SKU Code') : 0).value || '').trim(),
-          customerTarget: String(row.getCell(customerTargetCol >= 0 ? customerTargetCol : 0).value || 'New').trim(),
+          rail: railCol >= 1 ? String(row.getCell(railCol).value || '').trim() : '',
+          sku: skuCodeCol >= 1 ? String(row.getCell(skuCodeCol).value || '').trim() : '',
+          customerTarget: customerTargetCol >= 1 ? String(row.getCell(customerTargetCol).value || 'New').trim() : 'New',
           storeQty,
         });
       }
@@ -409,11 +399,11 @@ export async function importSKUProposalExcel(file: File): Promise<SKUProposalImp
   // ── Parse Sheet 2: Sizing Proposal (per-SKU block layout) ────────────────
   //
   // Format:
-  //   SKU_HEADER | productId | info...       ← SKU header row
-  //   Product ID | Rail | Sub-Category | Size | Qty  ← column headers
-  //   pid        | rail | subCat       | S    | 10   ← size data rows
-  //   pid        | rail | subCat       | M    | 20
-  //   Total (sku)                             | 30   ← total row (skip)
+  //   SKU_HEADER | productId | info...  ← SKU header row
+  //   Product ID | Size | Qty          ← column headers
+  //   pid        | S    | 10           ← size data rows
+  //   pid        | M    | 20
+  //   Total      |      | 30           ← total row (skip)
   //   (blank)                                        ← separator (skip)
   //
   const sizingSheet = wb.getWorksheet('Sizing Proposal');
@@ -434,10 +424,10 @@ export async function importSKUProposalExcel(file: File): Promise<SKUProposalImp
       // Skip total rows (merged across cols 1-4)
       if (col1.startsWith('Total')) continue;
 
-      // This should be a size data row: col1=productId, col4=sizeName, col5=qty
+      // This should be a size data row: col1=productId, col2=sizeName, col3=qty
       const productId = col1;
-      const sizeName = String(exRow.getCell(4).value || '').trim();
-      const qty = Math.round(Number(exRow.getCell(5).value) || 0);
+      const sizeName = String(exRow.getCell(2).value || '').trim();
+      const qty = Math.round(Number(exRow.getCell(3).value) || 0);
 
       if (!sizeName || !productId) continue;
 

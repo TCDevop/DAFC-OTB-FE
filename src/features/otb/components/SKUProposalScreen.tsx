@@ -986,6 +986,21 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const [addSkuModal, setAddSkuModal] = useState<{ open: boolean; blockKey: string; block: any } | null>(null);
 
   const [sizingData, setSizingData] = useState<Record<string, any>>({});
+
+  // Import preview — computed diff shown before applying
+  type ImportPreviewItem = {
+    productId: string; skuCode: string; skuName: string; rail: string;
+    oldOrder: number; newOrder: number;
+    oldSizingTotal: number; newSizingTotal: number;
+    orderChanged: boolean; sizingChanged: boolean;
+    sizingExceedsOrder: boolean;
+    storeChanges: Array<{ code: string; oldQty: number; newQty: number }>;
+    sizeChanges: Array<{ name: string; oldQty: number; newQty: number }>;
+  };
+  const [importPreview, setImportPreview] = useState<{
+    items: ImportPreviewItem[];
+    result: SKUProposalImportResult;
+  } | null>(null);
   // Keep refs in sync — assign during render (not useEffect) so they're always current
   skuBlocksRef.current = skuBlocks;
   sizingDataRef.current = sizingData;
@@ -1881,100 +1896,150 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     }
   }, [filteredSkuBlocks, apiBrands, stores, subCategorySizesMap, t]);
 
-  // Import Excel — apply store quantities and sizing data from file
+  // Import Excel — compute diff preview, then show confirm modal before applying
   const importFileRef = useRef<HTMLInputElement>(null);
 
   const handleImportExcel = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (!file) return;
-    // Reset input so the same file can be re-imported
     if (importFileRef.current) importFileRef.current.value = '';
 
     showLoading('Importing Excel...');
     try {
       const result: SKUProposalImportResult = await importSKUProposalExcel(file);
-
       if (result.errors.length > 0) {
         toast.error(`Import errors:\n${result.errors.join('\n')}`);
         return;
       }
-      if (result.warnings.length > 0) {
-        result.warnings.forEach(w => console.warn('[Import]', w));
-      }
 
-      // Build lookup maps
       const skuMap = new Map(result.skuRows.map(r => [r.productId, r]));
       const sizingMap = new Map(result.sizingRows.map(r => [r.productId, r]));
+      const currentBlocks = skuBlocksRef.current;
+      const currentSizing = sizingDataRef.current;
 
-      let updatedSKUs = 0;
-      let updatedSizing = 0;
+      const previewItems: ImportPreviewItem[] = [];
 
-      // Apply store quantities to skuBlocks
-      setSkuBlocks((prev: any[]) => prev.map((block: any) => {
-        const updatedItems = block.items.map((item: any) => {
-          const imported = skuMap.get(String(item.productId));
-          if (!imported) return item;
-          updatedSKUs++;
+      currentBlocks.forEach((block: any) => {
+        const blockKey = buildBlockKey(block);
+        (block.items || []).forEach((item: any, idx: number) => {
+          const pid = String(item.productId);
+          const importedSku = skuMap.get(pid);
+          const importedSizing = sizingMap.get(pid);
+          if (!importedSku && !importedSizing) return;
 
-          const newStoreQty = { ...(item.storeQty || {}) };
-          // Overwrite store quantities from import
-          Object.entries(imported.storeQty).forEach(([code, qty]) => {
-            newStoreQty[code] = qty;
+          // Compute per-store changes
+          const oldStoreQty: Record<string, number> = item.storeQty || {};
+          const newStoreQty = importedSku ? { ...oldStoreQty, ...importedSku.storeQty } : oldStoreQty;
+          const storeChanges = stores
+            .map((store: any) => {
+              const code = (store.code || '').toUpperCase();
+              return { code, oldQty: Number(oldStoreQty[code]) || 0, newQty: Number(newStoreQty[code]) || 0 };
+            })
+            .filter((s: any) => s.oldQty !== s.newQty || s.newQty > 0);
+
+          const newOrder = importedSku
+            ? Object.values(newStoreQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0)
+            : Number(item.order) || 0;
+
+          // Compute per-size changes
+          const key = `${blockKey}_${idx}`;
+          const oldSizing: Record<string, number> = currentSizing[key] || {};
+          const newSizingData: Record<string, number> = importedSizing ? importedSizing.sizes : oldSizing;
+          const allSizeNames = Array.from(new Set([...Object.keys(oldSizing), ...Object.keys(newSizingData)]));
+          const sizeChanges = allSizeNames
+            .map(name => ({ name, oldQty: Number(oldSizing[name]) || 0, newQty: Number(newSizingData[name]) || 0 }))
+            .filter(s => s.oldQty !== s.newQty || s.newQty > 0);
+
+          const oldOrder = Number(item.order) || 0;
+          const oldSizingTotal = Object.values(oldSizing).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+          const newSizingTotal = Object.values(newSizingData).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+          const orderChanged = importedSku != null && newOrder !== oldOrder;
+          const sizingChanged = importedSizing != null && newSizingTotal !== oldSizingTotal;
+
+          if (!orderChanged && !sizingChanged) return;
+
+          previewItems.push({
+            productId: pid,
+            skuCode: item.sku || item.skuCode || '',
+            skuName: item.name || item.skuName || '',
+            rail: block.rail || '',
+            oldOrder,
+            newOrder,
+            oldSizingTotal,
+            newSizingTotal,
+            orderChanged,
+            sizingChanged,
+            sizingExceedsOrder: newSizingTotal > newOrder && newOrder > 0,
+            storeChanges,
+            sizeChanges,
           });
-          // Also update stores that are in the system but were 0 in import (clear them)
-          stores.forEach((store: any) => {
-            const code = (store.code || '').toUpperCase();
-            if (code && imported.storeQty[code] === undefined) {
-              // If the import had the store column but value was 0, set to 0
-              // Only clear if import had data for this product
-              newStoreQty[code] = imported.storeQty[code] ?? newStoreQty[code] ?? 0;
-            }
-          });
-
-          const newOrder = Object.values(newStoreQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
-          const newTtlValue = newOrder * (item.unitCost || 0);
-          return {
-            ...item,
-            storeQty: newStoreQty,
-            order: newOrder,
-            ttlValue: newTtlValue,
-            customerTarget: imported.customerTarget || item.customerTarget,
-          };
         });
-        return { ...block, items: updatedItems };
-      }));
+      });
 
-      // Apply sizing data
-      if (sizingMap.size > 0) {
-        setSizingData((prev: Record<string, any>) => {
-          const next = { ...prev };
-          const currentBlocks = skuBlocksRef.current;
-          currentBlocks.forEach((block: any) => {
-            const blockKey = buildBlockKey(block);
-            (block.items || []).forEach((item: any, idx: number) => {
-              const imported = sizingMap.get(String(item.productId));
-              if (!imported) return;
-              updatedSizing++;
-              const key = `${blockKey}_${idx}`;
-              next[key] = { ...(next[key] || {}), ...imported.sizes };
-            });
-          });
-          return next;
-        });
+      if (previewItems.length === 0) {
+        toast.success('Import complete (no changes)');
+        return;
       }
 
-      const msgs: string[] = [];
-      if (updatedSKUs > 0) msgs.push(`${updatedSKUs} SKUs updated`);
-      if (updatedSizing > 0) msgs.push(`${updatedSizing} sizing entries imported`);
-      if (result.warnings.length > 0) msgs.push(`${result.warnings.length} warnings`);
-      toast.success(msgs.length > 0 ? `Import complete: ${msgs.join(', ')}` : 'Import complete (no changes)');
+      setImportPreview({ items: previewItems, result });
     } catch (err: any) {
       console.error('[SKUProposal] Import failed:', err);
       toast.error(`Import failed: ${err?.message || 'Unknown error'}`);
     } finally {
       hideLoading();
     }
-  }, [stores, showLoading, hideLoading]);
+  }, [showLoading, hideLoading]);
+
+  // Apply the confirmed import (skipping blocked SKUs)
+  const handleConfirmImport = useCallback(() => {
+    if (!importPreview) return;
+    const { result, items } = importPreview;
+    const blockedIds = new Set(items.filter(i => i.sizingExceedsOrder).map(i => i.productId));
+    const skuMap = new Map(result.skuRows.map(r => [r.productId, r]));
+    const sizingMap = new Map(result.sizingRows.map(r => [r.productId, r]));
+
+    let updatedSKUs = 0;
+    let updatedSizing = 0;
+
+    setSkuBlocks((prev: any[]) => prev.map((block: any) => ({
+      ...block,
+      items: block.items.map((item: any) => {
+        const pid = String(item.productId);
+        if (blockedIds.has(pid)) return item;
+        const imported = skuMap.get(pid);
+        if (!imported) return item;
+        updatedSKUs++;
+        const newStoreQty = { ...(item.storeQty || {}), ...imported.storeQty };
+        const newOrder = Object.values(newStoreQty).reduce((s: number, v: any) => s + (Number(v) || 0), 0);
+        return { ...item, storeQty: newStoreQty, order: newOrder, ttlValue: newOrder * (item.unitCost || 0), customerTarget: imported.customerTarget || item.customerTarget };
+      }),
+    })));
+
+    if (sizingMap.size > 0) {
+      setSizingData((prev: Record<string, any>) => {
+        const next = { ...prev };
+        skuBlocksRef.current.forEach((block: any) => {
+          const blockKey = buildBlockKey(block);
+          (block.items || []).forEach((item: any, idx: number) => {
+            const pid = String(item.productId);
+            if (blockedIds.has(pid)) return;
+            const imported = sizingMap.get(pid);
+            if (!imported) return;
+            updatedSizing++;
+            next[`${blockKey}_${idx}`] = { ...(next[`${blockKey}_${idx}`] || {}), ...imported.sizes };
+          });
+        });
+        return next;
+      });
+    }
+
+    setImportPreview(null);
+    const msgs: string[] = [];
+    if (updatedSKUs > 0) msgs.push(`${updatedSKUs} SKUs updated`);
+    if (updatedSizing > 0) msgs.push(`${updatedSizing} sizing entries imported`);
+    if (blockedIds.size > 0) msgs.push(`${blockedIds.size} SKUs skipped (sizing > order)`);
+    toast.success(msgs.length > 0 ? `Import complete: ${msgs.join(', ')}` : 'Import complete');
+  }, [importPreview]);
 
   // Register export handler with AppContext (for header Export button)
   useEffect(() => {
@@ -3891,6 +3956,124 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         document.body
       )}
       <ScrollToHeader />
+
+      {/* Import Preview Modal */}
+      {importPreview && createPortal(
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-black/40" onClick={() => setImportPreview(null)}>
+          <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl mx-4 flex flex-col max-h-[80vh]" onClick={e => e.stopPropagation()}>
+            {/* Header */}
+            <div className="px-5 py-4 border-b border-[#E8DDD4] flex items-center justify-between shrink-0">
+              <div>
+                <h3 className="font-semibold text-[#3D2B1A] text-sm">Import Preview</h3>
+                <p className="text-xs text-[#888] mt-0.5">
+                  {importPreview.items.length} SKUs with changes
+                  {importPreview.items.filter(i => i.sizingExceedsOrder).length > 0 && (
+                    <span className="ml-2 text-red-500 font-medium">
+                      · {importPreview.items.filter(i => i.sizingExceedsOrder).length} blocked (sizing &gt; order)
+                    </span>
+                  )}
+                </p>
+              </div>
+              <button onClick={() => setImportPreview(null)} className="text-[#aaa] hover:text-[#666] text-lg leading-none">✕</button>
+            </div>
+
+            {/* Table */}
+            <div className="overflow-auto flex-1 px-5 py-3">
+              <table className="w-full text-xs border-collapse">
+                <tbody>
+                  {importPreview.items.map((item) => (
+                    <tr key={item.productId} className={item.sizingExceedsOrder ? 'bg-red-50' : ''}>
+                      <td colSpan={3} className="py-2 border-b border-[#F0EAE4]">
+                        {/* SKU header row */}
+                        <div className="flex items-start gap-1.5 mb-1.5">
+                          {item.sizingExceedsOrder && <span className="text-red-500 font-bold text-[10px] mt-0.5">✕</span>}
+                          <div className="flex-1 min-w-0">
+                            <span className={`font-semibold text-xs ${item.sizingExceedsOrder ? 'text-red-600' : 'text-[#3D2B1A]'}`}>{item.skuCode}</span>
+                            <span className="text-[10px] text-[#888] ml-2">{item.skuName}</span>
+                            {item.sizingExceedsOrder && (
+                              <div className="text-[10px] text-red-500 mt-0.5">Sizing total ({item.newSizingTotal}) exceeds order ({item.newOrder}) — skipped</div>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* Detail grid: stores left, sizes right */}
+                        <div className="grid grid-cols-2 gap-3 pl-4">
+                          {/* Per-store breakdown */}
+                          {item.orderChanged && item.storeChanges.length > 0 && (
+                            <div>
+                              <div className="text-[9px] font-semibold uppercase tracking-wider text-[#aaa] mb-1">Order by store</div>
+                              <table className="w-full text-[10px]">
+                                <tbody>
+                                  {item.storeChanges.map(s => (
+                                    <tr key={s.code}>
+                                      <td className="pr-2 text-[#666] font-medium">{s.code}</td>
+                                      <td className="text-right font-mono">
+                                        <span className="text-[#aaa]">{s.oldQty}</span>
+                                        {s.oldQty !== s.newQty && <> → <span className={`font-semibold ${item.sizingExceedsOrder ? 'text-red-500' : 'text-[#3D2B1A]'}`}>{s.newQty}</span></>}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  <tr className="border-t border-[#E8DDD4] mt-0.5">
+                                    <td className="pr-2 text-[#999] font-semibold pt-0.5">Total</td>
+                                    <td className="text-right font-mono font-semibold pt-0.5">
+                                      <span className="text-[#aaa]">{item.oldOrder}</span> → <span className={item.sizingExceedsOrder ? 'text-red-500' : 'text-[#3D2B1A]'}>{item.newOrder}</span>
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+
+                          {/* Per-size breakdown */}
+                          {item.sizingChanged && item.sizeChanges.length > 0 && (
+                            <div>
+                              <div className="text-[9px] font-semibold uppercase tracking-wider text-[#aaa] mb-1">Sizing</div>
+                              <table className="w-full text-[10px]">
+                                <tbody>
+                                  {item.sizeChanges.map(s => (
+                                    <tr key={s.name}>
+                                      <td className="pr-2 text-[#666] font-medium">{s.name}</td>
+                                      <td className="text-right font-mono">
+                                        <span className="text-[#aaa]">{s.oldQty}</span>
+                                        {s.oldQty !== s.newQty && <> → <span className={`font-semibold ${item.sizingExceedsOrder ? 'text-red-500' : 'text-[#3D2B1A]'}`}>{s.newQty}</span></>}
+                                      </td>
+                                    </tr>
+                                  ))}
+                                  <tr className="border-t border-[#E8DDD4] mt-0.5">
+                                    <td className="pr-2 text-[#999] font-semibold pt-0.5">Total</td>
+                                    <td className="text-right font-mono font-semibold pt-0.5">
+                                      <span className="text-[#aaa]">{item.oldSizingTotal}</span> → <span className={item.sizingExceedsOrder ? 'text-red-500' : 'text-[#3D2B1A]'}>{item.newSizingTotal}</span>
+                                    </td>
+                                  </tr>
+                                </tbody>
+                              </table>
+                            </div>
+                          )}
+                        </div>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+
+            {/* Footer */}
+            <div className="px-5 py-3 border-t border-[#E8DDD4] flex items-center justify-end gap-2 shrink-0">
+              <button onClick={() => setImportPreview(null)} className="px-4 py-1.5 rounded-lg text-xs text-[#666] border border-[#ddd] hover:bg-gray-50 transition-colors">
+                Cancel
+              </button>
+              <button
+                onClick={handleConfirmImport}
+                disabled={importPreview.items.every(i => i.sizingExceedsOrder)}
+                className="px-4 py-1.5 rounded-lg text-xs font-medium bg-[#5C4A3A] text-white hover:bg-[#3D2B1A] disabled:opacity-40 disabled:cursor-not-allowed transition-colors"
+              >
+                Apply {importPreview.items.filter(i => !i.sizingExceedsOrder).length} changes
+              </button>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   );
 };
