@@ -672,7 +672,6 @@ const BudgetAllocateScreen = ({
 
   // Leave dialog handlers
   const handleLeaveWithSave = async () => {
-    checkBrandCapAndWarn();
     await saveAllocation();
     const target = leaveDialog?.target;
     setLeaveDialog(null);
