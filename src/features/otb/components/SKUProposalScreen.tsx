@@ -3001,7 +3001,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                     {(() => {
                       const labelCls = `px-2 py-1 text-[11px] font-semibold font-['Montserrat'] whitespace-nowrap sticky left-0 z-10 ${'bg-white text-[#6B4D30] !border-r-[rgba(160,120,75,0.4)]'}`;
                       const emptyCls = `px-2 py-1 text-center min-w-[120px] ${'bg-white text-[#ccc]'}`;
-                      const rowLabels = ['Actions', 'Image', 'SKU', 'Name', 'Product Type (L3)', 'Theme', 'Color', 'Composition', 'Unit cost', 'SRP', 'Order', 'Customer Target', 'Comment'];
+                      const rowLabels = ['Actions', 'Image', 'SKU', 'Name', 'Product Type (L3)', 'Theme', 'Color', 'Composition', 'Unit cost', 'SRP', '% ST', 'Qty Rced', 'Qty SOld', 'Qty OH', 'Order', 'Customer Target', 'Comment'];
                       return (
                         <table className={`w-full text-xs border-separate border-spacing-0 ${'[&_td]:border-[rgba(215,183,151,0.2)]'} [&_td]:border`}>
                           <tbody>
@@ -3155,6 +3155,34 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                           <td className={tdLabel('srp')} onClick={() => toggleHl('srp')}>SRP</td>
                           {block.items.map((item: any, idx: number) => (
                             <td key={idx} className={`px-2 py-1 text-center font-medium font-['JetBrains_Mono'] ${'text-[#127749]'}`}>{formatCurrency(item.srp)}</td>
+                          ))}
+                        </tr>
+                        {/* % ST row */}
+                        <tr className={trCls('stPct')}>
+                          <td className={tdLabel('stPct')} onClick={() => toggleHl('stPct')}>% ST</td>
+                          {block.items.map((_: any, idx: number) => (
+                            <td key={idx} className={`px-2 py-1 text-center font-['JetBrains_Mono'] text-[#aaa]`}>—</td>
+                          ))}
+                        </tr>
+                        {/* Qty Rced row */}
+                        <tr className={trCls('qtyRced')}>
+                          <td className={tdLabel('qtyRced')} onClick={() => toggleHl('qtyRced')}>Qty Rced</td>
+                          {block.items.map((_: any, idx: number) => (
+                            <td key={idx} className={`px-2 py-1 text-center font-['JetBrains_Mono'] text-[#333333]`}>0</td>
+                          ))}
+                        </tr>
+                        {/* Qty SOld row */}
+                        <tr className={trCls('qtySold')}>
+                          <td className={tdLabel('qtySold')} onClick={() => toggleHl('qtySold')}>Qty SOld</td>
+                          {block.items.map((_: any, idx: number) => (
+                            <td key={idx} className={`px-2 py-1 text-center font-['JetBrains_Mono'] text-[#333333]`}>0</td>
+                          ))}
+                        </tr>
+                        {/* Qty OH row */}
+                        <tr className={trCls('qtyOh')}>
+                          <td className={tdLabel('qtyOh')} onClick={() => toggleHl('qtyOh')}>Qty OH</td>
+                          {block.items.map((_: any, idx: number) => (
+                            <td key={idx} className={`px-2 py-1 text-center font-['JetBrains_Mono'] text-[#333333]`}>0</td>
                           ))}
                         </tr>
                         {/* Order row - always highlighted */}
