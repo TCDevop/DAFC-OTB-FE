@@ -202,9 +202,9 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
   }, [type]);
 
   // Unified refresh handler
-  const handleRefresh = useCallback(() => {
-    if (isServerSide) fetchServerPage(currentPage, debouncedSearch);
-    else fetchData();
+  const handleRefresh = useCallback(async () => {
+    if (isServerSide) await fetchServerPage(currentPage, debouncedSearch);
+    else await fetchData();
   }, [isServerSide, fetchServerPage, fetchData, currentPage, debouncedSearch]);
 
   // Trigger fetch on type change
