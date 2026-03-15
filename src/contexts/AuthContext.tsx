@@ -58,7 +58,12 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           }
         } catch (err: any) {
           if (err?.errorCode !== 'crypto_nonexistent') {
-            console.error('MSAL redirect handling failed:', err);
+            console.error('[MSAL] redirect handling failed:', {
+              errorCode: err?.errorCode,
+              errorMessage: err?.errorMessage,
+              subError: err?.subError,
+              message: err?.message,
+            });
           }
         }
       }

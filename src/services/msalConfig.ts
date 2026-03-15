@@ -23,6 +23,13 @@ const getMsalConfig = (): Configuration => {
     cache: {
       cacheLocation: 'localStorage',
     },
+    system: {
+      loggerOptions: {
+        loggerCallback: (level: any, message: string, containsPii: boolean) => {
+          if (!containsPii && level <= 2) console.error('[MSAL]', message);
+        },
+      },
+    },
   };
 };
 
