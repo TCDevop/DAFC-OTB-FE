@@ -5,7 +5,7 @@ import { createPortal } from 'react-dom';
 import {
   ChevronDown, Package, Pencil, X, Plus, Trash2, Ruler, Clock, Users,
   Layers, Check, LayoutGrid, List, SlidersHorizontal, Download, Upload, Send, Tag, Star, Sparkles,
-  AlertTriangle, ArrowRight, Save, FilePlus, FileText, Columns2
+  AlertTriangle, ArrowRight, Save, FilePlus, FileText, Columns2, PanelRight
 } from 'lucide-react';
 import { useRouter } from 'next/navigation';
 import toast from 'react-hot-toast';
@@ -713,10 +713,13 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // OTB allocated amounts from final planning version's categories per brand
   // brandId → "gender_category_subCategory" (lowercase) → otbProposedAmount
   const [brandCategoryOtb, setBrandCategoryOtb] = useState<Record<string, Record<string, number>>>({});
+  // Sub-categories from planning final version for side panel: brandId → list
+  const [brandPlanningSubcats, setBrandPlanningSubcats] = useState<Record<string, { gender: string; category: string; subCategory: string }[]>>({});
 
   const [collapsed, setCollapsed] = useState<Record<string, any>>({});
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [collapsedBrands, setCollapsedBrands] = useState<Record<string, boolean>>({});
+  const [subCatPanelOpen, setSubCatPanelOpen] = useState(false);
   const [contextBanner, setContextBanner] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'card'>('list');
   const [lightbox, setLightbox] = useState<{ open: boolean; key: string; tab: 'details' | 'storeOrder' | 'sizing'; item: any; blockKey: string; idx: number; block: any } | null>(null);
@@ -944,6 +947,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Refs that always hold the latest state — used by save callbacks to avoid stale closures
   const skuBlocksRef = useRef<any[]>([]);
   const sizingDataRef = useRef<Record<string, any>>({});
+  const subCategoryFilterRef = useRef<string>('all');
   // Snapshot of DB state per brand — used for delta diffing on save
   const brandSnapshotRef = useRef<Record<string, Record<string, any>>>({});
 
@@ -1007,6 +1011,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   // Keep refs in sync — assign during render (not useEffect) so they're always current
   skuBlocksRef.current = skuBlocks;
   sizingDataRef.current = sizingData;
+  subCategoryFilterRef.current = subCategoryFilter;
 
   // Get size column names for a subcategory (from DB), fallback to FALLBACK_SIZE_KEYS
   // Also ensures sizeKeyToIdRef is populated for every returned size name
@@ -1202,6 +1207,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     if (displayBrands.length === 0 || !filtersComplete) {
       setBrandPlanningHeaders({});
       setBrandCategoryOtb({});
+      setBrandPlanningSubcats({});
       return;
     }
     // Clean up stale brand data from previous filter selection
@@ -1213,6 +1219,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     });
     setBrandCategoryOtb(prev => {
       const cleaned: Record<string, Record<string, number>> = {};
+      activeBrandIds.forEach(id => { if (prev[id]) cleaned[id] = prev[id]; });
+      return cleaned;
+    });
+    setBrandPlanningSubcats(prev => {
+      const cleaned: Record<string, { gender: string; category: string; subCategory: string }[]> = {};
       activeBrandIds.forEach(id => { if (prev[id]) cleaned[id] = prev[id]; });
       return cleaned;
     });
@@ -1251,6 +1262,24 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               }
             });
             setBrandCategoryOtb(prev => ({ ...prev, [brandId]: otbMap }));
+
+            // Extract sub-category list for side panel navigation
+            const seen = new Set<string>();
+            const subcats: { gender: string; category: string; subCategory: string }[] = [];
+            planningCats.forEach((pc: any) => {
+              const sc = pc.subcategory || pc.sub_category;
+              const cat = sc?.category;
+              const gender = cat?.gender;
+              const subCatName = sc?.name || '';
+              const catName = cat?.name || '';
+              const genderName = gender?.name || '';
+              const key = `${genderName}__${catName}__${subCatName}`;
+              if (subCatName && !seen.has(key)) {
+                seen.add(key);
+                subcats.push({ gender: genderName, category: catName, subCategory: subCatName });
+              }
+            });
+            setBrandPlanningSubcats(prev => ({ ...prev, [brandId]: subcats }));
           } catch (err: any) {
             console.error(`[SKU] Failed to load planning categories for brand ${brandId}:`, err?.message);
           }
@@ -1316,9 +1345,19 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   }, [skuBlocks, displayBrands]);
 
   // Build sub-category options from items' productType field, filtered by selected brand & category
+  // Also merges planning sub-cats so panel-selected values always appear in the dropdown
   const subCategoryOptions = useMemo(() => {
     const activeBrandIds = new Set(displayBrands.map((b: any) => String(b.id)));
     const map = new Map<string, string>();
+    // Seed from planning final version sub-cats (always present regardless of SKU data)
+    activeBrandIds.forEach(brandId => {
+      (brandPlanningSubcats[brandId] || []).forEach((sc: any) => {
+        if (categoryFilter !== 'all' && (sc.category || '').toLowerCase() !== categoryFilter.toLowerCase()) return;
+        const val = sc.subCategory || '';
+        if (val && !map.has(val.toLowerCase())) map.set(val.toLowerCase(), val);
+      });
+    });
+    // Merge SKU block items (may override with exact casing from real data)
     skuBlocks.forEach((b: any) => {
       if (!activeBrandIds.has(String(b.brandId))) return;
       (b.items || []).forEach((item: any) => {
@@ -1331,7 +1370,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       { value: 'all', label: 'All Sub Categories' },
       ...Array.from(map.entries()).map(([value, label]) => ({ value, label })),
     ];
-  }, [categoryFilter, skuBlocks, displayBrands]);
+  }, [categoryFilter, skuBlocks, displayBrands, brandPlanningSubcats]);
 
   const railOptions = useMemo(() => {
     const activeBrandIds = new Set(displayBrands.map((b: any) => String(b.id)));
@@ -1506,6 +1545,41 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return sizingRows.length > 0 ? sizingRows : undefined;
   }, [resolveSizeDbId, subCategorySizesMap]);
 
+  // Build bare sku_proposal records for recommended SKUs of OTHER sub-categories.
+  // Called only on first-time save (no existing version). These records are saved
+  // without sku_allocate or sizing so they serve as placeholders — the user fills
+  // them in during subsequent sub-category sessions.
+  const buildBareRecommendedPayload = useCallback((brandId: string) => {
+    const currentSubcatFilter = subCategoryFilterRef.current;
+    // Only inject when the user entered from OTB Analysis with a specific sub-category filter.
+    // If 'all', the user sees all sub-categories and can work on them normally.
+    if (currentSubcatFilter === 'all') return [];
+
+    const currentBlocks = skuBlocksRef.current;
+    return currentBlocks
+      .filter((b: any) =>
+        String(b.brandId || 'all') === brandId &&
+        (b.subCategory || '').toLowerCase() !== currentSubcatFilter.toLowerCase()
+      )
+      .flatMap((block: any) =>
+        (block.items || [])
+          .filter((item: any) =>
+            item.productId &&
+            item.isRecommended === true &&
+            !item.skuProposalId // not yet persisted
+          )
+          .map((item: any) => ({
+            productId: String(item.productId),
+            customerTarget: String(item.customerTarget || 'New'),
+            unitCost: Number(item.unitCost) || 0,
+            srp: Number(item.srp) || 0,
+            comment: '',
+            sizingComment: '',
+            allocations: [], // bare record — no store allocations, no sizing
+          }))
+      );
+  }, []); // reads refs only
+
   // Compute delta between current state and the DB snapshot for a brand
   const computeDelta = useCallback((brandId: string) => {
     const snapshot = brandSnapshotRef.current[brandId] || {};
@@ -1592,6 +1666,11 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           toast.error('Please add at least one SKU before saving');
           return;
         }
+        // Bare sku_proposal records for recommended SKUs of other sub-categories.
+        // These have no allocations/sizing — they act as placeholders for future sessions.
+        const bareRecommended = buildBareRecommendedPayload(brandId);
+        const allProducts = bareRecommended.length > 0 ? [...products, ...bareRecommended] : products;
+
         const matchedAH = matchedAllocateHeaders.find((ah: any) => String(ah.brandId) === brandId);
         const proposals = products.map((p: any) => ({ productId: p.productId, customerTarget: p.customerTarget || 'New', unitCost: p.unitCost || 0, srp: p.srp || 0 }));
         const createPayload: any = { proposals };
@@ -1602,7 +1681,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         const newHeader = created?.data || created;
         if (newHeader) {
           const newId = String(newHeader.id);
-          await proposalService.saveFullProposal(newId, { products, sizingRows: sizings });
+          await proposalService.saveFullProposal(newId, { products: allProducts, sizingRows: sizings });
           setBrandProposalHeaders(prev => ({ ...prev, [brandId]: [{ id: newId, version: newHeader.version || 1, status: 'DRAFT', isFinal: false }, ...(prev[brandId] || [])] }));
           setBrandSkuVersion(prev => ({ ...prev, [brandId]: newId }));
           const detail = await proposalService.getOne(newId);
@@ -2340,6 +2419,35 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     return style.light;
   };
 
+  // Sub-category navigation panel — data from planning final version + completion from skuBlocks
+  const activePanelBrandId = brandFilter !== 'all'
+    ? brandFilter
+    : (displayBrands.length === 1 ? String(displayBrands[0].id) : null);
+  const planningSubcats = activePanelBrandId ? (brandPlanningSubcats[activePanelBrandId] || []) : [];
+  const isPanelLoading = activePanelBrandId ? (brandLoadingPlanning[activePanelBrandId] ?? false) : false;
+
+  const subCatNavItems = planningSubcats.map(sub => {
+    const subCatLower = sub.subCategory.toLowerCase();
+    const matchingBlocks = skuBlocks.filter((b: any) =>
+      (b.subCategory || '').toLowerCase() === subCatLower &&
+      (!activePanelBrandId || String(b.brandId) === activePanelBrandId)
+    );
+    const allItems: { item: any; blockKey: string; idx: number }[] = matchingBlocks.flatMap((b: any) =>
+      (b.items || []).map((item: any, idx: number) => ({ item, blockKey: buildBlockKey(b), idx }))
+    );
+    const orderedItems = allItems.filter(({ item }) => (Number(item.order) || 0) > 0);
+    const isDone = orderedItems.length > 0 &&
+      orderedItems.every(({ blockKey, idx }) => isSizingComplete(blockKey, idx));
+    return {
+      ...sub,
+      skuCount: allItems.length,
+      orderedCount: orderedItems.length,
+      status: isDone ? 'done' as const : 'pending' as const,
+    };
+  });
+  const panelDoneCount = subCatNavItems.filter(s => s.status === 'done').length;
+  const panelGenders = Array.from(new Set(subCatNavItems.map(s => s.gender)));
+
   return (
     <>
       <div ref={barRef} data-filter-bar className={`sticky -top-3 md:-top-6 z-[50] -mx-3 md:-mx-6 -mt-3 md:-mt-6 mb-2 md:mb-3 backdrop-blur-sm relative border-b ${'bg-white/95 border-[rgba(215,183,151,0.3)]'}`}>
@@ -2472,16 +2580,6 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                 placeholder={t('budget.allSeasons') || 'All Seasons'}
               />
 
-              {/* Gender filter stays in row 1 */}
-              <FilterSelect
-                icon={Users}
-                label={t('common.gender') || 'Gender'}
-                value={genderFilter}
-                options={genderOptions}
-                onChange={(v: string) => { setGenderFilter(v); setCategoryFilter('all'); setSubCategoryFilter('all'); }}
-                placeholder={t('common.allGenders') || 'All Genders'}
-              />
-
             </div>
           </div>
         </>}
@@ -2489,7 +2587,15 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
         {/* ── Secondary Filters + Controls ── */}
         {!isMobile && (
           <div className="border-t border-[rgba(215,183,151,0.25)] px-3 md:px-6 py-1.5 flex items-center gap-1.5 flex-wrap">
-            {/* Category, SubCategory, Rail — appear here on all screen sizes */}
+            {/* Gender, Category, SubCategory, Rail */}
+            <FilterSelect
+              icon={Users}
+              label={t('common.gender') || 'Gender'}
+              value={genderFilter}
+              options={genderOptions}
+              onChange={(v: string) => { setGenderFilter(v); setCategoryFilter('all'); setSubCategoryFilter('all'); }}
+              placeholder={t('common.allGenders') || 'All Genders'}
+            />
             <FilterSelect
               icon={Tag}
               label={t('common.category') || 'Category'}
@@ -2582,6 +2688,21 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
               </button>
             </div>
 
+            {/* Sub-category Panel Toggle */}
+            <button
+              type="button"
+              onClick={() => setSubCatPanelOpen(prev => !prev)}
+              title="Sub-category navigation panel"
+              className={`flex items-center gap-1 px-2 py-1 text-xs font-medium rounded-md border transition-colors shrink-0 ${
+                subCatPanelOpen
+                  ? 'bg-[rgba(18,119,73,0.1)] border-[#127749] text-[#127749]'
+                  : 'border-[#C4B5A5] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.18)]'
+              }`}
+            >
+              <PanelRight size={12} />
+              Sub-cats
+            </button>
+
             </>}
 
             {/* Hidden file input for import (triggered via header button) */}
@@ -2595,6 +2716,8 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           </div>
         )}
       </div>
+      <div className="flex items-start gap-2">
+      <div className="flex-1 min-w-0">
       {!filtersComplete ? (
         <div className="flex flex-col items-center justify-center py-20 px-4 animate-fadeIn">
           <div className="empty-state-rings mb-6">
@@ -3448,6 +3571,105 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
           )}
         </div>
       )}
+      </div>{/* end flex-1 main content */}
+
+      {/* Sub-category Navigation Side Panel */}
+      <div className={`transition-all duration-200 overflow-hidden shrink-0 ${subCatPanelOpen ? 'w-56' : 'w-0'}`}>
+        {subCatPanelOpen && (
+          <div className="sticky top-2 w-56 rounded-xl border border-[rgba(215,183,151,0.3)] bg-white shadow-sm overflow-hidden">
+            {/* Panel header */}
+            <div className="px-3 py-2 bg-[rgba(215,183,151,0.12)] border-b border-[rgba(215,183,151,0.3)] flex items-center justify-between">
+              <span className="text-[11px] font-bold uppercase tracking-wider font-['Montserrat'] text-[#6B4D30]">Sub Categories</span>
+              <button
+                type="button"
+                onClick={() => setSubCatPanelOpen(false)}
+                className="p-0.5 rounded hover:bg-[rgba(215,183,151,0.3)] text-[#999] transition-colors"
+              >
+                <X size={12} />
+              </button>
+            </div>
+
+            {/* Loading / no-brand states */}
+            {!activePanelBrandId ? (
+              <div className="px-3 py-4 text-center text-[11px] text-[#999] font-['Montserrat']">
+                Select a single brand to view sub-categories
+              </div>
+            ) : isPanelLoading && subCatNavItems.length === 0 ? (
+              <div className="px-3 py-4 flex items-center justify-center gap-2">
+                <div className="w-3.5 h-3.5 border-2 border-[#D7B797]/30 border-t-[#D7B797] rounded-full animate-spin" />
+                <span className="text-[11px] text-[#999] font-['Montserrat']">Loading...</span>
+              </div>
+            ) : subCatNavItems.length === 0 ? (
+              <div className="px-3 py-4 text-center text-[11px] text-[#999] font-['Montserrat'] italic">
+                No planning final version found
+              </div>
+            ) : (
+              <>
+                {/* Progress bar */}
+                <div className="px-3 py-2 border-b border-[rgba(215,183,151,0.2)] flex items-center gap-2">
+                  <div className="flex-1 h-1.5 rounded-full bg-[rgba(215,183,151,0.25)]">
+                    <div
+                      className="h-full rounded-full bg-[#2A9E6A] transition-all"
+                      style={{ width: `${subCatNavItems.length > 0 ? (panelDoneCount / subCatNavItems.length) * 100 : 0}%` }}
+                    />
+                  </div>
+                  <span className="text-[10px] font-medium text-[#666] font-['JetBrains_Mono'] shrink-0">
+                    {panelDoneCount}/{subCatNavItems.length}
+                  </span>
+                </div>
+
+                {/* Sub-category list grouped by Gender → Category */}
+                <div className="overflow-y-auto" style={{ maxHeight: 'calc(100vh - 260px)' }}>
+                  {panelGenders.map(gender => (
+                    <div key={gender}>
+                      <div className="px-3 py-1 text-[9px] font-bold uppercase tracking-wider text-[#999] font-['Montserrat'] bg-[rgba(215,183,151,0.1)] border-y border-[rgba(215,183,151,0.15)]">
+                        {gender}
+                      </div>
+                      {Array.from(new Set(subCatNavItems.filter(s => s.gender === gender).map(s => s.category))).map(cat => (
+                        <div key={cat}>
+                          <div className="px-3 pt-2 pb-0.5 text-[10px] text-[#888] font-semibold font-['Montserrat']">
+                            {cat}
+                          </div>
+                          {subCatNavItems.filter(s => s.gender === gender && s.category === cat).map(sub => {
+                            const isActive = subCategoryFilter === sub.subCategory.toLowerCase();
+                            const isDone = sub.status === 'done';
+                            return (
+                              <button
+                                key={sub.subCategory}
+                                type="button"
+                                onClick={() => setSubCategoryFilter(isActive ? 'all' : sub.subCategory.toLowerCase())}
+                                className={`w-full flex items-center gap-2 px-3 py-1.5 text-left transition-colors ${
+                                  isActive
+                                    ? 'bg-[rgba(18,119,73,0.12)] text-[#127749]'
+                                    : 'hover:bg-[rgba(160,120,75,0.1)] text-[#444]'
+                                }`}
+                              >
+                                {isDone ? (
+                                  <span className="w-3.5 h-3.5 rounded-full bg-[#2A9E6A] flex items-center justify-center shrink-0">
+                                    <Check size={8} className="text-white" strokeWidth={3} />
+                                  </span>
+                                ) : (
+                                  <span className="w-3.5 h-3.5 rounded-full border-2 border-[rgba(215,183,151,0.5)] shrink-0" />
+                                )}
+                                <span className="flex-1 truncate text-[11px] font-['Montserrat']">{sub.subCategory}</span>
+                                <span className={`text-[9px] font-['JetBrains_Mono'] shrink-0 ${isDone ? 'text-[#2A9E6A]' : 'text-[#bbb]'}`}>
+                                  {sub.orderedCount > 0 ? sub.orderedCount : sub.skuCount > 0 ? sub.skuCount : '–'}
+                                </span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      ))}
+                    </div>
+                  ))}
+                </div>
+              </>
+            )}
+          </div>
+        )}
+      </div>
+
+      </div>{/* end flex wrapper */}
 
       {/* Version Portal Dropdown */}
       {openDropdown && dropdownAnchorEl && typeof document !== 'undefined' && (() => {

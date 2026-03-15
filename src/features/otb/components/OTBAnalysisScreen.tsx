@@ -114,6 +114,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
 
   // SKU status per brand: { [brandId]: { [subCategoryId]: { skuCount, allocatedCount, sizedCount, allAllocated, allSized } } }
   const [brandSkuStatus, setBrandSkuStatus] = useState<Record<string, Record<string, any>>>({});
+  // Proposal version count per brand (keyed by brandId): how many proposal versions exist for the allocate header
+  const [brandProposalCount, setBrandProposalCount] = useState<Record<string, number>>({});
 
   // Historical comparison data
   const [historicalData, setHistoricalData] = useState<Record<string, Record<string, any>>>({});
@@ -341,24 +343,36 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
     return () => controllers.forEach(c => c.abort());
   }, [brandSelectedVersion]); // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Fetch SKU allocation+sizing status per brand whenever matched allocate headers change
+  // Fetch SKU allocation+sizing status + proposal version count per brand whenever matched allocate headers change.
+  // Both fetches run in parallel (Promise.all) per brand — no extra round-trips vs N serial calls.
   useEffect(() => {
-    if (matchedAllocateHeaders.length === 0) return;
+    if (matchedAllocateHeaders.length === 0) {
+      setBrandSkuStatus({});
+      setBrandProposalCount({});
+      return;
+    }
     const controllers: AbortController[] = [];
     matchedAllocateHeaders.forEach((ah: any) => {
       const brandId = String(ah.brandId);
+      const ahId = String(ah.id);
       const controller = new AbortController();
       controllers.push(controller);
-      proposalService.getSkuStatus(String(ah.id), { signal: controller.signal })
-        .then((res: any) => {
-          if (controller.signal.aborted) return;
-          const map: Record<string, any> = {};
-          (res?.data || res || []).forEach((item: any) => {
-            map[String(item.subCategoryId)] = item;
-          });
-          setBrandSkuStatus(prev => ({ ...prev, [brandId]: map }));
-        })
-        .catch(() => {/* silently ignore */});
+      Promise.all([
+        proposalService.getSkuStatus(ahId, { signal: controller.signal }),
+        proposalService.getAll({ allocateHeaderId: ahId }, { signal: controller.signal }),
+      ]).then(([statusRes, proposalList]: [any, any]) => {
+        if (controller.signal.aborted) return;
+        // SKU completion status per sub-category
+        const map: Record<string, any> = {};
+        (statusRes?.data || statusRes || []).forEach((item: any) => {
+          const subCatKey = String(item.subCategoryId ?? item.sub_category_id ?? '');
+          if (subCatKey) map[subCatKey] = item;
+        });
+        setBrandSkuStatus(prev => ({ ...prev, [brandId]: map }));
+        // Number of proposal versions for this allocate header
+        const count = Array.isArray(proposalList) ? proposalList.length : (Array.isArray(proposalList?.data) ? proposalList.data.length : 0);
+        setBrandProposalCount(prev => ({ ...prev, [brandId]: count }));
+      }).catch(() => {/* silently ignore aborts and errors */});
     });
     return () => controllers.forEach(c => c.abort());
   }, [matchedAllocateHeaders]); // eslint-disable-line react-hooks/exhaustive-deps
@@ -1726,6 +1740,10 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
   // Render Category Tab - Hierarchical Collapsible (Gender -> Category -> SubCategory)
   const renderCategoryTab = (brand?: any) => {
     const brandId = brand ? String(brand.id) : null;
+    // Number of proposal versions for this brand's allocate header.
+    // Tick is only shown when at least 1 proposal version exists (proposal has been started).
+    const brandProposalVersionCount = brandId ? (brandProposalCount[brandId] ?? -1) : -1;
+    const hasProposal = brandProposalVersionCount >= 1;
     const isLoadingPlanningData = brandId ? (brandLoadingPlanningData[brandId] || false) : false;
 
     // Build planning data lookup by subcategory_id from the selected planning version
@@ -1869,7 +1887,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
           const expandKey = brandId ? `${brandId}::${genderEntry.gender.id}` : genderEntry.gender.id;
           const isGenderExpanded = expandedCategories[expandKey] !== false;
           const genderSkuMap = brandId ? (brandSkuStatus[brandId] || {}) : {};
-          const isGenderFullyAllocated = genderEntry.categories.length > 0 && genderEntry.categories.every((catEntry: any) =>
+          const isGenderFullyAllocated = hasProposal && genderEntry.categories.length > 0 && genderEntry.categories.every((catEntry: any) =>
             catEntry.subCategories.length > 0 && catEntry.subCategories.every((sub: any) => {
               const s = genderSkuMap[String(sub.subCategory.id)];
               return s && s.skuCount > 0 && s.allAllocated && s.allSized;
@@ -2021,7 +2039,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
                     const isCatExpanded = expandedSubCategories[catKey] === true;
                     const catTotals = calculateCategoryTotals(catEntry);
                     const skuStatusMap = brandId ? (brandSkuStatus[brandId] || {}) : {};
-                    const isCatFullyAllocated = catEntry.subCategories.length > 0 && catEntry.subCategories.every((sub: any) => {
+                    const isCatFullyAllocated = hasProposal && catEntry.subCategories.length > 0 && catEntry.subCategories.every((sub: any) => {
                       const s = skuStatusMap[String(sub.subCategory.id)];
                       return s && s.skuCount > 0 && s.allAllocated && s.allSized;
                     });
@@ -2193,8 +2211,8 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
                                   const rowData = getRowData(cellKey, subCatId);
                                   const isEditing = editingCell === cellKey && editingBrandId === brandId;
                                   const skuStat = brandId ? brandSkuStatus[brandId]?.[subCatId] : undefined;
-                                  const isFullyAllocated = skuStat && skuStat.skuCount > 0 && skuStat.allAllocated && skuStat.allSized;
-                                  const hasSkus = skuStat && skuStat.skuCount > 0;
+                                  const isFullyAllocated = hasProposal && skuStat && skuStat.skuCount > 0 && skuStat.allAllocated && skuStat.allSized;
+                                  const hasSkus = hasProposal && skuStat && skuStat.skuCount > 0;
 
                                   return (
                                     <tr
