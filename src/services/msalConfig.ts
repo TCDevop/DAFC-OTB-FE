@@ -17,7 +17,7 @@ const getMsalConfig = (): Configuration => {
     auth: {
       clientId: env.AZURE_CLIENT_ID,
       authority: `https://login.microsoftonline.com/${env.AZURE_TENANT_ID || 'common'}`,
-      redirectUri: window.location.origin,
+      redirectUri: `${window.location.origin}/auth/microsoft/callback`,
     },
     cache: {
       cacheLocation: 'sessionStorage',
