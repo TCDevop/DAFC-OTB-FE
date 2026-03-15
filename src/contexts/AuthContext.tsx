@@ -23,7 +23,7 @@ interface AuthContextType {
   loginStatus: string;
   isAuthenticated: boolean;
   login: (email: string, password: string) => Promise<AuthUser>;
-  loginWithMicrosoft: () => Promise<AuthUser>;
+  loginWithMicrosoft: () => Promise<void>;
   logout: () => void;
   hasPermission: (permission: string) => boolean;
   hasAnyPermission: (permissions: string[]) => boolean;
@@ -41,23 +41,26 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Check if user is already logged in on mount + handle Microsoft redirect response
   useEffect(() => {
     const checkAuth = async () => {
-      // Handle Microsoft redirect flow response (loginRedirect callback)
-      try {
-        const { initializeMsal } = await import('../services/msalConfig');
-        const msalInstance = await initializeMsal();
-        const redirectResult = await msalInstance.handleRedirectPromise();
-        if (redirectResult?.accessToken) {
-          setLoginStatus('Authenticating...');
-          const { user: userData } = await authService.loginWithMicrosoft(redirectResult.accessToken);
-          setLoginStatus('');
-          setUser(userData);
-          setLoading(false);
-          // Navigate away from callback page to the dashboard
-          window.location.replace('/');
-          return;
+      // Handle Microsoft redirect flow response — only on the callback page
+      if (window.location.pathname.includes('/auth/microsoft/callback')) {
+        try {
+          const { initializeMsal } = await import('../services/msalConfig');
+          const msalInstance = await initializeMsal();
+          const redirectResult = await msalInstance.handleRedirectPromise();
+          if (redirectResult?.accessToken) {
+            setLoginStatus('Authenticating...');
+            const { user: userData } = await authService.loginWithMicrosoft(redirectResult.accessToken);
+            setLoginStatus('');
+            setUser(userData);
+            setLoading(false);
+            window.location.replace('/');
+            return;
+          }
+        } catch (err: any) {
+          if (err?.errorCode !== 'crypto_nonexistent') {
+            console.error('MSAL redirect handling failed:', err);
+          }
         }
-      } catch (err) {
-        console.error('MSAL redirect handling failed:', err);
       }
 
       if (authService.isAuthenticated()) {
