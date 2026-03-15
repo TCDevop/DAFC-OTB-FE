@@ -47,6 +47,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
           const { initializeMsal } = await import('../services/msalConfig');
           const msalInstance = await initializeMsal();
           const redirectResult = await msalInstance.handleRedirectPromise();
+          console.log('[Auth] handleRedirectPromise result:', redirectResult);
           if (redirectResult?.accessToken) {
             setLoginStatus('Authenticating...');
             const { user: userData } = await authService.loginWithMicrosoft(redirectResult.accessToken);

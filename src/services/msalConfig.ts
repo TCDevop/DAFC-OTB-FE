@@ -26,8 +26,9 @@ const getMsalConfig = (): Configuration => {
     system: {
       loggerOptions: {
         loggerCallback: (level: any, message: string, containsPii: boolean) => {
-          if (!containsPii && level <= 2) console.error('[MSAL]', message);
+          if (!containsPii) console.log(`[MSAL][${level}]`, message);
         },
+        logLevel: 3,
       },
     },
   };
