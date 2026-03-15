@@ -14,3 +14,4 @@ export { orderService } from './orderService';
 export { approvalHelper } from './approvalHelper';
 export { notificationService } from './notificationService';
 export { ticketService } from './ticketService';
+export { adminService } from './adminService';

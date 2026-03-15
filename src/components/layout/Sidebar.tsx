@@ -6,7 +6,7 @@ import {
   CheckCircle, ChevronRight, ListOrdered,
   ChevronDown, Wallet, FileCheck,
   ClipboardList, ClipboardCheck, Ticket, Home, LogOut,
-  Settings, Crown, PanelLeftClose,
+  Settings, Crown, PanelLeftClose, ShieldCheck,
   Database, Building2, FolderTree, Tag,
   Upload, Store, Users, Calendar, Coins
 } from 'lucide-react';
@@ -14,6 +14,7 @@ import { ROUTE_MAP } from '@/utils/routeMap';
 import { useLanguage } from '@/contexts/LanguageContext';
 
 const Sidebar = ({ currentScreen, user, onLogout }: any) => {
+  const isAdmin = user?.permissions?.includes('*');
   const router = useRouter();
   const { t } = useLanguage();
   const navigateTo = (screenId: any) => {
@@ -484,6 +485,21 @@ const Sidebar = ({ currentScreen, user, onLogout }: any) => {
                     </div>
                   </div>
                 </button>
+
+                {isAdmin && (
+                  <button
+                    onClick={() => { window.open('/admin/users', '_blank'); setShowUserMenu(false); }}
+                    className="w-full flex items-center gap-2.5 px-2.5 py-1 rounded-lg transition-all duration-200 text-gray-700 hover:bg-gray-100"
+                  >
+                    <div className="p-1 rounded-md" style={{ background: 'linear-gradient(135deg, rgba(160,120,75,0.12) 0%, rgba(160,120,75,0.22) 100%)' }}>
+                      <ShieldCheck size={14} className="text-[#6B4D30]" />
+                    </div>
+                    <div className="flex-1 text-left">
+                      <div className="text-xs font-medium font-['Montserrat']">Admin Panel</div>
+                      <div className="text-[10px] text-gray-700">Users, roles & permissions</div>
+                    </div>
+                  </button>
+                )}
 
                 <div className="my-1.5 mx-2 h-px" style={{
                   background: 'linear-gradient(90deg, transparent 0%, rgba(215,183,151,0.2) 50%, transparent 100%)',

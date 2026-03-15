@@ -101,6 +101,8 @@ const en = {
     genders: 'Genders',
     seasonGroups: 'Season Groups',
     importData: 'Import Data',
+    administration: 'Administration',
+    userManagement: 'User Management',
   },
 
   // ──────────────────────────────────────────────

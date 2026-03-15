@@ -74,7 +74,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const router = useRouter();
-  const { setAllocationData, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, registerExport, unregisterExport, showLoading, hideLoading } = useAppContext();
+  const { setAllocationData, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, registerExport, unregisterExport, registerBackNavigate, unregisterBackNavigate, showLoading, hideLoading } = useAppContext();
   const { isOpen: filterOpen, open: openFilter, close: closeFilter } = useBottomSheet();
   const [mobileFilterValues, setMobileFilterValues] = useState<Record<string, string | string[]>>({});
 
@@ -89,7 +89,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
 
   // API state for fetching budgets
   const [apiBudgets, setApiBudgets] = useState<any[]>([]);
-  const [loadingBudgets, setLoadingBudgets] = useState(false);
+  // Initialize as true — fetch always runs on mount, so "loading" is the correct initial state.
+  // This prevents the otbContext effect from firing before apiBudgets is populated.
+  const [loadingBudgets, setLoadingBudgets] = useState(true);
 
   // Version states
   const [versions, setVersions] = useState<any[]>([]);
@@ -694,6 +696,10 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
 
   useEffect(() => {
     if (!otbContext) return;
+    // Wait until budget list has finished loading — apiBudgets is empty during fetch
+    // and calling onContextUsed() early would clear the context before we can match it.
+    if (loadingBudgets) return;
+
     const { budgetId, budgetName, seasonGroup, season, rex, ttp, fiscalYear, brandName, groupBrand, totalBudget, status, brandId } = otbContext;
 
     // Try to find matching budget in loaded budgets (use String() to avoid type mismatch)
@@ -726,23 +732,15 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
       ttp: ttp ?? 0
     });
 
-    if (fiscalYear) {
-      setSelectedYear(fiscalYear);
-    }
-    if (seasonGroup) {
-      setSelectedSeasonGroup(seasonGroup);
-    }
-    if (season) {
-      setSelectedSeason(season);
-    }
+    if (fiscalYear) setSelectedYear(fiscalYear);
+    if (seasonGroup) setSelectedSeasonGroup(seasonGroup);
+    if (season) setSelectedSeason(season);
     // Pre-select brand if passed from cross-screen navigation (e.g. SKU Proposal)
-    if (brandId) {
-      setSelectedBrandIds([String(brandId)]);
-    }
+    if (brandId) setSelectedBrandIds([String(brandId)]);
 
     // Clear context after consuming so re-navigation doesn't re-apply stale values
     onContextUsed?.();
-  }, [otbContext, apiBudgets]);
+  }, [otbContext, apiBudgets, loadingBudgets]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // Close dropdowns when clicking outside
   useEffect(() => {
@@ -1083,7 +1081,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
 
   const selectedBudget = selectedBudgetId === 'all'
     ? null
-    : apiBudgets.find((b: any) => b.id === selectedBudgetId);
+    : apiBudgets.find((b: any) => String(b.id) === String(selectedBudgetId));
   const selectedVersion = versions.find((v: any) => v.id === selectedVersionId);
 
   // Calculate grand totals
@@ -1649,6 +1647,24 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any
     registerExport(handleExportExcel);
     return () => { unregisterExport(); };
   }, [handleExportExcel, registerExport, unregisterExport]);
+
+  // Register back navigate handler — carries current filters back to Budget Allocation
+  useEffect(() => {
+    registerBackNavigate(() => {
+      const matchedBudget = apiBudgets.find((b: any) => String(b.id) === String(selectedBudgetId));
+      setAllocationData({
+        id: selectedBudgetId !== 'all' ? selectedBudgetId : null,
+        budgetName: matchedBudget?.budgetName || '',
+        year: selectedYear !== 'all' ? selectedYear : null,
+        totalBudget: matchedBudget?.totalBudget || 0,
+        seasonGroupId: selectedSeasonGroup !== 'all' ? selectedSeasonGroup : null,
+        seasonId: selectedSeason !== 'all' ? selectedSeason : null,
+        brandId: selectedBrandIds.length === 1 ? selectedBrandIds[0] : null,
+      });
+      router.push('/planning');
+    });
+    return () => { unregisterBackNavigate(); };
+  }, [apiBudgets, selectedBudgetId, selectedYear, selectedSeasonGroup, selectedSeason, selectedBrandIds, setAllocationData, router, registerBackNavigate, unregisterBackNavigate]);
 
   // Compute brand-level grand totals (%Sales, %Proposed, $OTB) for the brand header
   const getBrandTotals = useCallback((brandId: string) => {

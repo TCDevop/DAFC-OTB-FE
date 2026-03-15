@@ -101,6 +101,8 @@ const vi = {
     genders: 'Giới tính',
     seasonGroups: 'Nhóm mùa',
     importData: 'Nhập dữ liệu',
+    administration: 'Quản trị',
+    userManagement: 'Quản lý người dùng',
   },
 
   // ──────────────────────────────────────────────

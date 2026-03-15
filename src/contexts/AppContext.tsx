@@ -43,6 +43,10 @@ interface AppContextType {
   unregisterImport: () => void;
   triggerImport: () => void;
   hasImportHandler: boolean;
+  registerBackNavigate: (handler: () => void) => void;
+  unregisterBackNavigate: () => void;
+  triggerBackNavigate: () => void;
+  hasBackNavigateHandler: boolean;
   headerSubtitle: string | null;
   setHeaderSubtitle: (subtitle: string | null) => void;
   // Global loading overlay
@@ -174,6 +178,26 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
+  // Back navigate handler: planning screens register a handler that carries filters back to the previous step
+  const backNavigateHandlerRef = useRef<(() => void) | null>(null);
+  const [hasBackNavigateHandler, setHasBackNavigateHandler] = useState(false);
+
+  const registerBackNavigate = useCallback((handler: () => void) => {
+    backNavigateHandlerRef.current = handler;
+    setHasBackNavigateHandler(true);
+  }, []);
+
+  const unregisterBackNavigate = useCallback(() => {
+    backNavigateHandlerRef.current = null;
+    setHasBackNavigateHandler(false);
+  }, []);
+
+  const triggerBackNavigate = useCallback(() => {
+    if (backNavigateHandlerRef.current) {
+      backNavigateHandlerRef.current();
+    }
+  }, []);
+
   // Header subtitle — screens can set to show e.g. "Ferragamo - Brand X" in breadcrumb
   const [headerSubtitle, setHeaderSubtitle] = useState<string | null>(null);
 
@@ -227,6 +251,10 @@ export const AppProvider = ({ children }: { children: React.ReactNode }) => {
     unregisterImport,
     triggerImport,
     hasImportHandler,
+    registerBackNavigate,
+    unregisterBackNavigate,
+    triggerBackNavigate,
+    hasBackNavigateHandler,
     headerSubtitle,
     setHeaderSubtitle,
     loading,

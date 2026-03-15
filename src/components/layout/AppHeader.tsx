@@ -208,7 +208,7 @@ const AppHeader = ({
   const router = useRouter();
   const { t, language, setLanguage } = useLanguage();
   const { isMobile } = useIsMobile();
-  const { triggerSave, hasSaveHandler, triggerSaveAsNew, hasSaveAsNewHandler, triggerCreateBudget, triggerExport, hasExportHandler, triggerImport, hasImportHandler } = useAppContext();
+  const { triggerSave, hasSaveHandler, triggerSaveAsNew, hasSaveAsNewHandler, triggerCreateBudget, triggerExport, hasExportHandler, triggerImport, hasImportHandler, triggerBackNavigate, hasBackNavigateHandler } = useAppContext();
   const SCREEN_CONFIG: any = useMemo(() => getScreenConfig(t), [t]);
   const onNavigate = (screenId: any) => {
     const route = ROUTE_MAP[screenId];
@@ -706,7 +706,7 @@ const AppHeader = ({
             {/* Back Arrow */}
             {currentStepIndex > 0 && !isMobile && (
               <button
-                onClick={() => onNavigate(PLANNING_STEPS[currentStepIndex - 1].id)}
+                onClick={() => hasBackNavigateHandler ? triggerBackNavigate() : onNavigate(PLANNING_STEPS[currentStepIndex - 1].id)}
                 className="p-1 rounded-md transition-colors shrink-0 hover:bg-gray-100 text-gray-500"
               >
                 <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">

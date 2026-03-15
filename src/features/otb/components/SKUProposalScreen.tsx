@@ -136,7 +136,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const router = useRouter();
-  const { setAllocationData, setOtbAnalysisContext, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, registerExport, unregisterExport, registerImport, unregisterImport, showLoading, hideLoading } = useAppContext();
+  const { setAllocationData, setOtbAnalysisContext, registerSave, unregisterSave, registerSaveAsNew, unregisterSaveAsNew, registerExport, unregisterExport, registerImport, unregisterImport, registerBackNavigate, unregisterBackNavigate, showLoading, hideLoading } = useAppContext();
   const { dialogProps, confirm } = useConfirmDialog();
   const { isOpen: filterOpen, open: openFilter, close: closeFilter } = useBottomSheet();
   const [mobileFilterValues, setMobileFilterValues] = useState<Record<string, string | string[]>>({});
@@ -2055,6 +2055,26 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
     registerImport(() => { importFileRef.current?.click(); });
     return () => { unregisterImport(); };
   }, [registerImport, unregisterImport]);
+
+  // Register back navigate handler — carries current filters back to OTB Analysis
+  useEffect(() => {
+    registerBackNavigate(() => {
+      const matchedBudget = apiBudgets.find((b: any) => b.id === budgetFilter);
+      setOtbAnalysisContext({
+        budgetId: budgetFilter !== 'all' ? budgetFilter : null,
+        budgetName: matchedBudget?.budgetName || '',
+        fiscalYear: matchedBudget?.fiscalYear || null,
+        totalBudget: matchedBudget?.totalBudget || 0,
+        status: matchedBudget?.status || 'draft',
+        brandId: brandFilter !== 'all' ? brandFilter : null,
+        brandIds: brandFilter !== 'all' ? [brandFilter] : [],
+        seasonGroup: seasonGroupFilter !== 'all' ? seasonGroupFilter : null,
+        season: seasonFilter !== 'all' ? seasonFilter : null,
+      });
+      router.push('/otb-analysis');
+    });
+    return () => { unregisterBackNavigate(); };
+  }, [apiBudgets, budgetFilter, brandFilter, seasonGroupFilter, seasonFilter, setOtbAnalysisContext, router, registerBackNavigate, unregisterBackNavigate]);
 
   const handleStartEdit = (cellKey: any, currentValue: any) => {
     setEditingCell(cellKey);

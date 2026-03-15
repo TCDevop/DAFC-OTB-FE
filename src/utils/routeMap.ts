@@ -22,6 +22,7 @@ export const ROUTE_MAP: Record<string, string> = {
   'order-confirmation': '/order-confirmation',
   'receipt-confirmation': '/receipt-confirmation',
   'import-data': '/import-data',
+  'admin-users': '/admin/users',
 };
 
 const PATHNAME_TO_SCREEN: Record<string, string> = {
@@ -39,6 +40,7 @@ const PATHNAME_TO_SCREEN: Record<string, string> = {
   '/order-confirmation': 'order-confirmation',
   '/receipt-confirmation': 'receipt-confirmation',
   '/import-data': 'import-data',
+  '/admin/users': 'admin-users',
 };
 
 export const getScreenIdFromPathname = (pathname: string): string => {
