@@ -718,7 +718,7 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
   const [allCollapsed, setAllCollapsed] = useState(false);
   const [collapsedBrands, setCollapsedBrands] = useState<Record<string, boolean>>({});
   const [contextBanner, setContextBanner] = useState<any>(null);
-  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'card'>('kanban');
+  const [viewMode, setViewMode] = useState<'list' | 'kanban' | 'card'>('list');
   const [lightbox, setLightbox] = useState<{ open: boolean; key: string; tab: 'details' | 'storeOrder' | 'sizing'; item: any; blockKey: string; idx: number; block: any } | null>(null);
   const [customerTargetOptions, setCustomerTargetOptions] = useState<string[]>(['New', 'Existing']);
   // Per-brand proposal headers (versions) from API
@@ -2962,11 +2962,23 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
                                   })()}
                                   {!isEmpty && (() => {
                                     const { completed, total } = getSizingCount(key, block.items);
-                                    return completed > 0 && completed < total ? (
-                                      <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-[#D97706]/15 text-[#D97706]">
-                                        {completed}/{total} sized
-                                      </span>
-                                    ) : null;
+                                    const allOrdered = block.items.every((i: any) => (i.order || 0) > 0);
+                                    const allDone = allOrdered && total > 0 && completed === total;
+                                    if (allDone) {
+                                      return (
+                                        <span className="flex items-center gap-1 text-[9px] px-1.5 py-0.5 rounded font-semibold bg-[#2A9E6A]/15 text-[#2A9E6A]">
+                                          <Check size={9} strokeWidth={2.5} />Done
+                                        </span>
+                                      );
+                                    }
+                                    if (completed > 0 && completed < total) {
+                                      return (
+                                        <span className="text-[9px] px-1.5 py-0.5 rounded font-semibold bg-[#D97706]/15 text-[#D97706]">
+                                          {completed}/{total} sized
+                                        </span>
+                                      );
+                                    }
+                                    return null;
                                   })()}
                                 </div>
                                 <div className={`text-[10px] ${'text-[#8A6340]'}`}>
