@@ -38,6 +38,14 @@ export const viewport = {
 };
 
 export default function RootLayout({ children }: any) {
+  // Read env vars server-side (runtime) and inject into window.__ENV__
+  // This lets Azure App Service env vars take effect without rebuild
+  const runtimeEnv = {
+    AZURE_CLIENT_ID: process.env.AZURE_CLIENT_ID || process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || '',
+    AZURE_TENANT_ID: process.env.AZURE_TENANT_ID || process.env.NEXT_PUBLIC_AZURE_TENANT_ID || '',
+    API_URL: process.env.API_URL || process.env.NEXT_PUBLIC_API_URL || '',
+  };
+
   return (
     <html
       lang="en"
@@ -45,6 +53,17 @@ export default function RootLayout({ children }: any) {
       data-scroll-behavior="smooth"
       suppressHydrationWarning
     >
+      <head>
+        <script
+          dangerouslySetInnerHTML={{
+            // Escape </script> sequences to prevent XSS via inline script injection
+            __html: `window.__ENV__ = ${JSON.stringify(runtimeEnv)
+              .replace(/</g, '\\u003c')
+              .replace(/>/g, '\\u003e')
+              .replace(/\//g, '\\u002f')};`,
+          }}
+        />
+      </head>
       <body>
         <Providers>{children}</Providers>
       </body>

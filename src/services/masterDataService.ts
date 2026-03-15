@@ -106,6 +106,18 @@ export const masterDataService = {
     }
   },
 
+  // Returns full paginated response { data: [...], meta: { total, page, pageSize, totalPages } }
+  async getSkuCatalogPaged(params: { page?: number; pageSize?: number; search?: string } = {}) {
+    try {
+      const response = await api.get('/master/sku-catalog', { params });
+      // response.data = { data: [...], meta: {...} }
+      return response.data as { data: any[]; meta: { total: number; page: number; pageSize: number; totalPages: number } };
+    } catch (err: any) {
+      console.error('[masterDataService.getSkuCatalogPaged]', err?.response?.status, err?.message);
+      throw err;
+    }
+  },
+
   // Get all sub-categories (flatten from categories hierarchy — legacy fallback)
   async getSubCategories() {
     try {

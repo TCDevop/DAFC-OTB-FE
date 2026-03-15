@@ -9,7 +9,7 @@ interface ProductImageProps {
   subCategory: string;
   sku: string;
   imageUrl?: string;
-  size?: 40 | 48 | 56 | 64 | 140;
+  size?: 40 | 48 | 56 | 64 | 140 | 180;
   rounded?: string;
 }
 
@@ -19,6 +19,7 @@ const sizeMap: Record<number, string> = {
   56: 'w-14 h-14',
   64: 'w-16 h-16',
   140: 'w-[140px] h-[140px]',
+  180: 'w-[180px] h-[180px]',
 };
 
 /* ── Premium Image Editor Popup ─────────────────────────── */
@@ -144,7 +145,12 @@ function ImageEditorPopup({
             {/* Image */}
             <div className="flex items-center justify-center py-6">
               <div className={`w-40 h-40 rounded-xl border overflow-hidden border-gray-200 bg-white shadow-lg`}>
-                <img src={previewSrc} alt="" className="w-full h-full object-contain" />
+                <img
+                  src={previewSrc}
+                  alt=""
+                  className="w-full h-full object-contain"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).src = defaultSrc; }}
+                />
               </div>
             </div>
 

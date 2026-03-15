@@ -5,7 +5,7 @@ import { OTBAnalysisScreen } from '@/features/otb';
 
 export default function OTBAnalysisPage() {
   const router = useRouter();
-  const { otbAnalysisContext, setSkuProposalContext } = useAppContext();
+  const { otbAnalysisContext, setOtbAnalysisContext, setSkuProposalContext } = useAppContext();
 
   const handleOpenSkuProposal = (context: any) => {
     setSkuProposalContext(context);
@@ -15,6 +15,7 @@ export default function OTBAnalysisPage() {
   return (
     <OTBAnalysisScreen
       otbContext={otbAnalysisContext}
+      onContextUsed={() => setOtbAnalysisContext(null)}
       onOpenSkuProposal={handleOpenSkuProposal}
     />
   );

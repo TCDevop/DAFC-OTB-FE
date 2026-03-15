@@ -41,7 +41,14 @@ import {
   Loader2,
   Printer,
   Download,
-  Upload
+  Upload,
+  Database,
+  Tag,
+  FolderTree,
+  Store,
+  Users,
+  Calendar,
+  Coins
 } from 'lucide-react';
 
 // Screen configuration builder (uses t() for translations)
@@ -173,7 +180,16 @@ const getScreenConfig = (t: any) => ({
     step: null,
     kpiLabel: t('analytics.categoryTrends', 'Trends'),
     kpiDescription: t('analytics.trendsDesc', 'Attribute trends and YoY comparison')
-  }
+  },
+  'master-brands': { label: 'Brands', shortLabel: 'Brands', icon: Tag, step: null, kpiLabel: 'Brands', kpiDescription: 'Brand master data' },
+  'master-skus': { label: 'SKU Catalog', shortLabel: 'SKU', icon: Package, step: null, kpiLabel: 'SKUs', kpiDescription: 'Product SKU catalog' },
+  'master-categories': { label: 'Categories', shortLabel: 'Categories', icon: FolderTree, step: null, kpiLabel: 'Categories', kpiDescription: 'Category master data' },
+  'master-subcategories': { label: 'Sub Categories', shortLabel: 'Sub Cat', icon: FolderTree, step: null, kpiLabel: 'Sub Categories', kpiDescription: 'Sub-category master data' },
+  'master-stores': { label: 'Stores', shortLabel: 'Stores', icon: Store, step: null, kpiLabel: 'Stores', kpiDescription: 'Store master data' },
+  'master-genders': { label: 'Genders', shortLabel: 'Genders', icon: Users, step: null, kpiLabel: 'Genders', kpiDescription: 'Gender master data' },
+  'master-season-groups': { label: 'Season Groups', shortLabel: 'Seasons', icon: Calendar, step: null, kpiLabel: 'Season Groups', kpiDescription: 'Season group master data' },
+  'master-currencies': { label: 'Currencies', shortLabel: 'Currency', icon: Coins, step: null, kpiLabel: 'Currencies', kpiDescription: 'Currency master data' },
+  'import-data': { label: 'Import Data', shortLabel: 'Import', icon: Database, step: null, kpiLabel: 'Import', kpiDescription: 'Data import management' },
 });
 
 // Planning workflow steps

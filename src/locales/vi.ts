@@ -808,6 +808,8 @@ const vi = {
     required: 'Bắt buộc',
     tableView: 'Dạng bảng',
     progressView: 'Dạng tiến trình',
+    approver: 'Người phê duyệt',
+    selectApprover: 'Chọn người phê duyệt',
   },
 
   // ──────────────────────────────────────────────

@@ -70,7 +70,7 @@ const EditableCell = React.memo(({ cellKey, value, isEditing, editValue, onStart
   );
 });
 
-const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
+const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal, onContextUsed }: any) => {
   const { t } = useLanguage();
   const { isMobile } = useIsMobile();
   const router = useRouter();
@@ -739,6 +739,9 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
     if (brandId) {
       setSelectedBrandIds([String(brandId)]);
     }
+
+    // Clear context after consuming so re-navigation doesn't re-apply stale values
+    onContextUsed?.();
   }, [otbContext, apiBudgets]);
 
   // Close dropdowns when clicking outside
@@ -2983,7 +2986,7 @@ const OTBAnalysisScreen = ({ otbContext, onOpenSkuProposal }: any) => {
                               onClick={() => {
                                 setSelectedBudgetId(budget.id);
                                 if (budget.fiscalYear) setSelectedYear(budget.fiscalYear);
-                                if (budget.brandId) setSelectedBrandIds([String(budget.brandId)]);
+                                setSelectedBrandIds(budget.brandId ? [String(budget.brandId)] : []);
                                 setOpenDropdown(null);
                               }}
                               className={`px-4 py-0.5 cursor-pointer transition-colors border-t border-[#D4C8BB] ${isSelected

@@ -895,6 +895,9 @@ const SKUProposalScreen = ({ skuContext, onContextUsed, onSubmitTicket }: any) =
       if (skuContext.budgetId) {
         setBudgetFilter(skuContext.budgetId);
       }
+      if (skuContext.fiscalYear) {
+        setFyFilter(String(skuContext.fiscalYear));
+      }
       // Set brand filter (single brand from brandIds array)
       if (skuContext.brandIds?.length === 1) {
         setBrandFilter(String(skuContext.brandIds[0]));

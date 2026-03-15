@@ -30,8 +30,6 @@ jobs:
 
       - name: Build standalone output
         run: npm run build
-        env:
-          NEXT_PUBLIC_API_URL: ${{ vars.NEXT_PUBLIC_API_URL }}
 
       # postbuild (scripts/copy-assets.js) runs automatically after build
       # and copies public/ + .next/static/ into .next/standalone/

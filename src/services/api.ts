@@ -3,29 +3,29 @@
 // ═══════════════════════════════════════════════════════════════════════════
 import axios from 'axios';
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'https://buddytoolbeuat-dwa6f8bpbvctcxer.southeastasia-01.azurewebsites.net/api/v1';
+// Read from window.__ENV__ (runtime, set by server layout.tsx) or fallback to build-time var
+const API_BASE_URL =
+  (typeof window !== 'undefined' && (window as any).__ENV__?.API_URL) ||
+  process.env.NEXT_PUBLIC_API_URL ||
+  'https://buddytoolbeuat-dwa6f8bpbvctcxer.southeastasia-01.azurewebsites.net/api/v1';
 
 // Simple in-memory cache for GET requests
 const cache = new Map<string, { data: any; timestamp: number }>();
 const CACHE_TTL = 60000; // 1 minute
 
-// Create axios instance
+// Create axios instance — withCredentials sends httpOnly cookies automatically
 const api = axios.create({
   baseURL: API_BASE_URL,
-  timeout: 60000, // 60 seconds (Render free-tier cold starts)
+  timeout: 60000,
+  withCredentials: true,
   headers: {
     'Content-Type': 'application/json',
   },
 });
 
-// Request interceptor - attach Bearer token + cache check
+// Request interceptor - cache check (token sent via httpOnly cookie automatically)
 api.interceptors.request.use(
   (config: any) => {
-    const token = typeof window !== 'undefined' ? localStorage.getItem('accessToken') : null;
-    if (token) {
-      config.headers.Authorization = `Bearer ${token}`;
-    }
-
     // Cache only GET requests
     if (config.method === 'get') {
       const cacheKey = config.url + JSON.stringify(config.params || {});
@@ -65,36 +65,16 @@ api.interceptors.response.use(
   async (error: any) => {
     const originalRequest = error.config;
 
-    // If 401 and not already retried
+    // If 401 and not already retried — attempt silent refresh via httpOnly cookie
     if (error.response?.status === 401 && !originalRequest._retry) {
       originalRequest._retry = true;
-
-      const refreshToken = typeof window !== 'undefined' ? localStorage.getItem('refreshToken') : null;
-      if (refreshToken) {
-        try {
-          const response = await axios.post(`${API_BASE_URL}/auth/refresh`, {
-            refreshToken,
-          });
-
-          const { accessToken, refreshToken: newRefreshToken } = response.data.data || response.data;
-
-          localStorage.setItem('accessToken', accessToken);
-          if (newRefreshToken) {
-            localStorage.setItem('refreshToken', newRefreshToken);
-          }
-
-          originalRequest.headers.Authorization = `Bearer ${accessToken}`;
-          return api(originalRequest);
-        } catch (refreshError) {
-          // Refresh failed - clear tokens and cache, then redirect
-          localStorage.removeItem('accessToken');
-          localStorage.removeItem('refreshToken');
-          cache.clear();
-          // Use soft redirect to avoid losing React state
-          if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
-            window.location.replace('/login');
-          }
-          return Promise.reject(refreshError);
+      try {
+        await axios.post(`${API_BASE_URL}/auth/refresh`, {}, { withCredentials: true });
+        return api(originalRequest);
+      } catch {
+        cache.clear();
+        if (typeof window !== 'undefined' && window.location.pathname !== '/login') {
+          window.location.replace('/login');
         }
       }
     }

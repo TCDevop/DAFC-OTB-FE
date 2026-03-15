@@ -16,29 +16,17 @@ export const authService = {
 
     for (let attempt = 0; attempt <= MAX_LOGIN_RETRIES; attempt++) {
       try {
-        if (attempt > 0 && onRetry) {
-          onRetry(attempt);
-        }
-        const response: any = await api.post('/auth/login', { email, password }, {
-          timeout: LOGIN_TIMEOUT,
-        });
-        const { accessToken, refreshToken, user } = response.data.data || response.data;
-
-        if (isBrowser) {
-          localStorage.setItem('accessToken', accessToken);
-          localStorage.setItem('refreshToken', refreshToken);
-        }
-
-        return { accessToken, refreshToken, user };
+        if (attempt > 0 && onRetry) onRetry(attempt);
+        const response: any = await api.post('/auth/login', { email, password }, { timeout: LOGIN_TIMEOUT });
+        const data = response.data.data || response.data;
+        // Tokens are set as httpOnly cookies by the backend — no localStorage needed
+        if (isBrowser) sessionStorage.setItem('authenticated', '1');
+        return { user: data.user };
       } catch (err: any) {
         lastError = err;
         const isTimeout = err.code === 'ECONNABORTED' || err.message?.includes('timeout');
         const isNetworkError = err.code === 'ERR_NETWORK' || !err.response;
-
-        // Only retry on timeout or network errors (server waking up)
-        if ((isTimeout || isNetworkError) && attempt < MAX_LOGIN_RETRIES) {
-          continue;
-        }
+        if ((isTimeout || isNetworkError) && attempt < MAX_LOGIN_RETRIES) continue;
         throw err;
       }
     }
@@ -46,12 +34,10 @@ export const authService = {
     throw lastError;
   },
 
-  // Logout - clear tokens (client-only, BE has no logout endpoint)
-  logout() {
-    if (isBrowser) {
-      localStorage.removeItem('accessToken');
-      localStorage.removeItem('refreshToken');
-    }
+  // Logout — clear server-side httpOnly cookies
+  async logout() {
+    try { await api.post('/auth/logout'); } catch { /* ignore */ }
+    if (isBrowser) sessionStorage.removeItem('authenticated');
   },
 
   // Get current user profile
@@ -60,44 +46,18 @@ export const authService = {
     return response.data.data || response.data;
   },
 
-  // Refresh token
-  async refresh() {
-    const refreshToken = isBrowser ? localStorage.getItem('refreshToken') : null;
-    const response: any = await api.post('/auth/refresh', { refreshToken });
-    const data = response.data.data || response.data;
-
-    if (isBrowser) {
-      localStorage.setItem('accessToken', data.accessToken);
-      localStorage.setItem('refreshToken', data.refreshToken);
-    }
-
-    return data;
-  },
-
   // Login with Microsoft (Azure AD) — send MS access token to backend
   async loginWithMicrosoft(msAccessToken: string) {
-    const response: any = await api.post('/auth/microsoft', { accessToken: msAccessToken }, {
-      timeout: LOGIN_TIMEOUT,
-    });
-    const { accessToken, refreshToken, user } = response.data.data || response.data;
-
-    if (isBrowser) {
-      localStorage.setItem('accessToken', accessToken);
-      localStorage.setItem('refreshToken', refreshToken);
-    }
-
-    return { accessToken, refreshToken, user };
+    const response: any = await api.post('/auth/microsoft', { accessToken: msAccessToken }, { timeout: LOGIN_TIMEOUT });
+    const data = response.data.data || response.data;
+    if (isBrowser) sessionStorage.setItem('authenticated', '1');
+    return { user: data.user };
   },
 
-  // Check if user is authenticated
+  // Check if user is authenticated (lightweight flag — actual auth validated by /auth/me)
   isAuthenticated() {
-    return isBrowser ? !!localStorage.getItem('accessToken') : false;
+    return isBrowser ? sessionStorage.getItem('authenticated') === '1' : false;
   },
-
-  // Get stored access token
-  getToken() {
-    return isBrowser ? localStorage.getItem('accessToken') : null;
-  }
 };
 
 export default authService;

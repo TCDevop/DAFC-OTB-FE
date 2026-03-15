@@ -808,6 +808,8 @@ const en = {
     required: 'Required',
     tableView: 'Table View',
     progressView: 'Progress View',
+    approver: 'Approver',
+    selectApprover: 'Select Approver',
   },
 
   // ──────────────────────────────────────────────

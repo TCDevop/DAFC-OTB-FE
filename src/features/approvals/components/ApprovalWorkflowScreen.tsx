@@ -62,6 +62,7 @@ const ApprovalWorkflowScreen = ({}: any) => {
   const [isModalOpen, setIsModalOpen] = useState<boolean>(false);
   const [editingStep, setEditingStep] = useState<any>(null);
   const [saving, setSaving] = useState<boolean>(false);
+  const [approverUsers, setApproverUsers] = useState<any[]>([]);
   const [formData, setFormData] = useState<any>({
     groupBrandId: '',
     stepNumber: 1,
@@ -137,6 +138,15 @@ const ApprovalWorkflowScreen = ({}: any) => {
     return filteredSteps.length > 0 ? Math.max(...filteredSteps.map((s: any) => s.stepNumber)) + 1 : 1;
   };
 
+  const loadApproverUsers = async () => {
+    try {
+      const users = await approvalWorkflowService.getApproverUsers();
+      setApproverUsers(Array.isArray(users) ? users : []);
+    } catch (err) {
+      console.error('Failed to fetch approver users:', err);
+    }
+  };
+
   const openAddModal = () => {
     setEditingStep(null);
     setFormData({
@@ -146,6 +156,7 @@ const ApprovalWorkflowScreen = ({}: any) => {
       isRequired: true,
       approverUserId: '',
     });
+    loadApproverUsers();
     setIsModalOpen(true);
   };
 
@@ -156,13 +167,14 @@ const ApprovalWorkflowScreen = ({}: any) => {
       stepNumber: step.stepNumber,
       roleName: step.roleName,
       isRequired: step.isRequired,
-      approverUserId: step.approverUserId || '',
+      approverUserId: step.approverUserId ? String(step.approverUserId) : '',
     });
+    loadApproverUsers();
     setIsModalOpen(true);
   };
 
   const handleSave = async () => {
-    if (!formData.groupBrandId || !formData.roleName) return;
+    if (!formData.groupBrandId || !formData.roleName || !formData.approverUserId) return;
     setSaving(true);
     try {
       if (editingStep) {
@@ -176,7 +188,7 @@ const ApprovalWorkflowScreen = ({}: any) => {
         toast.success(t('approval.stepUpdated'));
       } else {
         // Find existing workflow for this group brand, or create one
-        let wf = workflows.find((w: any) => w.group_brand_id === formData.groupBrandId);
+        let wf = workflows.find((w: any) => String(w.group_brand_id) === String(formData.groupBrandId));
         if (!wf) {
           const gb = groupBrands.find((g: any) => g.id === formData.groupBrandId);
           const wfName = `${gb?.name || 'Group'} Approval Workflow`;
@@ -191,13 +203,13 @@ const ApprovalWorkflowScreen = ({}: any) => {
             levelOrder: formData.stepNumber,
             levelName: formData.roleName,
             isRequired: formData.isRequired,
-            approverUserId: formData.approverUserId || '0',
+            approverUserId: formData.approverUserId,
           });
         }
         toast.success(t('approval.stepCreated'));
       }
       setIsModalOpen(false);
-      fetchSteps();
+      await fetchSteps();
     } catch (err: any) {
       console.error('Failed to save:', err);
       toast.error(err.response?.data?.message || t('approval.failedToSave'));
@@ -639,6 +651,21 @@ const ApprovalWorkflowScreen = ({}: any) => {
                   ))}
                 </div>
               </div>
+
+              {/* Approver User */}
+              <div>
+                <label className={`block text-xs font-medium mb-1.5 font-['Montserrat'] ${'text-[#666666]'}`}>{t('approval.approver')}</label>
+                <select
+                  value={formData.approverUserId}
+                  onChange={(e: any) => setFormData((prev: any) => ({ ...prev, approverUserId: e.target.value }))}
+                  className={`w-full px-3 py-0.5 border rounded-lg text-sm font-['Montserrat'] focus:outline-none focus:ring-2 focus:ring-[#D7B797] ${'bg-white border-[#C4B5A5] text-[#0A0A0A]'}`}
+                >
+                  <option value="">{t('approval.selectApprover')}</option>
+                  {approverUsers.map((user: any) => (
+                    <option key={user.id} value={String(user.id)}>{user.name} ({user.email})</option>
+                  ))}
+                </select>
+              </div>
             </div>
 
             <div className="flex flex-col md:flex-row gap-2 md:gap-3 mt-4 md:mt-6">
@@ -650,7 +677,7 @@ const ApprovalWorkflowScreen = ({}: any) => {
               </button>
               <button
                 onClick={handleSave}
-                disabled={!formData.groupBrandId || !formData.roleName || saving}
+                disabled={!formData.groupBrandId || !formData.roleName || !formData.approverUserId || saving}
                 className={`flex-1 px-4 py-0.5 bg-[#D7B797] hover:bg-[#C4A480] text-[#0A0A0A] font-semibold text-sm font-['Montserrat'] rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 ${isMobile ? 'order-1' : ''}`}
               >
                 <Save size={16} />

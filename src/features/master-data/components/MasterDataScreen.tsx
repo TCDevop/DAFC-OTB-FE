@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Search, ChevronLeft, ChevronRight,
   Building2, Package, FolderTree, Tag,
-  RefreshCw, Filter, X,
+  RefreshCw, Filter, X, Eye,
   Store, Users, Calendar, Coins
 } from 'lucide-react';
 import { masterDataService } from '@/services';
@@ -31,21 +31,25 @@ const getTypeConfig = (t: any) => ({
   skus: {
     title: t('masterData.titleSkuCatalog'),
     icon: Package,
-    fetchFn: async () => {
-      const result = await masterDataService.getSkuCatalog();
-      return Array.isArray(result) ? result : (result?.data || []);
+    serverSide: true,
+    fetchPage: async (params: { page: number; pageSize: number; search?: string }) => {
+      // Use raw API call to get both data[] and meta.total
+      return masterDataService.getSkuCatalogPaged({
+        page: params.page,
+        pageSize: params.pageSize,
+        search: params.search || undefined,
+      });
     },
     columns: [
       { key: 'image_url', label: '', width: '48px', isImage: true },
       { key: 'sku_code', label: t('masterData.colSkuCode'), width: '140px', mono: true },
       { key: 'product_name', label: t('masterData.colProductName') },
-      { key: 'sub_category', label: t('masterData.colCategory'), width: '150px', render: (_v: any, item: any) => item?.sub_category?.category?.name || '-' },
-      { key: 'brand', label: t('masterData.colBrand'), width: '120px', render: (v: any) => v?.name || '-' },
-      { key: 'color', label: t('masterData.colColor'), width: '120px' },
-      { key: 'srp', label: t('masterData.colSRP'), width: '120px', render: (v: any) => v ? formatCurrency(v) : '-', mono: true },
+      { key: 'sub_category', label: 'Sub Category', width: '150px', render: (_v: any, item: any) => item?.sub_category?.name || '-' },
+      { key: 'sub_category', label: 'Brand', width: '140px', render: (_v: any, item: any) => item?.sub_category?.category?.brand?.name || '-' },
+      { key: '_actions', label: 'Actions', width: '80px', isActions: true },
     ],
     searchFields: ['sku_code', 'product_name', 'color'],
-    clickable: true,
+    clickable: false,
   },
   categories: {
     title: t('masterData.titleCategories'),
@@ -143,12 +147,45 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
   const [searchTerm, setSearchTerm] = useState<string>('');
   const [currentPage, setCurrentPage] = useState<number>(1);
   const [selectedItem, setSelectedItem] = useState<any>(null);
-  const pageSize = 20;
+  // Server-side pagination state
+  const [serverTotal, setServerTotal] = useState<number>(0);
+  const [debouncedSearch, setDebouncedSearch] = useState<string>('');
+  const pageSize = 50;
 
   const TYPE_CONFIG: any = useMemo(() => getTypeConfig(t), [t]);
   const config = TYPE_CONFIG[type] || TYPE_CONFIG.brands;
   const Icon = config.icon;
+  const isServerSide = !!config.serverSide;
 
+  // Debounce search for server-side mode
+  useEffect(() => {
+    if (!isServerSide) return;
+    const timer = setTimeout(() => {
+      setDebouncedSearch(searchTerm);
+      setCurrentPage(1);
+    }, 350);
+    return () => clearTimeout(timer);
+  }, [searchTerm, isServerSide]);
+
+  // Server-side fetch
+  const fetchServerPage = useCallback(async (page: number, search: string) => {
+    setLoading(true);
+    setError(null);
+    try {
+      const result = await config.fetchPage({ page, pageSize, search });
+      const list = Array.isArray(result) ? result : (result?.data || []);
+      const meta = result?.meta;
+      setData(list);
+      setServerTotal(meta?.total ?? list.length);
+    } catch (err: any) {
+      console.error('Master data fetch error:', err);
+      setError(t('masterData.failedToLoadData'));
+    } finally {
+      setLoading(false);
+    }
+  }, [config, pageSize, t]);
+
+  // Client-side fetch
   const fetchData = useCallback(async () => {
     setLoading(true);
     setError(null);
@@ -164,14 +201,29 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
     }
   }, [type]);
 
+  // Unified refresh handler
+  const handleRefresh = useCallback(() => {
+    if (isServerSide) fetchServerPage(currentPage, debouncedSearch);
+    else fetchData();
+  }, [isServerSide, fetchServerPage, fetchData, currentPage, debouncedSearch]);
+
+  // Trigger fetch on type change
   useEffect(() => {
     setSearchTerm('');
     setCurrentPage(1);
-    fetchData();
-  }, [fetchData]);
+    setDebouncedSearch('');
+    if (!isServerSide) fetchData();
+  }, [type]);
 
-  // Filter by search
+  // Server-side: fetch when page or debounced search changes
+  useEffect(() => {
+    if (!isServerSide) return;
+    fetchServerPage(currentPage, debouncedSearch);
+  }, [isServerSide, currentPage, debouncedSearch]);
+
+  // Client-side filter by search
   const filteredData = useMemo(() => {
+    if (isServerSide) return data; // already filtered by server
     if (!searchTerm.trim()) return data;
     const term = searchTerm.toLowerCase();
     return data.filter((item: any) =>
@@ -180,14 +232,16 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
         return value && value.toString().toLowerCase().includes(term);
       })
     );
-  }, [data, searchTerm, config.searchFields]);
+  }, [data, searchTerm, config.searchFields, isServerSide]);
 
   // Pagination
-  const totalPages = Math.ceil(filteredData.length / pageSize);
+  const totalRecords = isServerSide ? serverTotal : filteredData.length;
+  const totalPages = Math.ceil(totalRecords / pageSize);
   const paginatedData = useMemo(() => {
+    if (isServerSide) return data; // server already returns current page
     const start = (currentPage - 1) * pageSize;
     return filteredData.slice(start, start + pageSize);
-  }, [filteredData, currentPage, pageSize]);
+  }, [filteredData, currentPage, pageSize, isServerSide, data]);
 
   const activeLabel = t('common.active');
   const renderBadge = (value: any) => {
@@ -203,7 +257,7 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
   };
 
   return (
-    <div className="space-y-3">
+    <div className="flex flex-col h-full min-h-0 gap-3">
       {/* Header + Search - Merged compact */}
       <div className={`rounded-lg border overflow-hidden ${'border-[#C4B5A5]'}`} style={{
         background:'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.05) 35%, rgba(215,183,151,0.14) 100%)',
@@ -219,7 +273,7 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
                 {config.title}
               </h1>
               <p className={`text-[10px] font-['JetBrains_Mono'] ${'text-[#999999]'}`}>
-                {loading ? t('common.loading') : t('masterData.records', { count: filteredData.length })}
+                {loading ? t('common.loading') : t('masterData.records', { count: totalRecords })}
               </p>
             </div>
           </div>
@@ -260,7 +314,7 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
             )}
 
             <button
-              onClick={fetchData}
+              onClick={handleRefresh}
               disabled={loading}
               className={`flex items-center gap-1.5 px-2.5 py-1 rounded-md font-medium text-xs font-['Montserrat'] transition-all ${'text-[#666666] hover:text-[#6B4D30] hover:bg-[rgba(160,120,75,0.12)] border border-[#C4B5A5]'}`}
             >
@@ -272,7 +326,7 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
       </div>
 
       {/* Data Table */}
-      <div className={`rounded-lg border overflow-hidden ${'border-[#C4B5A5]'}`} style={{
+      <div className={`flex-1 min-h-0 flex flex-col rounded-lg border overflow-hidden ${'border-[#C4B5A5]'}`} style={{
         background:'linear-gradient(135deg, #ffffff 0%, rgba(215,183,151,0.03) 35%, rgba(215,183,151,0.08) 100%)'}}>
         {loading ? (
           <div className="p-10 text-center">
@@ -283,13 +337,13 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
           <div className="p-10 text-center">
             <p className="text-red-400 mb-3 text-xs font-['Montserrat']">{error}</p>
             <button
-              onClick={fetchData}
+              onClick={handleRefresh}
               className="px-3 py-1.5 bg-[#D7B797] text-[#0A0A0A] rounded-md font-medium text-xs font-['Montserrat'] hover:bg-[#C4A480] transition-colors"
             >
               {t('masterData.tryAgain')}
             </button>
           </div>
-        ) : filteredData.length === 0 ? (
+        ) : paginatedData.length === 0 ? (
           <div className="p-10 text-center">
             <Icon size={32} className={`mx-auto mb-3 ${'text-[#2E2E2E]/30'}`} />
             <p className={`text-xs font-['Montserrat'] ${'text-[#999999]'}`}>
@@ -297,11 +351,11 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
             </p>
           </div>
         ) : (
-          <>
+          <div className="flex flex-col flex-1 min-h-0">
             {/* Mobile Card View */}
             {isMobile ? (
-              <PullToRefresh onRefresh={fetchData}>
-                <div className="p-2">
+              <PullToRefresh onRefresh={handleRefresh}>
+                <div className="p-2 overflow-y-auto flex-1 min-h-0">
                   {/* Mobile Search Bar */}
                   <div className="mb-3">
                     <MobileSearchBar
@@ -339,17 +393,17 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
               </PullToRefresh>
             ) : (
               /* Desktop Table View */
-              <div className="overflow-x-auto">
+              <div className="overflow-auto flex-1 min-h-0">
                 <table className="w-full">
                   <thead>
                     <tr className={'bg-[rgba(160,120,75,0.08)]'}>
-                      <th className={`px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] w-10 ${'text-[#999999]'}`}>
+                      <th className={`px-3 py-2 text-left text-[10px] font-semibold font-['Montserrat'] w-10 ${'text-[#999999]'}`}>
                         #
                       </th>
-                      {config.columns.map((col: any) => (
+                      {config.columns.map((col: any, ci: number) => (
                         <th
-                          key={col.key}
-                          className={`px-3 py-2 text-left text-[10px] font-semibold uppercase tracking-wider font-['Montserrat'] ${'text-[#999999]'}`}
+                          key={col.key + ci}
+                          className={`px-3 py-2 text-left text-[10px] font-semibold font-['Montserrat'] ${'text-[#999999]'}`}
                           style={{ width: col.width }}
                         >
                           {col.label}
@@ -367,10 +421,10 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
                         <td className={`px-3 py-1.5 text-xs font-['JetBrains_Mono'] ${'text-[#BBBBBB]'}`}>
                           {(currentPage - 1) * pageSize + index + 1}
                         </td>
-                        {config.columns.map((col: any) => {
+                        {config.columns.map((col: any, colIdx: number) => {
                           if (col.isImage) {
                             return (
-                              <td key={col.key} className="px-2 py-1">
+                              <td key={col.key + colIdx} className="px-2 py-1">
                                 <ProductImage
                                   subCategory={item.sub_category?.name || ''}
                                   sku={item.sku_code || ''}
@@ -381,12 +435,25 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
                               </td>
                             );
                           }
+                          if (col.isActions) {
+                            return (
+                              <td key={col.key + colIdx} className="px-3 py-1.5">
+                                <button
+                                  onClick={(e) => { e.stopPropagation(); setSelectedItem(item); }}
+                                  className="flex items-center gap-1 px-2 py-1 text-[10px] font-['Montserrat'] font-semibold rounded-md bg-[rgba(160,120,75,0.1)] text-[#6B4D30] hover:bg-[rgba(160,120,75,0.2)] transition-colors"
+                                >
+                                  <Eye size={11} />
+                                  Detail
+                                </button>
+                              </td>
+                            );
+                          }
                           const rawValue = item[col.key];
                           const displayValue = col.render ? col.render(rawValue, item) : (rawValue || '-');
 
                           return (
                             <td
-                              key={col.key}
+                              key={col.key + colIdx}
                               className={`px-3 py-1.5 text-xs ${
                                 col.mono ? "font-['JetBrains_Mono']" : "font-['Montserrat']"
                               } ${'text-[#0A0A0A]'}`}
@@ -406,7 +473,7 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
             {totalPages > 1 && (
               <div className={`flex items-center justify-between px-3 py-1.5 border-t ${'border-[#D4C8BB]'}`}>
                 <p className={`text-[10px] font-['JetBrains_Mono'] ${'text-[#999999]'}`}>
-                  {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, filteredData.length)} of {filteredData.length}
+                  {(currentPage - 1) * pageSize + 1}–{Math.min(currentPage * pageSize, totalRecords)} of {totalRecords}
                 </p>
                 <div className="flex items-center gap-1">
                   <button
@@ -429,7 +496,7 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
                 </div>
               </div>
             )}
-          </>
+          </div>
         )}
       </div>
 
@@ -447,16 +514,16 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
       {/* SKU Detail Modal */}
       {selectedItem && (
         <div
-          className="fixed inset-0 z-[9999] flex items-center justify-center"
+          className="fixed inset-0 z-[9999] flex items-center justify-center p-4"
           onClick={(e) => { if (e.target === e.currentTarget) setSelectedItem(null); }}
         >
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
-          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 overflow-hidden border border-[rgba(215,183,151,0.3)]"
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-3xl overflow-hidden border border-[rgba(215,183,151,0.3)]"
             style={{ maxHeight: '90vh' }}>
             {/* Header */}
-            <div className="flex items-center justify-between px-5 py-4 border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.04)]">
+            <div className="flex items-center justify-between px-5 py-3.5 border-b border-[rgba(215,183,151,0.2)] bg-[rgba(160,120,75,0.04)]">
               <div className="flex items-center gap-3 min-w-0">
-                <Package size={18} className="text-[#6B4D30] shrink-0" />
+                <Package size={16} className="text-[#6B4D30] shrink-0" />
                 <div className="min-w-0">
                   <h3 className="text-sm font-bold font-['Montserrat'] text-[#0A0A0A] truncate">
                     {selectedItem.product_name || selectedItem.sku_code || 'SKU Detail'}
@@ -464,48 +531,55 @@ const MasterDataScreen = ({ type = 'brands' }: any) => {
                   <p className="text-[11px] font-['JetBrains_Mono'] text-[#999999]">{selectedItem.sku_code || ''}</p>
                 </div>
               </div>
-              <button onClick={() => setSelectedItem(null)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors">
-                <X size={18} className="text-[#999999]" />
+              <button onClick={() => setSelectedItem(null)} className="p-1.5 rounded-lg hover:bg-gray-100 transition-colors shrink-0">
+                <X size={16} className="text-[#999999]" />
               </button>
             </div>
 
-            {/* Body */}
-            <div className="overflow-y-auto" style={{ maxHeight: 'calc(90vh - 64px)' }}>
-              {/* Image */}
-              <div className="flex justify-center py-6 bg-[rgba(160,120,75,0.03)]">
+            {/* Body — image left, info right */}
+            <div className="flex" style={{ height: 'calc(min(90vh, 640px) - 57px)' }}>
+              {/* Left: image */}
+              <div className="w-64 shrink-0 flex flex-col items-center justify-center overflow-hidden bg-[rgba(160,120,75,0.03)] border-r border-[rgba(215,183,151,0.15)] p-6 gap-4">
                 <ProductImage
                   subCategory={selectedItem.sub_category?.name || ''}
                   sku={selectedItem.sku_code || ''}
                   imageUrl={selectedItem.image_url || ''}
-                  size={140}
+                  size={180}
                   rounded="rounded-xl"
                 />
+                <div className="text-center space-y-0.5">
+                  <p className="text-[11px] font-['JetBrains_Mono'] font-semibold text-[#6B4D30]">{selectedItem.sku_code}</p>
+                  {selectedItem.color && (
+                    <p className="text-[10px] font-['Montserrat'] text-[#999999]">{selectedItem.color}</p>
+                  )}
+                </div>
               </div>
 
-              {/* Info Grid */}
-              <div className="px-5 py-4 space-y-3">
-                {[
-                  { label: 'SKU Code', value: selectedItem.sku_code, mono: true },
-                  { label: 'Product Name', value: selectedItem.product_name },
-                  { label: 'Item Code', value: selectedItem.item_code, mono: true },
-                  { label: 'Brand', value: selectedItem.sub_category?.category?.brand?.name },
-                  { label: 'Gender', value: selectedItem.sub_category?.category?.gender?.name },
-                  { label: 'Category', value: selectedItem.sub_category?.category?.name },
-                  { label: 'Sub Category', value: selectedItem.sub_category?.name },
-                  { label: 'Rail', value: selectedItem.rail },
-                  { label: 'Theme', value: selectedItem.theme },
-                  { label: 'Color', value: selectedItem.color },
-                  { label: 'Composition', value: selectedItem.composition },
-                  { label: 'Unit Price', value: selectedItem.unit_price ? formatCurrency(Number(selectedItem.unit_price)) : null, mono: true },
-                  { label: 'Unit Cost', value: selectedItem.unit_cost ? formatCurrency(Number(selectedItem.unit_cost)) : null, mono: true },
-                ].filter(row => row.value).map((row) => (
-                  <div key={row.label} className="flex items-start gap-3">
-                    <span className="text-[11px] font-['Montserrat'] font-medium text-[#999999] w-28 shrink-0 pt-0.5">{row.label}</span>
-                    <span className={`text-xs ${row.mono ? "font-['JetBrains_Mono']" : "font-['Montserrat']"} text-[#0A0A0A] break-words`}>
-                      {row.value}
-                    </span>
-                  </div>
-                ))}
+              {/* Right: info */}
+              <div className="flex-1 overflow-y-auto px-5 py-4">
+                <div className="space-y-2.5">
+                  {[
+                    { label: 'Product Name', value: selectedItem.product_name },
+                    { label: 'Item Code', value: selectedItem.item_code, mono: true },
+                    { label: 'Brand', value: selectedItem.sub_category?.category?.brand?.name },
+                    { label: 'Gender', value: selectedItem.sub_category?.category?.gender?.name },
+                    { label: 'Category', value: selectedItem.sub_category?.category?.name },
+                    { label: 'Sub Category', value: selectedItem.sub_category?.name },
+                    { label: 'Rail', value: selectedItem.rail },
+                    { label: 'Theme', value: selectedItem.theme },
+                    { label: 'Color', value: selectedItem.color },
+                    { label: 'Composition', value: selectedItem.composition },
+                    { label: 'Unit Price', value: selectedItem.unit_price ? formatCurrency(Number(selectedItem.unit_price)) : null, mono: true },
+                    { label: 'Unit Cost', value: selectedItem.unit_cost ? formatCurrency(Number(selectedItem.unit_cost)) : null, mono: true },
+                  ].filter(row => row.value).map((row) => (
+                    <div key={row.label} className="flex items-start gap-2 py-1.5 border-b border-[rgba(215,183,151,0.1)] last:border-0">
+                      <span className="text-[10px] font-['Montserrat'] font-medium text-[#AAAAAA] w-24 shrink-0 pt-0.5 uppercase tracking-wide">{row.label}</span>
+                      <span className={`text-xs ${row.mono ? "font-['JetBrains_Mono'] font-semibold" : "font-['Montserrat']"} text-[#0A0A0A] break-words`}>
+                        {row.value}
+                      </span>
+                    </div>
+                  ))}
+                </div>
               </div>
             </div>
           </div>

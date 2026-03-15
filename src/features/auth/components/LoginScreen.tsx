@@ -206,7 +206,7 @@ const LoginScreen = () => {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 placeholder={t('login.passwordPlaceholder') || 'Password'}
-                className="login-input w-full py-3 pl-5 pr-[50px] rounded-[14px] text-[14px] font-normal text-[#3D2E22] tracking-[0.02em] outline-none transition-colors duration-200 focus:border-[rgba(139,115,85,0.50)] focus:bg-[rgba(255,255,255,0.9)] focus:ring-[3px] focus:ring-[rgba(139,115,85,0.08)]"
+                className="login-input w-full py-3 pl-5 pr-[50px] rounded-[14px] text-[14px] font-normal text-[#3D2E22] tracking-[0.02em] outline-none transition-colors duration-200 focus:border-[rgba(139,115,85,0.50)] focus:bg-[rgba(255,255,255,0.9)] focus:ring-[3px] focus:ring-[rgba(139,115,85,0.08)] [&::-ms-reveal]:hidden [&::-ms-clear]:hidden [&::-webkit-credentials-auto-fill-button]:hidden"
                 style={{
                   background: 'rgba(255, 255, 255, 0.7)',
                   border: '1px solid rgba(139, 115, 85, 0.28)',

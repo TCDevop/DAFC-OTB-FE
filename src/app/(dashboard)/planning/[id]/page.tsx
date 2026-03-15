@@ -19,7 +19,7 @@ export default function PlanningDetailRoute() {
 
   const handleBack = () => {
     closePlanningDetail();
-    router.push('/planning');
+    router.back();
   };
 
   return (

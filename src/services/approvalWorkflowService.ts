@@ -2,6 +2,12 @@ import api from './api';
 import { extract } from './serviceUtils';
 
 export const approvalWorkflowService = {
+  // List users available as approvers
+  async getApproverUsers() {
+    const response: any = await api.get('/approval-workflow/users');
+    return extract(response);
+  },
+
   // List all workflows (optionally filtered by groupBrandId)
   async getAll(groupBrandId: any = null) {
     const params: any = groupBrandId ? { groupBrandId } : {};
