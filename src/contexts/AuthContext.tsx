@@ -112,10 +112,20 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     try {
       const { initializeMsal, loginRequest } = await import('../services/msalConfig');
       const msalInstance = await initializeMsal();
-      // loginRedirect: redirects the whole page to Microsoft login.
-      // After auth, Microsoft redirects back to window.location.origin.
-      // The handleRedirectPromise() in useEffect above completes the login.
+
+      // Clear any stale interaction lock from a previous interrupted redirect (e.g., user pressed back).
+      // Also handles the edge case where a pending auth result is already available.
+      const pendingResult = await msalInstance.handleRedirectPromise().catch(() => null);
+      if (pendingResult?.accessToken) {
+        const { user: userData } = await authService.loginWithMicrosoft(pendingResult.accessToken);
+        setLoginStatus('');
+        setUser(userData);
+        setLoading(false);
+        return;
+      }
+
       await msalInstance.loginRedirect(loginRequest);
+      // Page will redirect to Microsoft — code below never executes
     } catch (err: any) {
       setLoginStatus('');
       setLoading(false);
@@ -128,7 +138,6 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       setError(message);
       throw new Error(message);
     }
-    // Note: loading stays true — page will redirect to Microsoft, then reload on return
   }, []);
 
   // Logout function

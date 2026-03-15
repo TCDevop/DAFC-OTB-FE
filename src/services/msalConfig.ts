@@ -37,11 +37,16 @@ export const getMsalInstance = (): PublicClientApplication => {
   return _msalInstance;
 };
 
-// Call initialize() only once per page load — safe to call multiple times
+// Call initialize() once per page load — handles already-initialized gracefully
 export const initializeMsal = async (): Promise<PublicClientApplication> => {
   const instance = getMsalInstance();
   if (!_msalInitialized) {
-    await instance.initialize();
+    try {
+      await instance.initialize();
+    } catch (err: any) {
+      // Ignore "already initialized" error from MSAL
+      if (err?.errorCode !== 'msal_already_initialized') throw err;
+    }
     _msalInitialized = true;
   }
   return instance;
