@@ -24,6 +24,10 @@ const cormorantGaramond = Cormorant_Garamond({
   weight: ['300', '400', '500', '600', '700'],
 });
 
+// Force dynamic rendering so server reads env vars at request time (not build time)
+// Required for Azure App Service env vars (AZURE_CLIENT_ID, etc.) to take effect
+export const dynamic = 'force-dynamic';
+
 export const metadata = {
   title: 'DAFC OTB Planning System',
   description: 'DAFC OTB Planning Management System',
