@@ -1,25 +1,15 @@
 'use client';
 
-import { useEffect } from 'react';
-
-// MSAL popup flow: after user logs in, Microsoft redirects the popup window here.
-// We must initialize MSAL so it can detect the auth code in the URL and close the popup.
+// Microsoft redirect callback page.
+// After loginRedirect, Microsoft sends the user back here with the auth code.
+// AuthContext.tsx useEffect calls handleRedirectPromise() and navigates to '/' on success.
 export default function MicrosoftCallbackPage() {
-  useEffect(() => {
-    const handleCallback = async () => {
-      try {
-        const { getMsalInstance } = await import('@/services/msalConfig');
-        const msalInstance = getMsalInstance();
-        await msalInstance.initialize();
-        // MSAL detects the auth code in the URL hash and resolves the loginPopup promise
-        // in the parent window, then closes this popup automatically.
-        await msalInstance.handleRedirectPromise();
-      } catch {
-        // Popup will close on its own if MSAL processing fails
-      }
-    };
-    handleCallback();
-  }, []);
-
-  return null;
+  return (
+    <div className="fixed inset-0 flex items-center justify-center bg-white">
+      <div className="text-center">
+        <div className="w-8 h-8 border-2 border-[#D7B797] border-t-transparent rounded-full animate-spin mx-auto mb-3" />
+        <p className="text-sm text-[#666666] font-['Montserrat']">Completing sign in...</p>
+      </div>
+    </div>
+  );
 }

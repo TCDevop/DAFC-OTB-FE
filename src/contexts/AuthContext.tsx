@@ -38,9 +38,28 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [error, setError] = useState<string | null>(null);
   const [loginStatus, setLoginStatus] = useState('');
 
-  // Check if user is already logged in on mount
+  // Check if user is already logged in on mount + handle Microsoft redirect response
   useEffect(() => {
     const checkAuth = async () => {
+      // Handle Microsoft redirect flow response (loginRedirect callback)
+      try {
+        const { initializeMsal } = await import('../services/msalConfig');
+        const msalInstance = await initializeMsal();
+        const redirectResult = await msalInstance.handleRedirectPromise();
+        if (redirectResult?.accessToken) {
+          setLoginStatus('Authenticating...');
+          const { user: userData } = await authService.loginWithMicrosoft(redirectResult.accessToken);
+          setLoginStatus('');
+          setUser(userData);
+          setLoading(false);
+          // Navigate away from callback page to the dashboard
+          window.location.replace('/');
+          return;
+        }
+      } catch (err) {
+        console.error('MSAL redirect handling failed:', err);
+      }
+
       if (authService.isAuthenticated()) {
         try {
           const profile = await authService.getProfile();
@@ -82,29 +101,21 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  // Login with Microsoft (Azure AD)
+  // Login with Microsoft (Azure AD) — uses redirect flow (more reliable than popup)
   const loginWithMicrosoft = useCallback(async () => {
     setError(null);
     setLoginStatus('Connecting to Microsoft...');
     setLoading(true);
     try {
-      const { getMsalInstance, loginRequest } = await import('../services/msalConfig');
-      const msalInstance = getMsalInstance();
-      await msalInstance.initialize();
-      const result = await msalInstance.loginPopup(loginRequest);
-      const msAccessToken = result.accessToken;
-
-      setLoginStatus('Authenticating...');
-      const { user: userData } = await authService.loginWithMicrosoft(msAccessToken);
-      setLoginStatus('');
-      setUser(userData);
-      return userData;
+      const { initializeMsal, loginRequest } = await import('../services/msalConfig');
+      const msalInstance = await initializeMsal();
+      // loginRedirect: redirects the whole page to Microsoft login.
+      // After auth, Microsoft redirects back to window.location.origin.
+      // The handleRedirectPromise() in useEffect above completes the login.
+      await msalInstance.loginRedirect(loginRequest);
     } catch (err: any) {
       setLoginStatus('');
-      if (err.errorCode === 'user_cancelled') {
-        throw new Error('Microsoft login cancelled');
-      }
-      // crypto.subtle not available on HTTP (non-localhost) — need HTTPS
+      setLoading(false);
       if (err.errorCode === 'crypto_nonexistent' || err.message?.includes('crypto')) {
         const msg = 'Browser requires HTTPS for Microsoft login. Please access via https:// or http://localhost';
         setError(msg);
@@ -113,9 +124,8 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
       const message = err.response?.data?.message || err.message || 'Microsoft login failed';
       setError(message);
       throw new Error(message);
-    } finally {
-      setLoading(false);
     }
+    // Note: loading stays true — page will redirect to Microsoft, then reload on return
   }, []);
 
   // Logout function

@@ -18,21 +18,33 @@ const getMsalConfig = (): Configuration => {
       clientId: env.AZURE_CLIENT_ID,
       authority: `https://login.microsoftonline.com/${env.AZURE_TENANT_ID || 'common'}`,
       redirectUri: `${window.location.origin}/auth/microsoft/callback`,
+      postLogoutRedirectUri: window.location.origin,
     },
     cache: {
-      cacheLocation: 'sessionStorage',
+      cacheLocation: 'localStorage',
     },
   };
 };
 
 // Lazy-initialize to avoid "crypto_nonexistent" error during SSR
 let _msalInstance: PublicClientApplication | null = null;
+let _msalInitialized = false;
 
 export const getMsalInstance = (): PublicClientApplication => {
   if (!_msalInstance) {
     _msalInstance = new PublicClientApplication(getMsalConfig());
   }
   return _msalInstance;
+};
+
+// Call initialize() only once per page load — safe to call multiple times
+export const initializeMsal = async (): Promise<PublicClientApplication> => {
+  const instance = getMsalInstance();
+  if (!_msalInitialized) {
+    await instance.initialize();
+    _msalInitialized = true;
+  }
+  return instance;
 };
 
 export const loginRequest = {
