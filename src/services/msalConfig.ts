@@ -1,65 +1,21 @@
-import { PublicClientApplication, Configuration } from '@azure/msal-browser';
-
 const getRuntimeEnv = () => {
   if (typeof window !== 'undefined' && (window as any).__ENV__) {
     return (window as any).__ENV__ as { AZURE_CLIENT_ID: string; AZURE_TENANT_ID: string };
   }
-  // Fallback for local dev (build-time vars still work)
   return {
     AZURE_CLIENT_ID: process.env.NEXT_PUBLIC_AZURE_CLIENT_ID || '',
     AZURE_TENANT_ID: process.env.NEXT_PUBLIC_AZURE_TENANT_ID || '',
   };
 };
 
-const getMsalConfig = (): Configuration => {
+export const getMicrosoftAuthUrl = (redirectUri: string): string => {
   const env = getRuntimeEnv();
-  return {
-    auth: {
-      clientId: env.AZURE_CLIENT_ID,
-      authority: `https://login.microsoftonline.com/${env.AZURE_TENANT_ID || 'common'}`,
-      redirectUri: `${window.location.origin}/auth/microsoft/callback`,
-      postLogoutRedirectUri: window.location.origin,
-    },
-    cache: {
-      cacheLocation: 'localStorage',
-    },
-    system: {
-      loggerOptions: {
-        loggerCallback: (level: any, message: string, containsPii: boolean) => {
-          if (!containsPii) console.log(`[MSAL][${level}]`, message);
-        },
-        logLevel: 3,
-      },
-    },
-  };
-};
-
-// Lazy-initialize to avoid "crypto_nonexistent" error during SSR
-let _msalInstance: PublicClientApplication | null = null;
-let _msalInitialized = false;
-
-export const getMsalInstance = (): PublicClientApplication => {
-  if (!_msalInstance) {
-    _msalInstance = new PublicClientApplication(getMsalConfig());
-  }
-  return _msalInstance;
-};
-
-// Call initialize() once per page load — handles already-initialized gracefully
-export const initializeMsal = async (): Promise<PublicClientApplication> => {
-  const instance = getMsalInstance();
-  if (!_msalInitialized) {
-    try {
-      await instance.initialize();
-    } catch (err: any) {
-      // Ignore "already initialized" error from MSAL
-      if (err?.errorCode !== 'msal_already_initialized') throw err;
-    }
-    _msalInitialized = true;
-  }
-  return instance;
-};
-
-export const loginRequest = {
-  scopes: ['User.Read'],
+  const params = new URLSearchParams({
+    client_id: env.AZURE_CLIENT_ID,
+    response_type: 'code',
+    redirect_uri: redirectUri,
+    scope: 'User.Read openid profile',
+    response_mode: 'query',
+  });
+  return `https://login.microsoftonline.com/${env.AZURE_TENANT_ID || 'common'}/oauth2/v2.0/authorize?${params}`;
 };

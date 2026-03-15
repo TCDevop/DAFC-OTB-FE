@@ -41,30 +41,32 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   // Check if user is already logged in on mount + handle Microsoft redirect response
   useEffect(() => {
     const checkAuth = async () => {
-      // Handle Microsoft redirect flow response — only on the callback page
+      // Handle Microsoft redirect — extract code from URL and exchange via backend
       if (window.location.pathname.includes('/auth/microsoft/callback')) {
-        try {
-          const { initializeMsal } = await import('../services/msalConfig');
-          const msalInstance = await initializeMsal();
-          const redirectResult = await msalInstance.handleRedirectPromise();
-          console.log('[Auth] handleRedirectPromise result:', redirectResult);
-          if (redirectResult?.accessToken) {
+        const params = new URLSearchParams(window.location.search);
+        const code = params.get('code');
+        const msError = params.get('error');
+
+        if (msError) {
+          console.error('Microsoft auth error:', params.get('error_description'));
+          window.location.replace('/');
+          return;
+        }
+
+        if (code) {
+          try {
             setLoginStatus('Authenticating...');
-            const { user: userData } = await authService.loginWithMicrosoft(redirectResult.accessToken);
+            const redirectUri = `${window.location.origin}/auth/microsoft/callback`;
+            const { user: userData } = await authService.loginWithMicrosoft(code, redirectUri);
             setLoginStatus('');
             setUser(userData);
             setLoading(false);
             window.location.replace('/');
             return;
-          }
-        } catch (err: any) {
-          if (err?.errorCode !== 'crypto_nonexistent') {
-            console.error('[MSAL] redirect handling failed:', {
-              errorCode: err?.errorCode,
-              errorMessage: err?.errorMessage,
-              subError: err?.subError,
-              message: err?.message,
-            });
+          } catch (err: any) {
+            console.error('Microsoft auth failed:', err);
+            window.location.replace('/');
+            return;
           }
         }
       }
@@ -110,40 +112,13 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
     }
   }, []);
 
-  // Login with Microsoft (Azure AD) — uses redirect flow (more reliable than popup)
+  // Login with Microsoft (Azure AD) — redirect to Microsoft auth page
   const loginWithMicrosoft = useCallback(async () => {
     setError(null);
     setLoginStatus('Connecting to Microsoft...');
-    setLoading(true);
-    try {
-      const { initializeMsal, loginRequest } = await import('../services/msalConfig');
-      const msalInstance = await initializeMsal();
-
-      // Clear any stale interaction lock from a previous interrupted redirect (e.g., user pressed back).
-      // Also handles the edge case where a pending auth result is already available.
-      const pendingResult = await msalInstance.handleRedirectPromise().catch(() => null);
-      if (pendingResult?.accessToken) {
-        const { user: userData } = await authService.loginWithMicrosoft(pendingResult.accessToken);
-        setLoginStatus('');
-        setUser(userData);
-        setLoading(false);
-        return;
-      }
-
-      await msalInstance.loginRedirect(loginRequest);
-      // Page will redirect to Microsoft — code below never executes
-    } catch (err: any) {
-      setLoginStatus('');
-      setLoading(false);
-      if (err.errorCode === 'crypto_nonexistent' || err.message?.includes('crypto')) {
-        const msg = 'Browser requires HTTPS for Microsoft login. Please access via https:// or http://localhost';
-        setError(msg);
-        throw new Error(msg);
-      }
-      const message = err.response?.data?.message || err.message || 'Microsoft login failed';
-      setError(message);
-      throw new Error(message);
-    }
+    const { getMicrosoftAuthUrl } = await import('../services/msalConfig');
+    const redirectUri = `${window.location.origin}/auth/microsoft/callback`;
+    window.location.href = getMicrosoftAuthUrl(redirectUri);
   }, []);
 
   // Logout function
